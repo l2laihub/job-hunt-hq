@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis } from "../types";
+import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch } from "../types";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -77,6 +77,67 @@ const profileSchema: Schema = {
     }
   },
   required: ['name', 'headline', 'yearsExperience', 'technicalSkills', 'recentRoles']
+};
+
+const experienceSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    star: {
+      type: Type.OBJECT,
+      properties: {
+        situation: { type: Type.STRING },
+        task: { type: Type.STRING },
+        action: { type: Type.STRING },
+        result: { type: Type.STRING }
+      },
+      required: ['situation', 'task', 'action', 'result']
+    },
+    metrics: {
+      type: Type.OBJECT,
+      properties: {
+        primary: { type: Type.STRING },
+        secondary: { type: Type.ARRAY, items: { type: Type.STRING } },
+        missing: { type: Type.ARRAY, items: { type: Type.STRING } }
+      }
+    },
+    suggestedTags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    variations: {
+      type: Type.OBJECT,
+      properties: {
+        leadership: { type: Type.STRING },
+        technical: { type: Type.STRING },
+        challenge: { type: Type.STRING }
+      }
+    },
+    followUpQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+    coachingNotes: { type: Type.STRING }
+  },
+  required: ['title', 'star', 'suggestedTags']
+};
+
+const matchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    matches: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          storyIndex: { type: Type.INTEGER },
+          storyTitle: { type: Type.STRING },
+          fitScore: { type: Type.NUMBER },
+          reasoning: { type: Type.STRING },
+          suggestedAngle: { type: Type.STRING },
+          openingLine: { type: Type.STRING }
+        },
+        required: ['storyIndex', 'fitScore', 'reasoning']
+      }
+    },
+    noGoodMatch: { type: Type.BOOLEAN },
+    gapSuggestion: { type: Type.STRING }
+  },
+  required: ['matches', 'noGoodMatch']
 };
 
 // Helper for file conversion
@@ -228,11 +289,6 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
       ? 'Evaluate this freelance opportunity. Consider: Is the scope clear? Is the budget reasonable? Does it match the candidate\'s expertise? What\'s the winning angle for the proposal?'
       : 'Evaluate this job opportunity. Consider: Skills match, role type (IC vs management), culture signals, and how to position the candidate\'s unique background.'}
   `;
-
-  // We define partial schemas for flexibility or rely on JSON structure prompt for specific varying fields.
-  // Given the complexity of union types in responseSchema, we'll use a loose object schema 
-  // but prompt for specific fields in the text or let the model infer based on instructions.
-  // Ideally, we'd swap schemas.
   
   const fteSchema: Schema = {
     type: Type.OBJECT,
@@ -301,6 +357,234 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
     };
   } catch (error) {
     console.error("Analysis Failed:", error);
+    throw error;
+  }
+};
+
+export const researchCompany = async (companyName: string, roleTitle?: string): Promise<CompanyResearch> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const prompt = `
+Research "${companyName}" for a job seeker applying to ${roleTitle || 'engineering roles'}.
+
+Use Google Search to find current, accurate information. Focus on:
+
+1. **Company Basics**: What they do, size, funding status, headquarters
+2. **Recent News** (last 30 days): Funding, layoffs, product launches, leadership changes
+3. **Engineering Culture**: Tech blog, open source presence, tech stack, remote policy
+4. **Red Flags**: Any concerning news - layoffs, bad press, executive exodus, financial trouble
+5. **Green Flags**: Positive signals - growth, good reviews, innovation, stability
+6. **Key People**: CEO, CTO, VP Engineering, notable engineers
+7. **Interview Intel**: Glassdoor ratings, interview process, salary ranges
+
+Be specific with dates and sources. If information is uncertain or not found, say so.
+
+Respond in this JSON format:
+{
+  "overview": {
+    "description": "<what the company does>",
+    "industry": "<industry>",
+    "size": "<employee count or range>",
+    "founded": "<year>",
+    "headquarters": "<city, state/country>",
+    "fundingStatus": "<public | private, series X | bootstrapped>",
+    "lastFunding": "<amount and date if recent>"
+  },
+  "recentNews": [
+    {
+      "headline": "<news item>",
+      "date": "<date>",
+      "source": "<source name>",
+      "sentiment": "positive" | "neutral" | "negative",
+      "summary": "<1-2 sentence summary>"
+    }
+  ],
+  "engineeringCulture": {
+    "techBlog": "<URL or null>",
+    "openSource": "<GitHub org URL or description>",
+    "knownStack": ["<tech1>", "<tech2>"],
+    "teamSize": "<estimate>",
+    "remotePolicy": "<remote | hybrid | onsite | unknown>",
+    "notes": "<any other culture signals>"
+  },
+  "redFlags": [
+    {
+      "flag": "<concern>",
+      "detail": "<context>",
+      "source": "<where you found this>",
+      "severity": "low" | "medium" | "high"
+    }
+  ],
+  "greenFlags": [
+    {
+      "flag": "<positive signal>",
+      "detail": "<context>",
+      "source": "<where you found this>"
+    }
+  ],
+  "keyPeople": [
+    {
+      "name": "<name>",
+      "role": "<title>",
+      "linkedin": "<URL if found>",
+      "notes": "<relevant background>"
+    }
+  ],
+  "interviewIntel": {
+    "glassdoorRating": "<X.X/5 or unknown>",
+    "interviewDifficulty": "<easy | medium | hard | unknown>",
+    "commonTopics": ["<topic1>", "<topic2>"],
+    "salaryRange": "<range if found>",
+    "employeeSentiment": "<summary of reviews>"
+  },
+  "verdict": {
+    "overall": "green" | "yellow" | "red",
+    "summary": "<2-3 sentence recommendation for this job seeker>",
+    "topConcern": "<biggest thing to watch out for>",
+    "topPositive": "<biggest reason to apply>"
+  },
+  "searchedAt": "<ISO timestamp>",
+  "sourcesUsed": ["<source1>", "<source2>"]
+}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+    
+    // Extract sources if available in grounding metadata
+    const sources: string[] = [];
+    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+      response.candidates[0].groundingMetadata.groundingChunks.forEach(chunk => {
+        if (chunk.web?.uri) sources.push(chunk.web.uri);
+      });
+    }
+
+    let jsonText = response.text || "{}";
+    // Strip markdown code blocks if present (common when not using responseSchema)
+    if (jsonText.includes("```")) {
+      jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+    }
+
+    const result = JSON.parse(jsonText);
+    return {
+      id: crypto.randomUUID(),
+      companyName,
+      roleContext: roleTitle,
+      ...result,
+      searchedAt: new Date().toISOString(),
+      sourcesUsed: sources.length > 0 ? sources : (result.sourcesUsed || [])
+    };
+
+  } catch (error) {
+    console.error("Research Failed:", error);
+    throw error;
+  }
+};
+
+export const formatExperience = async (rawText: string): Promise<Omit<Experience, 'id' | 'rawInput' | 'inputMethod' | 'timesUsed' | 'createdAt' | 'updatedAt'>> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const prompt = `
+You are an interview coach helping format a career experience into a polished STAR story.
+
+## Raw Experience Input
+${rawText}
+
+## Your Task
+1. Extract the core story and format into STAR structure
+2. Identify quantifiable metrics (or suggest what to add)
+3. Suggest relevant tags for categorization
+4. Create 2-3 variations for different question types
+5. Note any gaps that would strengthen the story
+
+Respond in JSON according to schema.
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: experienceSchema,
+        thinkingConfig: { thinkingBudget: 1024 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Format Experience Failed:", error);
+    throw error;
+  }
+};
+
+export const matchStoriesToQuestion = async (
+  question: string,
+  stories: Experience[],
+  profile: UserProfile
+): Promise<{ matches: QuestionMatch[], noGoodMatch: boolean, gapSuggestion?: string }> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const prompt = `
+You are an interview coach matching stored experiences to an interview question.
+
+## Interview Question
+"${question}"
+
+## Available Stories
+${stories.map((s, i) => `
+Story ${i}: ${s.title}
+Tags: ${s.tags.join(', ')}
+Summary: ${s.star.situation} ${s.star.result}
+`).join('\n')}
+
+## Candidate Profile
+${profile.headline}
+Targeting: ${profile.preferences.targetRoles.join(', ')}
+
+## Your Task
+1. Rank the top 3 stories that best answer this question
+2. Explain why each is a good fit
+3. Suggest how to angle each story for this specific question
+4. If no stories fit well, say so and suggest what kind of story to add
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: matchSchema,
+        thinkingConfig: { thinkingBudget: 1024 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+    const result = JSON.parse(response.text);
+    
+    // Map indices back to IDs
+    const matches = result.matches.map((m: any) => ({
+      ...m,
+      storyId: stories[m.storyIndex]?.id || 'unknown'
+    })).filter((m: any) => m.storyId !== 'unknown');
+
+    return {
+      matches,
+      noGoodMatch: result.noGoodMatch,
+      gapSuggestion: result.gapSuggestion
+    };
+  } catch (error) {
+    console.error("Story Matching Failed:", error);
     throw error;
   }
 };

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { JobApplication, JDAnalysis, ApplicationStatus, UserProfile, DEFAULT_PROFILE } from './types';
+import { JobApplication, JDAnalysis, ApplicationStatus, UserProfile, DEFAULT_PROFILE, CompanyResearch, Experience } from './types';
 import { JobCard } from './components/JobCard';
 import { Analyzer } from './components/Analyzer';
 import { ApplicationModal } from './components/ApplicationModal';
 import { ProfileBuilder } from './components/ProfileBuilder';
-import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User } from 'lucide-react';
+import { ResearchView } from './components/ResearchView';
+import { ExperienceBank } from './components/ExperienceBank';
+import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,6 +17,7 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 // Local Storage Keys
 const STORAGE_KEY_APPS = "jobhunt-hq-applications";
 const STORAGE_KEY_PROFILE = "jobhunt-hq-profile";
+const STORAGE_KEY_STORIES = "jobhunt-hq-experiences";
 
 const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; color: string }[] = [
   { id: 'wishlist', label: 'Wishlist', icon: <Archive className="w-4 h-4"/>, color: 'text-gray-400' },
@@ -26,8 +29,9 @@ const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; co
 
 export default function App() {
   // State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories'>('dashboard');
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [stories, setStories] = useState<Experience[]>([]);
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -37,16 +41,23 @@ export default function App() {
   // For saving from Analyzer to Dashboard
   const [pendingAnalysis, setPendingAnalysis] = useState<{data: JDAnalysis, jd: string} | null>(null);
 
+  // For Research Navigation
+  const [researchTarget, setResearchTarget] = useState<string | undefined>(undefined);
+
   // Load Data
   useEffect(() => {
     const savedApps = localStorage.getItem(STORAGE_KEY_APPS);
     const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+    const savedStories = localStorage.getItem(STORAGE_KEY_STORIES);
     
     if (savedApps) {
       try { setApplications(JSON.parse(savedApps)); } catch (e) { console.error("Apps parse error", e); }
     }
     if (savedProfile) {
       try { setProfile(JSON.parse(savedProfile)); } catch (e) { console.error("Profile parse error", e); }
+    }
+    if (savedStories) {
+      try { setStories(JSON.parse(savedStories)); } catch (e) { console.error("Stories parse error", e); }
     }
   }, []);
 
@@ -55,10 +66,19 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_APPS, JSON.stringify(applications));
   }, [applications]);
 
+  // Save Stories
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(stories));
+  }, [stories]);
+
   // Save Profile Logic (Triggered by ProfileBuilder)
   const handleSaveProfile = (newProfile: UserProfile) => {
     setProfile(newProfile);
     localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(newProfile));
+  };
+
+  const handleUpdateStories = (newStories: Experience[]) => {
+    setStories(newStories);
   };
 
   // Drag and Drop
@@ -99,7 +119,8 @@ export default function App() {
         notes: partialApp.notes || '',
         salaryRange: partialApp.salaryRange,
         jobDescriptionRaw: partialApp.jobDescriptionRaw,
-        analysis: partialApp.analysis
+        analysis: partialApp.analysis,
+        companyResearch: partialApp.companyResearch
       };
       setApplications(prev => [newApp, ...prev]);
     }
@@ -123,6 +144,23 @@ export default function App() {
     setEditingApp(undefined);
     setPendingAnalysis(null);
     setIsModalOpen(true);
+  };
+
+  // Research Actions
+  const handleResearchFromCard = (app: JobApplication) => {
+    setResearchTarget(app.company);
+    setActiveTab('research');
+  };
+
+  const handleSaveResearch = (research: CompanyResearch, appId?: string) => {
+    if (appId) {
+      setApplications(prev => prev.map(app => 
+        app.id === appId ? { ...app, companyResearch: research, updatedAt: new Date().toISOString() } : app
+      ));
+      alert(`Research saved to ${applications.find(a => a.id === appId)?.company}`);
+    } else {
+      alert("Research saved locally (link to an app to persist permanently in dashboard).");
+    }
   };
 
   // Stats
@@ -161,6 +199,24 @@ export default function App() {
               )}
             >
               JD Analyzer
+            </button>
+            <button
+              onClick={() => setActiveTab('research')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === 'research' ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              Research
+            </button>
+            <button
+              onClick={() => setActiveTab('stories')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === 'stories' ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              My Stories
             </button>
             <button
               onClick={() => setActiveTab('profile')}
@@ -241,6 +297,7 @@ export default function App() {
                         application={app} 
                         onClick={handleEditApplication} 
                         onDragStart={handleDragStart}
+                        onResearch={handleResearchFromCard}
                       />
                   ))}
                   {applications.filter(app => app.status === col.id).length === 0 && (
@@ -256,6 +313,23 @@ export default function App() {
 
         {activeTab === 'analyzer' && (
           <Analyzer onSave={handleSaveFromAnalyzer} profile={profile} />
+        )}
+
+        {activeTab === 'research' && (
+          <ResearchView 
+            initialCompany={researchTarget} 
+            applications={applications} 
+            onSaveResearch={handleSaveResearch} 
+          />
+        )}
+
+        {activeTab === 'stories' && (
+           <ExperienceBank 
+             stories={stories}
+             onUpdateStories={handleUpdateStories}
+             profile={profile}
+             applications={applications}
+           />
         )}
 
         {activeTab === 'profile' && (

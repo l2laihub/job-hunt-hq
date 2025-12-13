@@ -1,3 +1,4 @@
+
 export type ApplicationStatus = 'wishlist' | 'applied' | 'interviewing' | 'offer' | 'rejected';
 
 export interface Achievement {
@@ -91,6 +92,120 @@ export interface FreelanceAnalysis extends BaseJDAnalysis {
 
 export type JDAnalysis = FTEAnalysis | FreelanceAnalysis;
 
+// Research Types
+export interface NewsItem {
+  headline: string;
+  date: string;
+  source: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  summary: string;
+}
+
+export interface ResearchFlag {
+  flag: string;
+  detail: string;
+  source: string;
+  severity?: 'low' | 'medium' | 'high'; // only for red flags
+}
+
+export interface Person {
+  name: string;
+  role: string;
+  linkedin?: string;
+  notes?: string;
+}
+
+export interface CompanyResearch {
+  id: string;
+  companyName: string;
+  roleContext?: string;
+  overview: {
+    description: string;
+    industry: string;
+    size: string;
+    founded: string;
+    headquarters: string;
+    fundingStatus: string;
+    lastFunding?: string;
+  };
+  recentNews: NewsItem[];
+  engineeringCulture: {
+    techBlog?: string;
+    openSource?: string;
+    knownStack: string[];
+    teamSize?: string;
+    remotePolicy: 'remote' | 'hybrid' | 'onsite' | 'unknown';
+    notes?: string;
+  };
+  redFlags: ResearchFlag[];
+  greenFlags: ResearchFlag[];
+  keyPeople: Person[];
+  interviewIntel: {
+    glassdoorRating?: string;
+    interviewDifficulty?: string;
+    commonTopics: string[];
+    salaryRange?: string;
+    employeeSentiment?: string;
+  };
+  verdict: {
+    overall: 'green' | 'yellow' | 'red';
+    summary: string;
+    topConcern?: string;
+    topPositive?: string;
+  };
+  searchedAt: string;
+  sourcesUsed: string[];
+}
+
+// Experience Bank Types
+export interface STAR {
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+}
+
+export interface Experience {
+  id: string;
+  title: string;
+  rawInput: string;
+  inputMethod: 'manual' | 'voice' | 'import';
+  
+  star: STAR;
+  
+  metrics: {
+    primary?: string;
+    secondary: string[];
+    missing?: string[];
+  };
+  
+  tags: string[];
+  
+  variations: {
+    leadership?: string;
+    technical?: string;
+    challenge?: string;
+  };
+  
+  followUpQuestions: string[];
+  coachingNotes?: string;
+  
+  usedInInterviews?: string[];
+  timesUsed: number;
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionMatch {
+  storyId: string;
+  storyTitle: string;
+  fitScore: number;
+  reasoning: string;
+  suggestedAngle: string;
+  openingLine: string;
+}
+
 export interface JobApplication {
   id: string;
   type: 'fulltime' | 'freelance';
@@ -102,6 +217,7 @@ export interface JobApplication {
   source: 'linkedin' | 'upwork' | 'direct' | 'referral' | 'other';
   jobDescriptionRaw?: string;
   analysis?: JDAnalysis;
+  companyResearch?: CompanyResearch;
   notes: string;
   createdAt: string;
   updatedAt: string;
