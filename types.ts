@@ -226,6 +226,35 @@ export interface JobApplication {
   proposalSent?: string;
 }
 
+// Mock Interview Types
+export interface InterviewConfig {
+  type: 'behavioral' | 'technical' | 'system-design' | 'mixed';
+  difficulty: 'easy' | 'medium' | 'hard';
+  duration: number; // minutes
+  contextAppId?: string;
+  focusAreas: string[];
+}
+
+export interface InterviewFeedback {
+  overallScore: number;
+  strengths: string[];
+  weaknesses: string[];
+  communication: {
+    clarity: string;
+    pacing: string;
+    confidence: string;
+  };
+  technicalAccuracy?: string;
+  starStructureUse?: string;
+  summary: string;
+}
+
+export interface TranscriptItem {
+  role: 'user' | 'model';
+  text: string;
+  timestamp: string;
+}
+
 export const DEFAULT_PROFILE: UserProfile = {
   name: "Senior Engineer",
   headline: "Senior Software Engineer",

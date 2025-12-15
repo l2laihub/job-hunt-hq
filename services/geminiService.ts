@@ -1,10 +1,10 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch } from "../types";
+import { GoogleGenAI, Type, Schema, LiveServerMessage, Modality } from "@google/genai";
+import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem } from "../types";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-// Schemas
+// Schemas (Existing schemas preserved...)
 const profileSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -140,26 +140,46 @@ const matchSchema: Schema = {
   required: ['matches', 'noGoodMatch']
 };
 
-// Helper for file conversion
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-  });
+const feedbackSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    overallScore: { type: Type.NUMBER },
+    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+    weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+    communication: {
+      type: Type.OBJECT,
+      properties: {
+        clarity: { type: Type.STRING },
+        pacing: { type: Type.STRING },
+        confidence: { type: Type.STRING }
+      }
+    },
+    technicalAccuracy: { type: Type.STRING },
+    starStructureUse: { type: Type.STRING },
+    summary: { type: Type.STRING }
+  },
+  required: ['overallScore', 'strengths', 'weaknesses', 'communication', 'summary']
 };
 
 const fileToText = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.readAsText(file);
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
+    reader.readAsText(file);
+  });
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1] || result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 };
 
@@ -169,8 +189,6 @@ export const processDocuments = async (files: File[]): Promise<UserProfile> => {
   const fileParts = await Promise.all(
     files.map(async (file) => {
       let mimeType = file.type;
-
-      // Fix empty MIME types (common with .md, .ts, etc on some systems)
       if (!mimeType) {
         const ext = file.name.split('.').pop()?.toLowerCase();
         if (ext === 'md') mimeType = 'text/plain';
@@ -178,23 +196,19 @@ export const processDocuments = async (files: File[]): Promise<UserProfile> => {
         else if (ext === 'pdf') mimeType = 'application/pdf';
       }
 
-      // Handle text files as text parts
       if (mimeType === 'text/plain' || mimeType === 'text/markdown' || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
         try {
             const text = await fileToText(file);
-            return {
-                text: `[File Content: ${file.name}]\n${text}\n`
-            };
+            return { text: `[File Content: ${file.name}]\n${text}\n` };
         } catch (e) {
             console.warn(`Failed to read ${file.name} as text, falling back to base64`);
         }
       }
 
-      // Handle binary files (PDF)
       const base64 = await fileToBase64(file);
       return {
         inlineData: {
-          mimeType: mimeType || 'application/pdf', // Fallback to PDF if unknown, to avoid empty string error
+          mimeType: mimeType || 'application/pdf',
           data: base64
         }
       };
@@ -203,35 +217,15 @@ export const processDocuments = async (files: File[]): Promise<UserProfile> => {
 
   const prompt = `
     You are analyzing documents to build a comprehensive professional profile.
-    
     IMPORTANT: Treat "About Me" and other uploaded texts as equal sources to the Resume.
-    - If the user mentions "Freelance Work", "Consulting", or "Side Business" in the About Me doc, you MUST extract it.
-    - Map freelance/contract work to 'recentRoles' if it involves specific clients or significant duration.
-    - Map product/business building to 'activeProjects'.
-    - Infer 'freelanceProfile' settings (rates, hours) from these texts if mentioned.
-
-    Analyze all documents holistically. Look for:
-    1. Technical skills (be specific)
-    2. Years of experience and progression
-    3. Quantified achievements
-    4. Current situation and constraints
-    5. Active side projects or businesses with traction (include freelance/consulting here if it fits better than roles)
-    6. Career goals and preferences
-    7. What makes this person unique for both FTE and freelance
-    
-    If information isn't available, make reasonable inferences or leave as empty array/null.
-    For salary and rates, infer from experience level if not stated.
+    Analyze all documents holistically. Look for technical skills, experience, achievements, goals, and freelance potential.
+    If information is not available, make reasonable inferences or leave as empty array/null.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash", 
-      contents: {
-        parts: [
-          { text: prompt },
-          ...fileParts
-        ]
-      },
+      contents: { parts: [{ text: prompt }, ...fileParts] },
       config: {
         responseMimeType: "application/json",
         responseSchema: profileSchema,
@@ -249,45 +243,19 @@ export const processDocuments = async (files: File[]): Promise<UserProfile> => {
 
 export const analyzeJD = async (jobDescription: string, profile: UserProfile): Promise<JDAnalysis> => {
   if (!ai) throw new Error("Gemini API Key is missing.");
-
-  // Auto-detect context
   const isFreelance = /upwork|freelance|contract|hourly|fixed.price|proposal|gig|project based/i.test(jobDescription);
 
   const contextBlock = isFreelance 
-    ? `
-    ## Candidate Profile (Freelance Context)
-    - ${profile.headline}
-    - Hourly Rate: $${profile.freelanceProfile.hourlyRate.min}-${profile.freelanceProfile.hourlyRate.max}
-    - Availability: ${profile.freelanceProfile.availableHours}
-    - Preferred Projects: ${profile.freelanceProfile.preferredProjectTypes.join(', ')}
-    - USPs: ${profile.freelanceProfile.uniqueSellingPoints.join('; ')}
-    - Relevant Tech: ${profile.technicalSkills.join(', ')}
-    - Active Projects: ${profile.activeProjects.map(p => `${p.name} (${p.traction || p.status})`).join(', ')}
-    `
-    : `
-    ## Candidate Profile (Full-Time Context)  
-    - ${profile.headline}
-    - ${profile.yearsExperience} years experience
-    - Target: ${profile.preferences.targetRoles.join(', ')}
-    - Salary Range: $${profile.preferences.salaryRange.min.toLocaleString()}-${profile.preferences.salaryRange.max.toLocaleString()}
-    - Work Style: ${profile.preferences.workStyle}
-    - Must Have: ${profile.preferences.priorityFactors.join(', ')}
-    - Deal Breakers: ${profile.preferences.dealBreakers.join(', ')}
-    - Key Skills: ${profile.technicalSkills.slice(0, 15).join(', ')}
-    - Current Situation: ${profile.currentSituation}
-    `;
+    ? `Candidate Profile (Freelance): ${profile.headline}, Rate: $${profile.freelanceProfile.hourlyRate.min}-${profile.freelanceProfile.hourlyRate.max}/hr`
+    : `Candidate Profile (FTE): ${profile.headline}, ${profile.yearsExperience}y exp, Skills: ${profile.technicalSkills.slice(0, 10).join(', ')}`;
 
   const prompt = `
     You are a ${isFreelance ? 'freelance proposal strategist' : 'job search advisor'}.
     ${contextBlock}
-
-    ## ${isFreelance ? 'Project Posting' : 'Job Description'} to Analyze
+    ## ${isFreelance ? 'Project' : 'Job'} Description:
     ${jobDescription}
-
-    ## Your Task
-    ${isFreelance 
-      ? 'Evaluate this freelance opportunity. Consider: Is the scope clear? Is the budget reasonable? Does it match the candidate\'s expertise? What\'s the winning angle for the proposal?'
-      : 'Evaluate this job opportunity. Consider: Skills match, role type (IC vs management), culture signals, and how to position the candidate\'s unique background.'}
+    ## Task
+    Evaluate fit, skills match, red flags, and strategy.
   `;
   
   const fteSchema: Schema = {
@@ -324,14 +292,7 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
       openingHook: { type: Type.STRING },
       relevantExperience: { type: Type.ARRAY, items: { type: Type.STRING } },
       questionsForClient: { type: Type.ARRAY, items: { type: Type.STRING } },
-      suggestedBid: {
-        type: Type.OBJECT,
-        properties: {
-          hourly: { type: Type.NUMBER },
-          fixed: { type: Type.NUMBER },
-          rationale: { type: Type.STRING }
-        }
-      }
+      suggestedBid: { type: Type.OBJECT, properties: { hourly: { type: Type.NUMBER }, fixed: { type: Type.NUMBER }, rationale: { type: Type.STRING } } }
     },
     required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid']
   };
@@ -348,13 +309,8 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
     });
 
     if (!response.text) throw new Error("No response from Gemini");
-
     const result = JSON.parse(response.text);
-    return {
-      ...result,
-      analysisType: isFreelance ? 'freelance' : 'fulltime',
-      analyzedAt: new Date().toISOString()
-    };
+    return { ...result, analysisType: isFreelance ? 'freelance' : 'fulltime', analyzedAt: new Date().toISOString() };
   } catch (error) {
     console.error("Analysis Failed:", error);
     throw error;
@@ -363,117 +319,25 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
 
 export const researchCompany = async (companyName: string, roleTitle?: string): Promise<CompanyResearch> => {
   if (!ai) throw new Error("Gemini API Key is missing.");
-
-  const prompt = `
-Research "${companyName}" for a job seeker applying to ${roleTitle || 'engineering roles'}.
-
-Use Google Search to find current, accurate information. Focus on:
-
-1. **Company Basics**: What they do, size, funding status, headquarters
-2. **Recent News** (last 30 days): Funding, layoffs, product launches, leadership changes
-3. **Engineering Culture**: Tech blog, open source presence, tech stack, remote policy
-4. **Red Flags**: Any concerning news - layoffs, bad press, executive exodus, financial trouble
-5. **Green Flags**: Positive signals - growth, good reviews, innovation, stability
-6. **Key People**: CEO, CTO, VP Engineering, notable engineers
-7. **Interview Intel**: Glassdoor ratings, interview process, salary ranges
-
-Be specific with dates and sources. If information is uncertain or not found, say so.
-
-Respond in this JSON format:
-{
-  "overview": {
-    "description": "<what the company does>",
-    "industry": "<industry>",
-    "size": "<employee count or range>",
-    "founded": "<year>",
-    "headquarters": "<city, state/country>",
-    "fundingStatus": "<public | private, series X | bootstrapped>",
-    "lastFunding": "<amount and date if recent>"
-  },
-  "recentNews": [
-    {
-      "headline": "<news item>",
-      "date": "<date>",
-      "source": "<source name>",
-      "sentiment": "positive" | "neutral" | "negative",
-      "summary": "<1-2 sentence summary>"
-    }
-  ],
-  "engineeringCulture": {
-    "techBlog": "<URL or null>",
-    "openSource": "<GitHub org URL or description>",
-    "knownStack": ["<tech1>", "<tech2>"],
-    "teamSize": "<estimate>",
-    "remotePolicy": "<remote | hybrid | onsite | unknown>",
-    "notes": "<any other culture signals>"
-  },
-  "redFlags": [
-    {
-      "flag": "<concern>",
-      "detail": "<context>",
-      "source": "<where you found this>",
-      "severity": "low" | "medium" | "high"
-    }
-  ],
-  "greenFlags": [
-    {
-      "flag": "<positive signal>",
-      "detail": "<context>",
-      "source": "<where you found this>"
-    }
-  ],
-  "keyPeople": [
-    {
-      "name": "<name>",
-      "role": "<title>",
-      "linkedin": "<URL if found>",
-      "notes": "<relevant background>"
-    }
-  ],
-  "interviewIntel": {
-    "glassdoorRating": "<X.X/5 or unknown>",
-    "interviewDifficulty": "<easy | medium | hard | unknown>",
-    "commonTopics": ["<topic1>", "<topic2>"],
-    "salaryRange": "<range if found>",
-    "employeeSentiment": "<summary of reviews>"
-  },
-  "verdict": {
-    "overall": "green" | "yellow" | "red",
-    "summary": "<2-3 sentence recommendation for this job seeker>",
-    "topConcern": "<biggest thing to watch out for>",
-    "topPositive": "<biggest reason to apply>"
-  },
-  "searchedAt": "<ISO timestamp>",
-  "sourcesUsed": ["<source1>", "<source2>"]
-}
-`;
-
+  const prompt = `Research "${companyName}" for a job seeker applying to ${roleTitle || 'engineering roles'}. Focus on culture, news, and interview intel.`;
+  
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+      config: { tools: [{ googleSearch: {} }] }
     });
-
     if (!response.text) throw new Error("No response from Gemini");
-    
-    // Extract sources if available in grounding metadata
-    const sources: string[] = [];
-    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-      response.candidates[0].groundingMetadata.groundingChunks.forEach(chunk => {
-        if (chunk.web?.uri) sources.push(chunk.web.uri);
-      });
-    }
 
     let jsonText = response.text || "{}";
-    // Strip markdown code blocks if present (common when not using responseSchema)
-    if (jsonText.includes("```")) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-    }
-
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+    
     const result = JSON.parse(jsonText);
+    const sources: string[] = [];
+    response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach(chunk => {
+      if (chunk.web?.uri) sources.push(chunk.web.uri);
+    });
+
     return {
       id: crypto.randomUUID(),
       companyName,
@@ -482,7 +346,6 @@ Respond in this JSON format:
       searchedAt: new Date().toISOString(),
       sourcesUsed: sources.length > 0 ? sources : (result.sourcesUsed || [])
     };
-
   } catch (error) {
     console.error("Research Failed:", error);
     throw error;
@@ -491,72 +354,141 @@ Respond in this JSON format:
 
 export const formatExperience = async (rawText: string): Promise<Omit<Experience, 'id' | 'rawInput' | 'inputMethod' | 'timesUsed' | 'createdAt' | 'updatedAt'>> => {
   if (!ai) throw new Error("Gemini API Key is missing.");
-
-  const prompt = `
-You are an interview coach helping format a career experience into a polished STAR story.
-
-## Raw Experience Input
-${rawText}
-
-## Your Task
-1. Extract the core story and format into STAR structure
-2. Identify quantifiable metrics (or suggest what to add)
-3. Suggest relevant tags for categorization
-4. Create 2-3 variations for different question types
-5. Note any gaps that would strengthen the story
-
-Respond in JSON according to schema.
-`;
+  const prompt = `Format this experience into STAR (Situation, Task, Action, Result) structure. Raw Input: ${rawText}`;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: experienceSchema,
-        thinkingConfig: { thinkingBudget: 1024 }
-      }
+      config: { responseMimeType: "application/json", responseSchema: experienceSchema, thinkingConfig: { thinkingBudget: 1024 } }
     });
-
-    if (!response.text) throw new Error("No response from Gemini");
-    return JSON.parse(response.text);
+    if (!response.text) throw new Error("No response");
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+    return JSON.parse(jsonText);
   } catch (error) {
     console.error("Format Experience Failed:", error);
     throw error;
   }
 };
 
-export const matchStoriesToQuestion = async (
-  question: string,
-  stories: Experience[],
-  profile: UserProfile
-): Promise<{ matches: QuestionMatch[], noGoodMatch: boolean, gapSuggestion?: string }> => {
+export const matchStoriesToQuestion = async (question: string, stories: Experience[], profile: UserProfile): Promise<{ matches: QuestionMatch[], noGoodMatch: boolean, gapSuggestion?: string }> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+  const prompt = `Match stories to: "${question}". Profile: ${profile.headline}. Stories: ${JSON.stringify(stories.map(s => ({id: s.id, title: s.title, tags: s.tags, summary: s.star.situation + " " + s.star.result})))}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json", responseSchema: matchSchema, thinkingConfig: { thinkingBudget: 1024 } }
+    });
+    if (!response.text) throw new Error("No response");
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+    const result = JSON.parse(jsonText);
+    const matches = (result.matches || []).map((m: any) => ({ ...m, storyId: stories[m.storyIndex]?.id || 'unknown' })).filter((m: any) => m.storyId !== 'unknown');
+    return { matches, noGoodMatch: result.noGoodMatch, gapSuggestion: result.gapSuggestion };
+  } catch (error) {
+    console.error("Story Matching Failed:", error);
+    throw error;
+  }
+};
+
+// --- NEW FEATURES FOR LIVE INTERVIEW ---
+
+export const createLiveSession = async (
+  config: InterviewConfig, 
+  profile: UserProfile, 
+  appContext?: JobApplication,
+  callbacks?: {
+    onOpen?: () => void,
+    onMessage?: (msg: LiveServerMessage) => void,
+    onClose?: (e: CloseEvent) => void,
+    onError?: (e: ErrorEvent) => void
+  }
+) => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  // Build a richer resume context
+  const workHistory = profile.recentRoles.map(r => 
+    `- ${r.title} at ${r.company} (${r.duration}):\n  ${r.highlights.join('\n  ')}`
+  ).join('\n');
+
+  const achievements = profile.keyAchievements.map(a => 
+    `- ${a.description} (Metrics: ${a.metrics})`
+  ).join('\n');
+
+  const systemPrompt = `
+    You are an experienced technical interviewer conducting a ${config.type} interview.
+    
+    ## Candidate Profile (Resume)
+    Name: ${profile.name}
+    Headline: ${profile.headline}
+    Experience: ${profile.yearsExperience} years
+    Skills: ${profile.technicalSkills.join(', ')}
+
+    ## Work History
+    ${workHistory}
+
+    ## Key Achievements
+    ${achievements}
+
+    ## Interview Context
+    Target Role: ${appContext?.role || 'Senior Software Engineer'}
+    Target Company: ${appContext?.company || 'Tech Company'}
+    Difficulty: ${config.difficulty}
+    Style: ${config.difficulty === 'easy' ? 'Encouraging and helpful' : config.difficulty === 'hard' ? 'Direct, probing, slightly pressured' : 'Professional and neutral'}
+
+    ## Instructions
+    1. Start with a brief, professional introduction.
+    2. IMMEDIATELY start the interview by asking a specific technical question based on their RESUME above. 
+       - For example: "I see you used ${profile.technicalSkills[0] || 'specific technologies'} at ${profile.recentRoles[0]?.company || 'your last job'}. Can you tell me about a challenge you faced with that?"
+    3. Ask ONE question at a time. Wait for the candidate's full response.
+    4. If the answer is vague, probe for specifics ("Can you give a concrete example?", "How did you measure that?").
+    5. Cover these areas: ${config.focusAreas.join(', ')}.
+    6. Keep your responses concise (under 30 seconds) unless explaining a complex technical concept.
+    
+    Do NOT break character. Do NOT provide feedback during the interview unless explicitly asked to "stop interview".
+  `;
+
+  return await ai.live.connect({
+    model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+    callbacks: {
+      onopen: callbacks?.onOpen,
+      onmessage: callbacks?.onMessage,
+      onclose: callbacks?.onClose,
+      onerror: callbacks?.onError,
+    },
+    config: {
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } }
+      },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+    }
+  });
+};
+
+export const generateInterviewFeedback = async (transcript: TranscriptItem[]): Promise<InterviewFeedback> => {
   if (!ai) throw new Error("Gemini API Key is missing.");
 
   const prompt = `
-You are an interview coach matching stored experiences to an interview question.
+    Analyze this interview transcript and provide constructive feedback for the candidate.
+    
+    ## Transcript
+    ${transcript.map(t => `${t.role.toUpperCase()}: ${t.text}`).join('\n')}
 
-## Interview Question
-"${question}"
+    ## Task
+    Evaluate the candidate's performance based on:
+    1. Clarity and communication style
+    2. Technical depth/accuracy (if applicable)
+    3. Use of STAR method (for behavioral questions)
+    4. Strengths and Weaknesses
 
-## Available Stories
-${stories.map((s, i) => `
-Story ${i}: ${s.title}
-Tags: ${s.tags.join(', ')}
-Summary: ${s.star.situation} ${s.star.result}
-`).join('\n')}
-
-## Candidate Profile
-${profile.headline}
-Targeting: ${profile.preferences.targetRoles.join(', ')}
-
-## Your Task
-1. Rank the top 3 stories that best answer this question
-2. Explain why each is a good fit
-3. Suggest how to angle each story for this specific question
-4. If no stories fit well, say so and suggest what kind of story to add
-`;
+    Provide a JSON response.
+  `;
 
   try {
     const response = await ai.models.generateContent({
@@ -564,27 +496,19 @@ Targeting: ${profile.preferences.targetRoles.join(', ')}
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: matchSchema,
+        responseSchema: feedbackSchema,
         thinkingConfig: { thinkingBudget: 1024 }
       }
     });
 
     if (!response.text) throw new Error("No response from Gemini");
-    const result = JSON.parse(response.text);
     
-    // Map indices back to IDs
-    const matches = result.matches.map((m: any) => ({
-      ...m,
-      storyId: stories[m.storyIndex]?.id || 'unknown'
-    })).filter((m: any) => m.storyId !== 'unknown');
-
-    return {
-      matches,
-      noGoodMatch: result.noGoodMatch,
-      gapSuggestion: result.gapSuggestion
-    };
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+    
+    return JSON.parse(jsonText);
   } catch (error) {
-    console.error("Story Matching Failed:", error);
+    console.error("Feedback Generation Failed:", error);
     throw error;
   }
 };

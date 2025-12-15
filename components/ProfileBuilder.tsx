@@ -59,7 +59,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
   }) => (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        {values.map((val, idx) => (
+        {(values || []).map((val, idx) => (
           <span key={idx} className="bg-gray-800 border border-gray-700 rounded-full px-3 py-1 text-sm flex items-center gap-1 group">
             {val}
             <button 
@@ -80,7 +80,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
               e.preventDefault();
               const val = e.currentTarget.value.trim();
               if (val) {
-                onChange([...values, val]);
+                onChange([...(values || []), val]);
                 e.currentTarget.value = '';
               }
             }
@@ -223,7 +223,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
                <div>
                  <label className="text-xs font-medium text-gray-400 mb-2 block">Technical Skills</label>
                  <ArrayInput 
-                   values={localProfile.technicalSkills} 
+                   values={localProfile.technicalSkills || []} 
                    onChange={v => setLocalProfile({...localProfile, technicalSkills: v})}
                    placeholder="Add skill (e.g. React, Python)"
                  />
@@ -323,7 +323,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-400">Target Roles</label>
                     <ArrayInput 
-                      values={localProfile.preferences.targetRoles}
+                      values={localProfile.preferences.targetRoles || []}
                       onChange={v => setLocalProfile({...localProfile, preferences: {...localProfile.preferences, targetRoles: v}})}
                       placeholder="e.g. Senior Backend Engineer"
                     />
@@ -373,7 +373,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
                  <div className="space-y-1">
                     <label className="text-xs font-medium text-gray-400">Unique Selling Points</label>
                     <ArrayInput 
-                      values={localProfile.freelanceProfile.uniqueSellingPoints}
+                      values={localProfile.freelanceProfile.uniqueSellingPoints || []}
                       onChange={v => setLocalProfile({...localProfile, freelanceProfile: {...localProfile.freelanceProfile, uniqueSellingPoints: v}})}
                       placeholder="e.g. 5y Enterprise SaaS experience"
                     />

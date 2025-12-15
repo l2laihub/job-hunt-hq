@@ -216,7 +216,7 @@ export const ExperienceBank: React.FC<ExperienceBankProps> = ({ stories, onUpdat
                  <div className="mt-6">
                    <h3 className="text-sm font-medium text-gray-500 mb-2">Suggestions from Profile:</h3>
                    <div className="flex flex-col gap-2 max-w-md mx-auto">
-                     {profile.keyAchievements.slice(0,3).map((ach, i) => (
+                     {profile.keyAchievements?.slice(0,3).map((ach, i) => (
                        <button key={i} onClick={() => handleImport(ach)} className="text-left text-xs p-2 bg-gray-800 rounded hover:bg-gray-750 truncate border border-gray-700">
                          {ach.description.substring(0, 60)}...
                        </button>
@@ -232,7 +232,7 @@ export const ExperienceBank: React.FC<ExperienceBankProps> = ({ stories, onUpdat
                     <div>
                       <h3 className="font-bold text-lg text-white">{story.title}</h3>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {story.tags.map(t => (
+                        {story.tags?.map(t => (
                           <span key={t} className="px-2 py-0.5 bg-blue-900/20 text-blue-300 rounded text-[10px] border border-blue-800/50 uppercase tracking-wide">
                             {t}
                           </span>
@@ -247,7 +247,7 @@ export const ExperienceBank: React.FC<ExperienceBankProps> = ({ stories, onUpdat
                  
                  {renderStar(story.star)}
 
-                 {story.metrics.primary && (
+                 {story.metrics?.primary && (
                    <div className="mt-3 flex items-center gap-2 text-green-400 text-sm font-medium">
                      <Target className="w-4 h-4" /> {story.metrics.primary}
                    </div>

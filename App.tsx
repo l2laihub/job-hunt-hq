@@ -6,7 +6,8 @@ import { ApplicationModal } from './components/ApplicationModal';
 import { ProfileBuilder } from './components/ProfileBuilder';
 import { ResearchView } from './components/ResearchView';
 import { ExperienceBank } from './components/ExperienceBank';
-import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book } from 'lucide-react';
+import { MockInterview } from './components/MockInterview';
+import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -28,11 +29,39 @@ const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; co
 ];
 
 export default function App() {
-  // State
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories'>('dashboard');
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [stories, setStories] = useState<Experience[]>([]);
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  // State with Lazy Initialization from LocalStorage to prevent overwriting on mount
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview'>('dashboard');
+  
+  const [applications, setApplications] = useState<JobApplication[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_APPS);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse applications from storage", e);
+      return [];
+    }
+  });
+
+  const [stories, setStories] = useState<Experience[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_STORIES);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error("Failed to parse stories from storage", e);
+      return [];
+    }
+  });
+
+  const [profile, setProfile] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_PROFILE);
+      return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+    } catch (e) {
+      console.error("Failed to parse profile from storage", e);
+      return DEFAULT_PROFILE;
+    }
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Track currently editing app
@@ -44,41 +73,28 @@ export default function App() {
   // For Research Navigation
   const [researchTarget, setResearchTarget] = useState<string | undefined>(undefined);
 
-  // Load Data
-  useEffect(() => {
-    const savedApps = localStorage.getItem(STORAGE_KEY_APPS);
-    const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
-    const savedStories = localStorage.getItem(STORAGE_KEY_STORIES);
-    
-    if (savedApps) {
-      try { setApplications(JSON.parse(savedApps)); } catch (e) { console.error("Apps parse error", e); }
-    }
-    if (savedProfile) {
-      try { setProfile(JSON.parse(savedProfile)); } catch (e) { console.error("Profile parse error", e); }
-    }
-    if (savedStories) {
-      try { setStories(JSON.parse(savedStories)); } catch (e) { console.error("Stories parse error", e); }
-    }
-  }, []);
-
-  // Save Apps
+  // Auto-Save Effects
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_APPS, JSON.stringify(applications));
   }, [applications]);
 
-  // Save Stories
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_STORIES, JSON.stringify(stories));
   }, [stories]);
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+  }, [profile]);
+
   // Save Profile Logic (Triggered by ProfileBuilder)
   const handleSaveProfile = (newProfile: UserProfile) => {
     setProfile(newProfile);
-    localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(newProfile));
+    // Auto-save effect will handle localStorage
   };
 
   const handleUpdateStories = (newStories: Experience[]) => {
     setStories(newStories);
+    // Auto-save effect will handle localStorage
   };
 
   // Drag and Drop
@@ -219,6 +235,15 @@ export default function App() {
               My Stories
             </button>
             <button
+              onClick={() => setActiveTab('interview')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === 'interview' ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              Mock Interview
+            </button>
+            <button
               onClick={() => setActiveTab('profile')}
               className={cn(
                 "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
@@ -330,6 +355,13 @@ export default function App() {
              profile={profile}
              applications={applications}
            />
+        )}
+
+        {activeTab === 'interview' && (
+          <MockInterview 
+            profile={profile}
+            applications={applications}
+          />
         )}
 
         {activeTab === 'profile' && (

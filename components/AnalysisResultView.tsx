@@ -118,7 +118,7 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
             <CheckCircle className="w-4 h-4" /> You Have
           </h3>
           <div className="flex flex-wrap gap-2">
-            {data.matchedSkills.map(skill => (
+            {data.matchedSkills?.map(skill => (
               <span key={skill} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">{skill}</span>
             ))}
           </div>
@@ -128,7 +128,7 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
             <AlertTriangle className="w-4 h-4" /> Missing / Gaps
           </h3>
           <div className="flex flex-wrap gap-2">
-            {data.missingSkills.map(skill => (
+            {data.missingSkills?.map(skill => (
               <span key={skill} className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs border border-red-800">{skill}</span>
             ))}
           </div>
@@ -140,7 +140,7 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
           <MessageCircle className="w-4 h-4" /> Talking Points
         </h3>
         <div className="grid gap-2">
-          {data.talkingPoints.map((point, i) => (
+          {data.talkingPoints?.map((point, i) => (
             <div key={i} className="flex gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
               <span className="text-blue-500 font-mono text-xs mt-0.5">0{i + 1}</span>
               <p className="text-sm text-gray-300">{point}</p>

@@ -1,5 +1,7 @@
 {
   "name": "Job Hunt HQ",
   "description": "A comprehensive job search dashboard with AI-powered job description analysis using Google Gemini.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
