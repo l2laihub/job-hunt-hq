@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
-import { useApplicationStore, useProfileStore, useStoriesStore, toast } from '@/src/stores';
+import { useCallback, useRef } from 'react';
+import { useApplicationStore, useProfileStore, useStoriesStore, useTechnicalAnswersStore, toast } from '@/src/stores';
 import { downloadJSON, safeJSONParse } from '@/src/lib/utils';
-import type { JobApplication, UserProfile, Experience } from '@/src/types';
+import type { JobApplication, UserProfile, Experience, TechnicalAnswer, PracticeSession } from '@/src/types';
 import { z } from 'zod';
 
 // Schema for validating imported data
@@ -11,6 +11,8 @@ const importSchema = z.object({
   applications: z.array(z.any()).optional(),
   profile: z.any().optional(),
   stories: z.array(z.any()).optional(),
+  technicalAnswers: z.array(z.any()).optional(),
+  practiceSessions: z.array(z.any()).optional(),
 });
 
 interface ExportData {
@@ -19,6 +21,8 @@ interface ExportData {
   applications: JobApplication[];
   profile: UserProfile;
   stories: Experience[];
+  technicalAnswers: TechnicalAnswer[];
+  practiceSessions: PracticeSession[];
 }
 
 interface ImportResult {
@@ -27,6 +31,8 @@ interface ImportResult {
     applications: number;
     stories: number;
     profile: boolean;
+    technicalAnswers: number;
+    practiceSessions: number;
   };
   errors: string[];
 }
@@ -35,10 +41,17 @@ export function useDataExport() {
   const applications = useApplicationStore((s) => s.applications);
   const profile = useProfileStore((s) => s.profile);
   const stories = useStoriesStore((s) => s.stories);
+  const technicalAnswers = useTechnicalAnswersStore((s) => s.answers);
+  const practiceSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
 
   const importApplications = useApplicationStore((s) => s.importApplications);
   const importProfile = useProfileStore((s) => s.importProfile);
   const importStories = useStoriesStore((s) => s.importStories);
+  const importAnswers = useTechnicalAnswersStore((s) => s.importAnswers);
+  const importPracticeSessions = useTechnicalAnswersStore((s) => s.importPracticeSessions);
+
+  // File input ref for triggering file picker
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
    * Export all data to JSON file
@@ -50,13 +63,15 @@ export function useDataExport() {
       applications,
       profile,
       stories,
+      technicalAnswers,
+      practiceSessions,
     };
 
     const filename = `jobhunt-hq-backup-${new Date().toISOString().split('T')[0]}.json`;
     downloadJSON(data, filename);
 
     toast.success('Data exported', `Saved to ${filename}`);
-  }, [applications, profile, stories]);
+  }, [applications, profile, stories, technicalAnswers, practiceSessions]);
 
   /**
    * Export only applications
@@ -83,7 +98,7 @@ export function useDataExport() {
     async (file: File): Promise<ImportResult> => {
       const result: ImportResult = {
         success: false,
-        imported: { applications: 0, stories: 0, profile: false },
+        imported: { applications: 0, stories: 0, profile: false, technicalAnswers: 0, practiceSessions: 0 },
         errors: [],
       };
 
@@ -143,6 +158,38 @@ export function useDataExport() {
           result.imported.profile = true;
         }
 
+        // Import technical answers
+        if (data.technicalAnswers && Array.isArray(data.technicalAnswers)) {
+          const validAnswers = data.technicalAnswers.filter(
+            (answer: unknown) =>
+              answer &&
+              typeof answer === 'object' &&
+              'id' in answer &&
+              'question' in answer
+          ) as TechnicalAnswer[];
+
+          if (validAnswers.length > 0) {
+            importAnswers(validAnswers);
+            result.imported.technicalAnswers = validAnswers.length;
+          }
+        }
+
+        // Import practice sessions
+        if (data.practiceSessions && Array.isArray(data.practiceSessions)) {
+          const validSessions = data.practiceSessions.filter(
+            (session: unknown) =>
+              session &&
+              typeof session === 'object' &&
+              'id' in session &&
+              'answerId' in session
+          ) as PracticeSession[];
+
+          if (validSessions.length > 0) {
+            importPracticeSessions(validSessions);
+            result.imported.practiceSessions = validSessions.length;
+          }
+        }
+
         result.success = true;
 
         // Show success toast
@@ -155,6 +202,12 @@ export function useDataExport() {
         }
         if (result.imported.profile) {
           parts.push('profile');
+        }
+        if (result.imported.technicalAnswers > 0) {
+          parts.push(`${result.imported.technicalAnswers} answers`);
+        }
+        if (result.imported.practiceSessions > 0) {
+          parts.push(`${result.imported.practiceSessions} practice sessions`);
         }
 
         if (parts.length > 0) {
@@ -173,7 +226,7 @@ export function useDataExport() {
         return result;
       }
     },
-    [importApplications, importStories, importProfile]
+    [importApplications, importStories, importProfile, importAnswers, importPracticeSessions]
   );
 
   /**
@@ -183,9 +236,35 @@ export function useDataExport() {
     return {
       applications: applications.length,
       stories: stories.length,
+      technicalAnswers: technicalAnswers.length,
+      practiceSessions: practiceSessions.length,
       hasProfile: profile.name !== 'Senior Engineer', // Check if profile has been customized
     };
-  }, [applications.length, stories.length, profile.name]);
+  }, [applications.length, stories.length, technicalAnswers.length, practiceSessions.length, profile.name]);
+
+  /**
+   * Trigger file picker for import
+   */
+  const triggerImport = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  /**
+   * Handle file selection for import
+   */
+  const handleFileSelect = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        await importData(file);
+        // Reset the input so the same file can be selected again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    },
+    [importData]
+  );
 
   return {
     exportData,
@@ -193,5 +272,8 @@ export function useDataExport() {
     exportStories,
     importData,
     getDataStats,
+    triggerImport,
+    handleFileSelect,
+    fileInputRef,
   };
 }

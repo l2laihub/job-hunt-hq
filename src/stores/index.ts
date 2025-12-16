@@ -2,6 +2,7 @@
 import { useApplicationStore, migrateLegacyApplications } from './applications';
 import { useProfileStore, migrateLegacyProfile } from './profile';
 import { useStoriesStore, migrateLegacyStories } from './stories';
+import { useTechnicalAnswersStore } from './technical-answers';
 import { useUIStore, toast } from './ui';
 import type { ModalType, Toast } from './ui';
 
@@ -9,6 +10,7 @@ import type { ModalType, Toast } from './ui';
 export { useApplicationStore, migrateLegacyApplications } from './applications';
 export { useProfileStore, migrateLegacyProfile } from './profile';
 export { useStoriesStore, migrateLegacyStories } from './stories';
+export { useTechnicalAnswersStore } from './technical-answers';
 export { useUIStore, toast, type ModalType, type Toast } from './ui';
 
 // Initialize all stores and run migrations

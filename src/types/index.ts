@@ -207,6 +207,80 @@ export interface QuestionMatch {
   openingLine: string;
 }
 
+// Technical Answer Generator Types
+export type TechnicalQuestionType =
+  | 'behavioral-technical'
+  | 'conceptual'
+  | 'system-design'
+  | 'problem-solving'
+  | 'experience';
+
+export type AnswerFormatType =
+  | 'STAR'
+  | 'Explain-Example-Tradeoffs'
+  | 'Requirements-Design-Tradeoffs'
+  | 'Approach-Implementation-Complexity';
+
+export interface AnswerSection {
+  label: string;
+  content: string;
+}
+
+export interface FollowUpQA {
+  question: string;
+  likelihood: 'high' | 'medium' | 'low';
+  suggestedAnswer: string;
+  keyPoints: string[];
+}
+
+export interface AnswerSources {
+  storyIds: string[];
+  profileSections: string[];
+  synthesized: boolean;
+}
+
+export interface TechnicalAnswer {
+  id: string;
+  question: string;
+  questionType: TechnicalQuestionType;
+  format: {
+    type: AnswerFormatType;
+    sections: AnswerSection[];
+  };
+  sources: AnswerSources;
+  answer: {
+    structured: AnswerSection[];
+    narrative: string;
+    bulletPoints: string[];
+  };
+  followUps: FollowUpQA[];
+  metadata: {
+    targetRole?: string;
+    targetCompany?: string;
+    applicationId?: string;
+    difficulty: 'junior' | 'mid' | 'senior' | 'staff';
+    tags: string[];
+  };
+  usedInInterviews: string[];
+  timesUsed: number;
+  practiceCount: number;
+  lastPracticedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PracticeSession {
+  id: string;
+  answerId: string;
+  duration: number;
+  transcript?: string;
+  audioBlob?: string; // Base64 encoded audio data
+  audioMimeType?: string; // e.g., 'audio/webm', 'audio/mp4'
+  selfRating?: number;
+  notes?: string;
+  createdAt: string;
+}
+
 // Job Application
 export interface JobApplication {
   id: string;

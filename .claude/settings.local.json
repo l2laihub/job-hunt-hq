@@ -4,7 +4,14 @@
       "Bash(npm install:*)",
       "Bash(npx tailwindcss:*)",
       "Bash(npm run dev:*)",
-      "Bash(timeout 15 npm run dev)"
+      "Bash(timeout 15 npm run dev)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run build:*)",
+      "Bash(npx vite build)",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm run build 2>&1 | tail -20\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm run build 2>&1 | tail -5\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm run build 2>&1 | tail -25\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm run build 2>&1 | tail -50\")"
     ]
   }
 }

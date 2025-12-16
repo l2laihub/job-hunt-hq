@@ -7,7 +7,8 @@ import { ProfileBuilder } from './components/ProfileBuilder';
 import { ResearchView } from './components/ResearchView';
 import { ExperienceBank } from './components/ExperienceBank';
 import { MockInterview } from './components/MockInterview';
-import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic } from 'lucide-react';
+import { TechnicalAnswerGenerator } from './components/TechnicalAnswerGenerator';
+import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -30,7 +31,7 @@ const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; co
 
 export default function App() {
   // State with Lazy Initialization from LocalStorage to prevent overwriting on mount
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview' | 'answers'>('dashboard');
   
   const [applications, setApplications] = useState<JobApplication[]>(() => {
     try {
@@ -244,6 +245,16 @@ export default function App() {
               Mock Interview
             </button>
             <button
+              onClick={() => setActiveTab('answers')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === 'answers' ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <Zap className="w-3 h-3" />
+              Answer Prep
+            </button>
+            <button
               onClick={() => setActiveTab('profile')}
               className={cn(
                 "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
@@ -358,8 +369,16 @@ export default function App() {
         )}
 
         {activeTab === 'interview' && (
-          <MockInterview 
+          <MockInterview
             profile={profile}
+            applications={applications}
+          />
+        )}
+
+        {activeTab === 'answers' && (
+          <TechnicalAnswerGenerator
+            profile={profile}
+            stories={stories}
             applications={applications}
           />
         )}

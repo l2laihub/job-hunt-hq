@@ -208,6 +208,82 @@ export const feedbackSchema: Schema = {
   required: ['overallScore', 'strengths', 'weaknesses', 'communication', 'summary'],
 };
 
+// Technical Answer Generation schema
+export const technicalAnswerSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    questionType: {
+      type: Type.STRING,
+      enum: ['behavioral-technical', 'conceptual', 'system-design', 'problem-solving', 'experience'],
+      description: 'Auto-detected question type',
+    },
+    format: {
+      type: Type.OBJECT,
+      properties: {
+        type: { type: Type.STRING, description: 'Format name (STAR, Explain-Example-Tradeoffs, etc.)' },
+        sections: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              label: { type: Type.STRING },
+              content: { type: Type.STRING },
+            },
+          },
+        },
+      },
+    },
+    answer: {
+      type: Type.OBJECT,
+      properties: {
+        structured: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              label: { type: Type.STRING },
+              content: { type: Type.STRING },
+            },
+          },
+        },
+        narrative: { type: Type.STRING, description: 'Full answer in natural conversational form' },
+        bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+    },
+    sources: {
+      type: Type.OBJECT,
+      properties: {
+        matchedStoryIndices: { type: Type.ARRAY, items: { type: Type.INTEGER }, description: 'Indices of stories used' },
+        profileSectionsUsed: { type: Type.ARRAY, items: { type: Type.STRING } },
+        synthesized: { type: Type.BOOLEAN, description: 'True if AI synthesized beyond direct sources' },
+      },
+    },
+    suggestedTags: { type: Type.ARRAY, items: { type: Type.STRING } },
+  },
+  required: ['questionType', 'format', 'answer'],
+};
+
+// Follow-up Q&A schema
+export const followUpSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    followUps: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          likelihood: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+          suggestedAnswer: { type: Type.STRING },
+          keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ['question', 'likelihood', 'suggestedAnswer', 'keyPoints'],
+      },
+    },
+  },
+  required: ['followUps'],
+};
+
 // Company research schema
 export const companyResearchSchema: Schema = {
   type: Type.OBJECT,

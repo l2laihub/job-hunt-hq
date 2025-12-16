@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   PROFILE: 'jhq:profile:v2',
   STORIES: 'jhq:stories:v2',
   SETTINGS: 'jhq:settings:v2',
+  TECHNICAL_ANSWERS: 'jhq:technical-answers:v1',
   // Legacy keys for migration
   LEGACY_APPLICATIONS: 'jobhunt-hq-applications',
   LEGACY_PROFILE: 'jobhunt-hq-profile',
@@ -91,3 +92,32 @@ export const UI_CONFIG = {
   MAX_VISIBLE_SKILLS: 10,
   MAX_VISIBLE_NEWS: 5,
 } as const;
+
+// Technical Question Types
+export const TECHNICAL_QUESTION_TYPES = [
+  { value: 'behavioral-technical', label: 'Behavioral-Technical', format: 'STAR' },
+  { value: 'conceptual', label: 'Conceptual/Theory', format: 'Explain-Example-Tradeoffs' },
+  { value: 'system-design', label: 'System Design', format: 'Requirements-Design-Tradeoffs' },
+  { value: 'problem-solving', label: 'Problem Solving', format: 'Approach-Implementation-Complexity' },
+  { value: 'experience', label: 'Experience-Based', format: 'STAR' },
+] as const;
+
+// Common Technical Questions
+export const COMMON_TECHNICAL_QUESTIONS = [
+  'Explain how you would design a rate limiter.',
+  'Describe a time you optimized a slow database query.',
+  'What is your approach to debugging production issues?',
+  'How do you handle technical debt in your projects?',
+  'Explain the difference between SQL and NoSQL databases.',
+  'Tell me about a challenging architectural decision you made.',
+  'How would you design a URL shortener?',
+  'Describe your testing strategy for a new feature.',
+] as const;
+
+// Difficulty Levels
+export const DIFFICULTY_LEVELS = [
+  { value: 'junior', label: 'Junior (0-2 years)' },
+  { value: 'mid', label: 'Mid-level (2-5 years)' },
+  { value: 'senior', label: 'Senior (5-10 years)' },
+  { value: 'staff', label: 'Staff+ (10+ years)' },
+] as const;
