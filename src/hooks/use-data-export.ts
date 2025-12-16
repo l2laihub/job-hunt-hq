@@ -70,7 +70,15 @@ export function useDataExport() {
     const filename = `jobhunt-hq-backup-${new Date().toISOString().split('T')[0]}.json`;
     downloadJSON(data, filename);
 
-    toast.success('Data exported', `Saved to ${filename}`);
+    // Build summary of exported data
+    const parts = [];
+    if (applications.length > 0) parts.push(`${applications.length} apps`);
+    if (stories.length > 0) parts.push(`${stories.length} stories`);
+    if (technicalAnswers.length > 0) parts.push(`${technicalAnswers.length} answers`);
+    if (practiceSessions.length > 0) parts.push(`${practiceSessions.length} practices`);
+    parts.push('profile');
+
+    toast.success('Data exported', `Exported: ${parts.join(', ')}`);
   }, [applications, profile, stories, technicalAnswers, practiceSessions]);
 
   /**
@@ -119,6 +127,15 @@ export function useDataExport() {
         }
 
         const data = parsed.data;
+
+        // Log what's in the file for debugging
+        console.log('[Import] File contains:', {
+          applications: data.applications?.length || 0,
+          stories: data.stories?.length || 0,
+          technicalAnswers: data.technicalAnswers?.length || 0,
+          practiceSessions: data.practiceSessions?.length || 0,
+          hasProfile: !!data.profile,
+        });
 
         // Import applications
         if (data.applications && Array.isArray(data.applications)) {
@@ -190,6 +207,9 @@ export function useDataExport() {
           }
         }
 
+        // Small delay to ensure Zustand persist middleware writes to localStorage
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         result.success = true;
 
         // Show success toast
@@ -212,6 +232,12 @@ export function useDataExport() {
 
         if (parts.length > 0) {
           toast.success('Data imported', `Imported: ${parts.join(', ')}`);
+          // Prompt user to reload if data was imported to ensure UI updates
+          setTimeout(() => {
+            if (window.confirm('Data imported successfully! Reload page to see all changes?')) {
+              window.location.reload();
+            }
+          }, 500);
         } else {
           toast.info('No new data', 'The file contained no importable data');
         }
