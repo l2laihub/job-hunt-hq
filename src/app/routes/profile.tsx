@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useProfileStore, useActiveProfile, useCurrentProfile, toast } from '@/src/stores';
 import { processDocuments } from '@/src/services/gemini';
-import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select } from '@/src/components/ui';
+import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select, EditableText, EditableList } from '@/src/components/ui';
 import { ProfileEmptyState } from '@/src/components/shared';
 import { ProfileManagement } from '@/src/components/profile';
 import { cn } from '@/src/lib/utils';
@@ -23,7 +23,60 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  GripVertical,
 } from 'lucide-react';
+
+/**
+ * Parse a duration string and extract the end date for sorting
+ */
+function parseDurationEndDate(duration: string): Date {
+  const now = new Date();
+  const normalizedDuration = duration.toLowerCase();
+
+  if (normalizedDuration.includes('present') || normalizedDuration.includes('current')) {
+    return now;
+  }
+
+  const parts = duration.split(/\s*[-–]\s*/);
+  const endPart = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+
+  const months: Record<string, number> = {
+    january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
+    april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+    august: 7, aug: 7, september: 8, sep: 8, sept: 8,
+    october: 9, oct: 9, november: 10, nov: 10, december: 11, dec: 11,
+  };
+
+  const monthYearMatch = endPart.match(/([a-zA-Z]+)\s+(\d{4})/);
+  if (monthYearMatch) {
+    const month = months[monthYearMatch[1].toLowerCase()];
+    const year = parseInt(monthYearMatch[2], 10);
+    if (month !== undefined && !isNaN(year)) {
+      return new Date(year, month, 1);
+    }
+  }
+
+  const yearMatch = endPart.match(/(\d{4})/);
+  if (yearMatch) {
+    return new Date(parseInt(yearMatch[1], 10), 11, 31);
+  }
+
+  return new Date(1970, 0, 1);
+}
+
+/**
+ * Sort roles by end date (most recent first)
+ */
+function sortRolesByDate(roles: Role[]): Role[] {
+  return [...roles].sort((a, b) => {
+    const dateA = parseDurationEndDate(a.duration);
+    const dateB = parseDurationEndDate(b.duration);
+    return dateB.getTime() - dateA.getTime();
+  });
+}
 
 const workStyleOptions = [
   { value: 'remote', label: 'Remote' },
@@ -363,15 +416,93 @@ export const ProfilePage: React.FC = () => {
           onToggle={() => toggleSection('work')}
         >
           <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-500">
+                Click any field to edit. Use arrows to reorder.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const sorted = sortRolesByDate(editedProfile.recentRoles);
+                  handleFieldChange('recentRoles', sorted);
+                  toast.success('Sorted', 'Work history sorted by date (most recent first)');
+                }}
+                className="text-xs text-blue-400 hover:text-blue-300"
+                leftIcon={<ArrowUpDown className="w-3 h-3" />}
+              >
+                Sort by Date
+              </Button>
+            </div>
             {editedProfile.recentRoles.map((role, index) => (
               <Card key={index} className="bg-gray-800/30">
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-medium text-white">{role.title}</h4>
-                      <p className="text-sm text-gray-400">
-                        {role.company} • {role.duration}
-                      </p>
+                    {/* Reorder buttons */}
+                    <div className="flex flex-col gap-1 mr-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-6 w-6"
+                        disabled={index === 0}
+                        onClick={() => {
+                          const newRoles = [...editedProfile.recentRoles];
+                          [newRoles[index - 1], newRoles[index]] = [newRoles[index], newRoles[index - 1]];
+                          handleFieldChange('recentRoles', newRoles);
+                        }}
+                        title="Move up"
+                      >
+                        <ArrowUp className={cn('w-3 h-3', index === 0 ? 'text-gray-600' : 'text-gray-400')} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1 h-6 w-6"
+                        disabled={index === editedProfile.recentRoles.length - 1}
+                        onClick={() => {
+                          const newRoles = [...editedProfile.recentRoles];
+                          [newRoles[index], newRoles[index + 1]] = [newRoles[index + 1], newRoles[index]];
+                          handleFieldChange('recentRoles', newRoles);
+                        }}
+                        title="Move down"
+                      >
+                        <ArrowDown className={cn('w-3 h-3', index === editedProfile.recentRoles.length - 1 ? 'text-gray-600' : 'text-gray-400')} />
+                      </Button>
+                    </div>
+                    <div className="flex-1 mr-4">
+                      <EditableText
+                        value={role.title}
+                        onChange={(value) => {
+                          const newRoles = [...editedProfile.recentRoles];
+                          newRoles[index] = { ...newRoles[index], title: value };
+                          handleFieldChange('recentRoles', newRoles);
+                        }}
+                        className="font-medium text-white"
+                        placeholder="Job title..."
+                      />
+                      <div className="flex items-center gap-1 text-sm text-gray-400">
+                        <EditableText
+                          value={role.company}
+                          onChange={(value) => {
+                            const newRoles = [...editedProfile.recentRoles];
+                            newRoles[index] = { ...newRoles[index], company: value };
+                            handleFieldChange('recentRoles', newRoles);
+                          }}
+                          className="text-gray-400"
+                          placeholder="Company name..."
+                        />
+                        <span className="text-gray-600">•</span>
+                        <EditableText
+                          value={role.duration}
+                          onChange={(value) => {
+                            const newRoles = [...editedProfile.recentRoles];
+                            newRoles[index] = { ...newRoles[index], duration: value };
+                            handleFieldChange('recentRoles', newRoles);
+                          }}
+                          className="text-gray-400"
+                          placeholder="Duration (e.g., Jan 2020 - Present)..."
+                        />
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -384,11 +515,20 @@ export const ProfilePage: React.FC = () => {
                       <Trash2 className="w-4 h-4 text-red-400" />
                     </Button>
                   </div>
-                  <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                    {role.highlights.map((h, i) => (
-                      <li key={i}>{h}</li>
-                    ))}
-                  </ul>
+                  <div className="mt-2 ml-9">
+                    <EditableList
+                      items={role.highlights}
+                      onChange={(highlights) => {
+                        const newRoles = [...editedProfile.recentRoles];
+                        newRoles[index] = { ...newRoles[index], highlights };
+                        handleFieldChange('recentRoles', newRoles);
+                      }}
+                      bulletStyle="disc"
+                      itemClassName="text-sm text-gray-300"
+                      addLabel="+ Add highlight"
+                      placeholder="Enter achievement or responsibility..."
+                    />
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -396,10 +536,10 @@ export const ProfilePage: React.FC = () => {
               variant="ghost"
               onClick={() => {
                 const newRole: Role = {
-                  company: '',
-                  title: '',
-                  duration: '',
-                  highlights: [],
+                  company: 'New Company',
+                  title: 'New Position',
+                  duration: 'Start - End',
+                  highlights: ['Add your achievements here'],
                 };
                 handleFieldChange('recentRoles', [...editedProfile.recentRoles, newRole]);
               }}
