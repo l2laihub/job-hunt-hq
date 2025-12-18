@@ -31,7 +31,7 @@ const navItems = [
   { to: '/profile', label: 'Profile', icon: User },
   { to: '/stories', label: 'My Stories', icon: Book },
   // Job Search
-  { to: '/analyzer', label: 'JD Analyzer', icon: Search },
+  { to: '/analyzer', label: 'Job Prep', icon: Search },
   { to: '/research', label: 'Research', icon: Globe },
   // Interview Prep
   { to: '/answers', label: 'Answer Prep', icon: Zap },

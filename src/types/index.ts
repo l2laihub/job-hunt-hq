@@ -499,6 +499,9 @@ export interface AnalyzedJob {
   applicationStrategy?: ApplicationStrategy;
   skillsRoadmap?: SkillsRoadmap;
 
+  // Application questions & answers
+  applicationQuestions?: ApplicationQuestionAnswer[];
+
   // Linking
   applicationId?: string; // If saved as job application
 
@@ -607,6 +610,27 @@ export interface ResumeEnhancement {
   // Metadata
   createdAt: string;
   updatedAt: string;
+}
+
+// Application Question Answer Types - for LinkedIn/Company Application Questions
+export interface ApplicationQuestionAnswer {
+  id: string;
+  question: string;
+  questionType: 'behavioral' | 'experience' | 'technical' | 'motivation' | 'situational' | 'custom';
+  generatedAnswer: string;
+  sources: {
+    profileSections: string[]; // e.g., ['recentRoles', 'keyAchievements']
+    storyIds: string[]; // STAR stories used
+    synthesized: boolean; // If answer was synthesized from multiple sources
+  };
+  alternativeAnswers?: string[]; // Shorter/longer variations
+  keyPoints: string[];
+  wordCount: number;
+  characterCount: number;
+  editedAnswer?: string;
+  editedAt?: string;
+  copyCount: number;
+  createdAt: string;
 }
 
 // Skills Roadmap Types - for aspirational jobs with low fit

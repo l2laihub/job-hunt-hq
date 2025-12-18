@@ -12,6 +12,7 @@ export { generateCoverLetter } from './cover-letter';
 export { generatePhoneScreenPrep, generateTechnicalInterviewPrep, generateApplicationStrategy } from './interview-prep';
 export { enhanceResume, analyzeResumeQuick } from './resume-enhance';
 export { generateSkillsRoadmap } from './skills-roadmap';
+export { generateApplicationAnswer, generateBatchApplicationAnswers } from './application-questions';
 
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';

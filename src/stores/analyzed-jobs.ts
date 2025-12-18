@@ -8,6 +8,7 @@ import type {
   TechnicalInterviewPrep,
   ApplicationStrategy,
   SkillsRoadmap,
+  ApplicationQuestionAnswer,
 } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
@@ -32,6 +33,12 @@ interface AnalyzedJobsState {
   setTechnicalInterviewPrep: (jobId: string, prep: TechnicalInterviewPrep) => void;
   setApplicationStrategy: (jobId: string, strategy: ApplicationStrategy) => void;
   setSkillsRoadmap: (jobId: string, roadmap: SkillsRoadmap) => void;
+
+  // Application Questions
+  addApplicationQuestion: (jobId: string, question: Omit<ApplicationQuestionAnswer, 'id' | 'createdAt' | 'copyCount'>) => void;
+  updateApplicationQuestion: (jobId: string, questionId: string, updates: Partial<ApplicationQuestionAnswer>) => void;
+  deleteApplicationQuestion: (jobId: string, questionId: string) => void;
+  incrementQuestionCopyCount: (jobId: string, questionId: string) => void;
 
   // Favorites & Tags
   toggleFavorite: (id: string) => void;
@@ -198,6 +205,76 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
           jobs: state.jobs.map((job) =>
             job.id === jobId
               ? { ...job, skillsRoadmap: roadmap, updatedAt: new Date().toISOString() }
+              : job
+          ),
+        }));
+      },
+
+      addApplicationQuestion: (jobId, question) => {
+        const newQuestion: ApplicationQuestionAnswer = {
+          ...question,
+          id: generateId(),
+          copyCount: 0,
+          createdAt: new Date().toISOString(),
+        };
+
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId
+              ? {
+                  ...job,
+                  applicationQuestions: [...(job.applicationQuestions || []), newQuestion],
+                  updatedAt: new Date().toISOString(),
+                }
+              : job
+          ),
+        }));
+      },
+
+      updateApplicationQuestion: (jobId, questionId, updates) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId
+              ? {
+                  ...job,
+                  applicationQuestions: (job.applicationQuestions || []).map((q) =>
+                    q.id === questionId
+                      ? { ...q, ...updates, editedAt: new Date().toISOString() }
+                      : q
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : job
+          ),
+        }));
+      },
+
+      deleteApplicationQuestion: (jobId, questionId) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId
+              ? {
+                  ...job,
+                  applicationQuestions: (job.applicationQuestions || []).filter((q) => q.id !== questionId),
+                  updatedAt: new Date().toISOString(),
+                }
+              : job
+          ),
+        }));
+      },
+
+      incrementQuestionCopyCount: (jobId, questionId) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId
+              ? {
+                  ...job,
+                  applicationQuestions: (job.applicationQuestions || []).map((q) =>
+                    q.id === questionId
+                      ? { ...q, copyCount: q.copyCount + 1 }
+                      : q
+                  ),
+                }
               : job
           ),
         }));

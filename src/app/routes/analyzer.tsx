@@ -15,6 +15,7 @@ import {
   generateTechnicalInterviewPrep,
   generateApplicationStrategy,
   generateSkillsRoadmap,
+  generateApplicationAnswer,
 } from '@/src/services/gemini';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
@@ -30,6 +31,8 @@ import type {
   TechnicalInterviewPrep,
   ApplicationStrategy,
   SkillsRoadmap,
+  ApplicationStatus,
+  ApplicationQuestionAnswer,
 } from '@/src/types';
 import {
   Search,
@@ -66,10 +69,13 @@ import {
   Award,
   ExternalLink,
   MapPin,
+  HelpCircle,
+  Send,
+  RotateCcw,
 } from 'lucide-react';
 
 type ViewType = 'analyze' | 'history' | 'detail';
-type ResultTab = 'overview' | 'cover-letter' | 'phone-prep' | 'tech-prep' | 'strategy' | 'roadmap';
+type ResultTab = 'overview' | 'cover-letter' | 'phone-prep' | 'tech-prep' | 'strategy' | 'roadmap' | 'questions';
 
 export const AnalyzerPage: React.FC = () => {
   const profile = useCurrentProfile();
@@ -97,7 +103,15 @@ export const AnalyzerPage: React.FC = () => {
   const setTechnicalInterviewPrep = useAnalyzedJobsStore((s) => s.setTechnicalInterviewPrep);
   const setApplicationStrategy = useAnalyzedJobsStore((s) => s.setApplicationStrategy);
   const setSkillsRoadmap = useAnalyzedJobsStore((s) => s.setSkillsRoadmap);
+  const addApplicationQuestion = useAnalyzedJobsStore((s) => s.addApplicationQuestion);
+  const updateApplicationQuestion = useAnalyzedJobsStore((s) => s.updateApplicationQuestion);
+  const deleteApplicationQuestion = useAnalyzedJobsStore((s) => s.deleteApplicationQuestion);
+  const incrementQuestionCopyCount = useAnalyzedJobsStore((s) => s.incrementQuestionCopyCount);
   const toggleFavorite = useAnalyzedJobsStore((s) => s.toggleFavorite);
+
+  // Applications Store
+  const addApplication = useApplicationStore((s) => s.addApplication);
+  const applications = useApplicationStore((s) => s.applications);
 
   // View state
   const [view, setView] = useState<ViewType>('analyze');
@@ -117,7 +131,14 @@ export const AnalyzerPage: React.FC = () => {
   const [isGeneratingTechPrep, setIsGeneratingTechPrep] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+  const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+
+  // Application questions state
+  const [questionInput, setQuestionInput] = useState('');
+  const [characterLimit, setCharacterLimit] = useState<number>(500);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editedAnswerText, setEditedAnswerText] = useState('');
   const [coverLetterStyle, setCoverLetterStyle] = useState<CoverLetterStyle>('professional');
 
   // History search
@@ -339,6 +360,83 @@ export const AnalyzerPage: React.FC = () => {
     }
   };
 
+  // Generate answer for application question
+  const handleGenerateAnswer = async () => {
+    if (!selectedJob || !questionInput.trim()) {
+      toast.error('Missing question', 'Please enter a question to generate an answer');
+      return;
+    }
+
+    setIsGeneratingAnswer(true);
+    try {
+      const result = await generateApplicationAnswer({
+        question: questionInput,
+        jobDescription: selectedJob.jobDescription,
+        analysis: selectedJob.analysis,
+        profile,
+        stories,
+        company: selectedJob.company,
+        role: selectedJob.role,
+        maxLength: characterLimit,
+      });
+
+      addApplicationQuestion(selectedJob.id, {
+        question: questionInput,
+        questionType: result.questionType,
+        generatedAnswer: result.generatedAnswer,
+        sources: result.sources,
+        keyPoints: result.keyPoints,
+        wordCount: result.wordCount,
+        characterCount: result.characterCount,
+        alternativeAnswers: result.alternativeAnswers,
+      });
+
+      toast.success('Answer generated', `${result.characterCount} characters`);
+      setQuestionInput(''); // Clear input after success
+    } catch (error) {
+      console.error('Answer generation failed:', error);
+      toast.error('Generation failed', 'Please try again');
+    } finally {
+      setIsGeneratingAnswer(false);
+    }
+  };
+
+  // Copy answer to clipboard
+  const handleCopyAnswer = (jobId: string, questionAnswer: ApplicationQuestionAnswer) => {
+    const textToCopy = questionAnswer.editedAnswer || questionAnswer.generatedAnswer;
+    navigator.clipboard.writeText(textToCopy);
+    incrementQuestionCopyCount(jobId, questionAnswer.id);
+    toast.success('Copied to clipboard');
+  };
+
+  // Start editing an answer
+  const handleStartEditAnswer = (question: ApplicationQuestionAnswer) => {
+    setEditingQuestionId(question.id);
+    setEditedAnswerText(question.editedAnswer || question.generatedAnswer);
+  };
+
+  // Save edited answer
+  const handleSaveEditedAnswer = (jobId: string, questionId: string) => {
+    updateApplicationQuestion(jobId, questionId, {
+      editedAnswer: editedAnswerText,
+    });
+    setEditingQuestionId(null);
+    setEditedAnswerText('');
+    toast.success('Answer updated');
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null);
+    setEditedAnswerText('');
+  };
+
+  // Delete a question
+  const handleDeleteQuestion = (jobId: string, questionId: string) => {
+    deleteApplicationQuestion(jobId, questionId);
+    toast.success('Question removed');
+  };
+
   // Re-analyze existing job with current profile
   const handleReanalyze = async () => {
     if (!selectedJob) return;
@@ -404,6 +502,48 @@ export const AnalyzerPage: React.FC = () => {
     setResultTab('overview');
   };
 
+  // Check if job is already in applications
+  const isJobInApplications = (job: AnalyzedJob): boolean => {
+    return applications.some(
+      (app) =>
+        app.company?.toLowerCase() === job.company?.toLowerCase() &&
+        app.role?.toLowerCase() === job.role?.toLowerCase()
+    );
+  };
+
+  // Add analyzed job to applications
+  const handleAddToApplications = (job: AnalyzedJob, status: ApplicationStatus = 'wishlist') => {
+    if (isJobInApplications(job)) {
+      toast.info('Already tracked', 'This job is already in your applications');
+      return;
+    }
+
+    const appType = job.type === 'freelance' ? 'freelance' : 'fulltime';
+    const source = job.source?.toLowerCase().includes('upwork')
+      ? 'upwork'
+      : job.source?.toLowerCase().includes('linkedin')
+        ? 'linkedin'
+        : 'other';
+
+    addApplication({
+      type: appType,
+      company: job.company || 'Unknown Company',
+      role: job.role || 'Unknown Role',
+      status,
+      source,
+      salaryRange: job.salaryRange,
+      jobDescriptionRaw: job.jobDescription,
+      analysis: job.analysis,
+      notes: '',
+      dateApplied: status === 'applied' ? new Date().toISOString() : undefined,
+    });
+
+    toast.success(
+      'Added to Applications',
+      `${job.company} - ${job.role} added to ${status === 'wishlist' ? 'Wishlist' : 'Applied'}`
+    );
+  };
+
   // Copy to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -447,7 +587,7 @@ export const AnalyzerPage: React.FC = () => {
             <div>
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                 <Brain className="w-6 h-6 text-blue-500" />
-                {view === 'analyze' && 'JD Analyzer'}
+                {view === 'analyze' && 'Job Prep'}
                 {view === 'history' && 'Analysis History'}
                 {view === 'detail' && (selectedJob?.company || 'Job Details')}
               </h2>
@@ -469,6 +609,35 @@ export const AnalyzerPage: React.FC = () => {
               >
                 History ({analyzedJobs.length})
               </Button>
+            )}
+            {view === 'detail' && selectedJob && (
+              <>
+                {isJobInApplications(selectedJob) ? (
+                  <Badge variant="success" size="sm" className="flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    In Applications
+                  </Badge>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleAddToApplications(selectedJob, 'wishlist')}
+                      leftIcon={<Plus className="w-4 h-4" />}
+                    >
+                      Add to Wishlist
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleAddToApplications(selectedJob, 'applied')}
+                      leftIcon={<Briefcase className="w-4 h-4" />}
+                    >
+                      Mark as Applied
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -661,6 +830,25 @@ export const AnalyzerPage: React.FC = () => {
                             <Sparkles className="w-4 h-4" />
                           )}
                         </Button>
+                        {isJobInApplications(job) ? (
+                          <Badge variant="outline" size="sm" className="text-green-400 border-green-600">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Tracked
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddToApplications(job, 'wishlist');
+                            }}
+                            title="Add to Applications"
+                            className="text-green-400 hover:text-green-300"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -716,6 +904,7 @@ export const AnalyzerPage: React.FC = () => {
                 { id: 'tech-prep', label: 'Technical', icon: Code },
                 { id: 'strategy', label: 'Strategy', icon: LineChart },
                 { id: 'roadmap', label: 'Skills Roadmap', icon: GraduationCap, highlight: selectedJob.analysis.fitScore < 7 },
+                { id: 'questions', label: 'Questions', icon: HelpCircle, count: selectedJob.applicationQuestions?.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -733,6 +922,9 @@ export const AnalyzerPage: React.FC = () => {
                   {tab.label}
                   {'highlight' in tab && tab.highlight && (
                     <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                  )}
+                  {'count' in tab && tab.count !== undefined && tab.count > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs bg-gray-700 rounded-full">{tab.count}</span>
                   )}
                 </button>
               ))}
@@ -786,6 +978,8 @@ export const AnalyzerPage: React.FC = () => {
                           value={coverLetterStyle}
                           onChange={(e) => setCoverLetterStyle(e.target.value as CoverLetterStyle)}
                           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+                          title="Cover letter style"
+                          aria-label="Cover letter style"
                         >
                           {COVER_LETTER_STYLES.map((style) => (
                             <option key={style.value} value={style.value}>
@@ -964,6 +1158,258 @@ export const AnalyzerPage: React.FC = () => {
                   </Card>
                 ) : (
                   <SkillsRoadmapView roadmap={selectedJob.skillsRoadmap} />
+                )}
+              </div>
+            )}
+
+            {/* Application Questions Tab */}
+            {resultTab === 'questions' && (
+              <div className="space-y-4">
+                {/* Question Input Card */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-white flex items-center gap-2">
+                        <HelpCircle className="w-5 h-5 text-purple-400" />
+                        Application Question Helper
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-400">Character limit:</label>
+                        <select
+                          value={characterLimit}
+                          onChange={(e) => setCharacterLimit(Number(e.target.value))}
+                          className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-300"
+                        >
+                          <option value={150}>150 (Short)</option>
+                          <option value={300}>300 (Brief)</option>
+                          <option value={500}>500 (LinkedIn)</option>
+                          <option value={1000}>1000 (Medium)</option>
+                          <option value={2000}>2000 (Long)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-3">
+                      Paste questions from LinkedIn or company applications. Get AI-generated answers tailored to your profile and this job.
+                    </p>
+                    <Textarea
+                      value={questionInput}
+                      onChange={(e) => setQuestionInput(e.target.value)}
+                      placeholder="Paste your application question here... e.g., 'Tell us about a time you built a product feature from 0-1' or 'How many years of experience do you have with React?'"
+                      rows={3}
+                      className="mb-3"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        variant="primary"
+                        onClick={handleGenerateAnswer}
+                        disabled={!questionInput.trim() || isGeneratingAnswer}
+                        isLoading={isGeneratingAnswer}
+                        leftIcon={<Send className="w-4 h-4" />}
+                      >
+                        {isGeneratingAnswer ? 'Generating...' : 'Generate Answer'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sample Questions Suggestions */}
+                {(!selectedJob.applicationQuestions || selectedJob.applicationQuestions.length === 0) && (
+                  <Card className="bg-gray-900/50 border-dashed">
+                    <CardContent className="p-4">
+                      <h5 className="text-sm font-medium text-gray-400 mb-3">Common Application Questions</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          "Tell us about a time you led a team through a challenging project",
+                          "Describe a situation where you had to learn a new technology quickly",
+                          "What's your experience with agile/scrum methodologies?",
+                          "Why are you interested in this role?",
+                          "What's your greatest professional achievement?",
+                        ].map((sample, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setQuestionInput(sample)}
+                            className="px-3 py-1.5 text-xs text-gray-300 bg-gray-800 hover:bg-gray-700 rounded-full border border-gray-700 transition-colors"
+                          >
+                            {sample.length > 50 ? sample.slice(0, 50) + '...' : sample}
+                          </button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Generated Answers */}
+                {selectedJob.applicationQuestions && selectedJob.applicationQuestions.length > 0 && (
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-gray-400 uppercase">
+                      Generated Answers ({selectedJob.applicationQuestions.length})
+                    </h4>
+                    {[...selectedJob.applicationQuestions].reverse().map((qa) => (
+                      <Card key={qa.id}>
+                        <CardContent className="p-4">
+                          {/* Question Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="info" size="sm">{qa.questionType}</Badge>
+                                <span className="text-xs text-gray-500">{qa.characterCount} chars</span>
+                                {qa.copyCount > 0 && (
+                                  <span className="text-xs text-green-400">Copied {qa.copyCount}x</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-white font-medium">{qa.question}</p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopyAnswer(selectedJob.id, qa)}
+                                title="Copy answer"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              {editingQuestionId !== qa.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEditAnswer(qa)}
+                                  title="Edit answer"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteQuestion(selectedJob.id, qa.id)}
+                                className="text-red-400 hover:text-red-300"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Answer Content */}
+                          {editingQuestionId === qa.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editedAnswerText}
+                                onChange={(e) => setEditedAnswerText(e.target.value)}
+                                rows={6}
+                                className="text-sm"
+                              />
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">
+                                  {editedAnswerText.length} characters
+                                </span>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => handleSaveEditedAnswer(selectedJob.id, qa.id)}
+                                    leftIcon={<Save className="w-3 h-3" />}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                              <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                                {qa.editedAnswer || qa.generatedAnswer}
+                              </p>
+                              {qa.editedAnswer && (
+                                <div className="mt-2 pt-2 border-t border-gray-700">
+                                  <button
+                                    onClick={() => {
+                                      updateApplicationQuestion(selectedJob.id, qa.id, { editedAnswer: undefined });
+                                      toast.success('Reverted to original');
+                                    }}
+                                    className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1"
+                                  >
+                                    <RotateCcw className="w-3 h-3" />
+                                    Revert to original
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Key Points */}
+                          {qa.keyPoints.length > 0 && editingQuestionId !== qa.id && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <h5 className="text-xs font-bold text-gray-500 uppercase mb-2">Why this answer works</h5>
+                              <ul className="space-y-1">
+                                {qa.keyPoints.map((point, i) => (
+                                  <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                                    <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                                    {point}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Alternative Answers */}
+                          {qa.alternativeAnswers && qa.alternativeAnswers.length > 0 && editingQuestionId !== qa.id && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <h5 className="text-xs font-bold text-gray-500 uppercase mb-2">Alternative versions</h5>
+                              <div className="space-y-2">
+                                {qa.alternativeAnswers.map((alt, i) => (
+                                  <div
+                                    key={i}
+                                    className="p-2 bg-gray-900/50 rounded text-xs text-gray-400 cursor-pointer hover:bg-gray-800/50 group"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(alt);
+                                      incrementQuestionCopyCount(selectedJob.id, qa.id);
+                                      toast.success('Alternative copied');
+                                    }}
+                                  >
+                                    <div className="flex items-start justify-between">
+                                      <span>{alt}</span>
+                                      <Copy className="w-3 h-3 text-gray-600 group-hover:text-gray-400 flex-shrink-0 ml-2" />
+                                    </div>
+                                    <span className="text-gray-600 text-xs mt-1 block">{alt.length} chars</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Meta info */}
+                          <div className="mt-3 pt-2 border-t border-gray-700 flex items-center gap-3 text-xs text-gray-500">
+                            <span>{formatDate(qa.createdAt)}</span>
+                            {qa.sources.storyIds.length > 0 && (
+                              <span className="text-blue-400">
+                                Used {qa.sources.storyIds.length} stor{qa.sources.storyIds.length > 1 ? 'ies' : 'y'}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Empty State */}
+                {(!selectedJob.applicationQuestions || selectedJob.applicationQuestions.length === 0) && (
+                  <Card className="p-8 text-center">
+                    <HelpCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">No Questions Yet</h3>
+                    <p className="text-gray-400 max-w-md mx-auto">
+                      Paste application questions from LinkedIn, company portals, or job boards. Get personalized answers that highlight your relevant experience for this specific role.
+                    </p>
+                  </Card>
                 )}
               </div>
             )}

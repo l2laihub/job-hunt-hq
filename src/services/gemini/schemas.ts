@@ -75,6 +75,74 @@ export const profileSchema: Schema = {
   required: ['name', 'headline', 'yearsExperience', 'technicalSkills', 'recentRoles'],
 };
 
+// Shared recommendation schema components
+const recommendationSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    verdict: { type: Type.STRING, enum: ['strong-apply', 'apply', 'consider', 'upskill-first', 'pass'] },
+    confidence: { type: Type.NUMBER, description: '0-100 confidence in this recommendation' },
+    summary: { type: Type.STRING, description: '1-2 sentence recommendation summary' },
+    primaryReasons: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Top 3 reasons for verdict' },
+    actionItems: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'What to do next' },
+  },
+  required: ['verdict', 'confidence', 'summary', 'primaryReasons', 'actionItems'],
+};
+
+const careerAlignmentSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    alignmentScore: { type: Type.NUMBER, description: '0-10 career alignment score' },
+    alignsWithGoals: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Which goals this supports' },
+    misalignedAreas: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Areas of misalignment' },
+    growthPotential: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+    trajectoryImpact: { type: Type.STRING, description: 'How this affects career trajectory' },
+  },
+  required: ['alignmentScore', 'alignsWithGoals', 'misalignedAreas', 'growthPotential', 'trajectoryImpact'],
+};
+
+const skillGapDetailSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    skill: { type: Type.STRING },
+    severity: { type: Type.STRING, enum: ['minor', 'moderate', 'critical'] },
+    importance: { type: Type.STRING, description: 'Why this skill matters' },
+    timeToAcquire: { type: Type.STRING, description: 'Estimated learning time' },
+    suggestion: { type: Type.STRING, description: 'How to acquire this skill' },
+  },
+  required: ['skill', 'severity', 'importance'],
+};
+
+const dealBreakerMatchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    userDealBreaker: { type: Type.STRING, description: 'The deal breaker from profile' },
+    jobRequirement: { type: Type.STRING, description: 'The conflicting job requirement' },
+    severity: { type: Type.STRING, enum: ['hard', 'soft'] },
+  },
+  required: ['userDealBreaker', 'jobRequirement', 'severity'],
+};
+
+const workStyleMatchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    compatible: { type: Type.BOOLEAN },
+    jobWorkStyle: { type: Type.STRING, enum: ['remote', 'hybrid', 'onsite', 'unknown'] },
+    notes: { type: Type.STRING },
+  },
+  required: ['compatible', 'jobWorkStyle'],
+};
+
+const compensationFitSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    salaryInRange: { type: Type.BOOLEAN },
+    assessment: { type: Type.STRING, description: 'Brief assessment like "Within range" or "Below minimum"' },
+    marketComparison: { type: Type.STRING },
+    negotiationLeverage: { type: Type.STRING },
+  },
+  required: ['salaryInRange', 'assessment'],
+};
+
 // FTE Analysis schema
 export const fteAnalysisSchema: Schema = {
   type: Type.OBJECT,
@@ -90,8 +158,15 @@ export const fteAnalysisSchema: Schema = {
     talkingPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
     questionsToAsk: { type: Type.ARRAY, items: { type: Type.STRING } },
     salaryAssessment: { type: Type.STRING },
+    // Enhanced recommendation fields
+    recommendation: recommendationSchema,
+    careerAlignment: careerAlignmentSchema,
+    compensationFit: compensationFitSchema,
+    dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
+    skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
+    workStyleMatch: workStyleMatchSchema,
   },
-  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills'],
+  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
 };
 
 // Freelance Analysis schema
@@ -119,8 +194,15 @@ export const freelanceAnalysisSchema: Schema = {
         rationale: { type: Type.STRING },
       },
     },
+    // Enhanced recommendation fields
+    recommendation: recommendationSchema,
+    careerAlignment: careerAlignmentSchema,
+    compensationFit: compensationFitSchema,
+    dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
+    skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
+    workStyleMatch: workStyleMatchSchema,
   },
-  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid'],
+  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
 };
 
 // Contract Analysis schema
@@ -142,8 +224,15 @@ export const contractAnalysisSchema: Schema = {
     questionsToAsk: { type: Type.ARRAY, items: { type: Type.STRING } },
     rateAssessment: { type: Type.STRING },
     conversionPotential: { type: Type.STRING, description: 'Likelihood of contract-to-hire' },
+    // Enhanced recommendation fields
+    recommendation: recommendationSchema,
+    careerAlignment: careerAlignmentSchema,
+    compensationFit: compensationFitSchema,
+    dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
+    skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
+    workStyleMatch: workStyleMatchSchema,
   },
-  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills'],
+  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
 };
 
 // Experience/STAR schema
@@ -423,6 +512,52 @@ export const coverLetterSchema: Schema = {
     },
   },
   required: ['content', 'keyPoints', 'wordCount'],
+};
+
+// Application Question Answer schema
+export const applicationQuestionAnswerSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    generatedAnswer: {
+      type: Type.STRING,
+      description: 'The main answer to the application question',
+    },
+    keyPoints: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '3-4 key points that make this answer strong',
+    },
+    sources: {
+      type: Type.OBJECT,
+      properties: {
+        profileSections: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: 'Profile sections used (e.g., recentRoles, keyAchievements, technicalSkills)',
+        },
+        storyIds: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: 'IDs of stories referenced',
+        },
+        synthesized: {
+          type: Type.BOOLEAN,
+          description: 'Whether answer was synthesized from multiple sources',
+        },
+      },
+    },
+    alternativeAnswers: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '1-2 shorter alternative versions of the answer',
+    },
+    improvements: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Suggestions for how to improve the answer further',
+    },
+  },
+  required: ['generatedAnswer', 'keyPoints'],
 };
 
 // Phone Screen Prep schema
