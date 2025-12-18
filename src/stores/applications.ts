@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { JobApplication, ApplicationStatus, JDAnalysis, CompanyResearch } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
+import { useProfileStore } from './profile';
+import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
 interface ApplicationsState {
   applications: JobApplication[];
@@ -36,6 +38,10 @@ interface ApplicationsState {
     byStatus: Record<ApplicationStatus, number>;
     responseRate: number;
   };
+
+  // Profile-scoped getters
+  getApplicationsForProfile: (profileId: string | null) => JobApplication[];
+  getApplicationsForActiveProfile: () => JobApplication[];
 }
 
 export const useApplicationStore = create<ApplicationsState>()(
@@ -47,6 +53,10 @@ export const useApplicationStore = create<ApplicationsState>()(
 
       addApplication: (partial) => {
         const now = new Date().toISOString();
+        // Get current active profile ID to link the application
+        const activeProfile = useProfileStore.getState().getActiveProfile();
+        const activeProfileId = activeProfile?.metadata.id;
+
         const newApp: JobApplication = {
           id: generateId(),
           type: partial.type || 'fulltime',
@@ -62,6 +72,7 @@ export const useApplicationStore = create<ApplicationsState>()(
           companyResearch: partial.companyResearch,
           platform: partial.platform,
           proposalSent: partial.proposalSent,
+          profileId: partial.profileId || activeProfileId, // Link to active profile
           createdAt: now,
           updatedAt: now,
         };
@@ -199,14 +210,52 @@ export const useApplicationStore = create<ApplicationsState>()(
 
         return { total, byStatus, responseRate };
       },
+
+      // Get applications for a specific profile
+      getApplicationsForProfile: (profileId) => {
+        const apps = get().applications;
+        if (!profileId) return apps; // Return all if no profile specified
+        return apps.filter((app) => app.profileId === profileId || !app.profileId);
+      },
+
+      // Get applications for the currently active profile
+      getApplicationsForActiveProfile: () => {
+        const apps = get().applications;
+        const activeProfile = useProfileStore.getState().getActiveProfile();
+        if (!activeProfile) return apps;
+        // Return apps that match the profile OR have no profile (legacy apps)
+        return apps.filter(
+          (app) => app.profileId === activeProfile.metadata.id || !app.profileId
+        );
+      },
     }),
     {
       name: STORAGE_KEYS.APPLICATIONS,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => createSyncedStorage()),
       partialize: (state) => ({ applications: state.applications }),
     }
   )
 );
+
+// Set up cross-tab sync for applications store
+let applicationsSyncUnsubscribe: (() => void) | null = null;
+
+export function initApplicationsSync(): void {
+  if (applicationsSyncUnsubscribe) return;
+
+  applicationsSyncUnsubscribe = setupStoreSync<ApplicationsState>(
+    STORAGE_KEYS.APPLICATIONS,
+    (updates) => useApplicationStore.setState(updates),
+    () => ['applications']
+  );
+}
+
+export function destroyApplicationsSync(): void {
+  if (applicationsSyncUnsubscribe) {
+    applicationsSyncUnsubscribe();
+    applicationsSyncUnsubscribe = null;
+  }
+}
 
 // Migration helper for legacy data
 export function migrateLegacyApplications(): void {

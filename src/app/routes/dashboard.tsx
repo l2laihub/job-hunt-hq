@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useApplicationStore, useUIStore, toast } from '@/src/stores';
+import React, { useState, useMemo } from 'react';
+import { useApplicationStore, useUIStore, useActiveProfileId, toast } from '@/src/stores';
 import { cn } from '@/src/lib/utils';
 import { APPLICATION_STATUSES } from '@/src/lib/constants';
 import type { ApplicationStatus, JobApplication } from '@/src/types';
@@ -31,7 +31,13 @@ const statusIcons: Record<ApplicationStatus, React.ReactNode> = {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const applications = useApplicationStore((s) => s.applications);
+  const activeProfileId = useActiveProfileId();
+  const allApplications = useApplicationStore((s) => s.applications);
+  // Filter applications by active profile
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
   const moveApplication = useApplicationStore((s) => s.moveApplication);
   const deleteApplication = useApplicationStore((s) => s.deleteApplication);
   const openModal = useUIStore((s) => s.openModal);

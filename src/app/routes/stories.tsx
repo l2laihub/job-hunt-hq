@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useStoriesStore, toast } from '@/src/stores';
+import React, { useState, useMemo } from 'react';
+import { useStoriesStore, useActiveProfileId, toast } from '@/src/stores';
 import { formatExperienceToSTAR } from '@/src/services/gemini';
-import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Dialog } from '@/src/components/ui';
+import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Dialog, Abbr } from '@/src/components/ui';
 import { StoriesEmptyState } from '@/src/components/shared';
 import { cn } from '@/src/lib/utils';
 import type { Experience, STAR } from '@/src/types';
@@ -21,7 +21,16 @@ import {
 } from 'lucide-react';
 
 export const StoriesPage: React.FC = () => {
-  const stories = useStoriesStore((s) => s.stories);
+  const activeProfileId = useActiveProfileId();
+  const allStories = useStoriesStore((s) => s.stories);
+  const getStoriesByProfile = useStoriesStore((s) => s.getStoriesByProfile);
+
+  // Filter stories by active profile - include stories with no profileId (legacy) or matching profileId
+  const stories = useMemo(() => {
+    if (!activeProfileId) return allStories;
+    return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
+  }, [allStories, activeProfileId]);
+
   const addStory = useStoriesStore((s) => s.addStory);
   const updateStory = useStoriesStore((s) => s.updateStory);
   const deleteStory = useStoriesStore((s) => s.deleteStory);
@@ -65,7 +74,7 @@ export const StoriesPage: React.FC = () => {
       updateStory(editingStory.id, story);
       toast.success('Story updated', 'Your changes have been saved');
     } else {
-      addStory(story);
+      addStory(story, activeProfileId || undefined);
       toast.success('Story added', 'New story saved to your collection');
     }
     setShowAddModal(false);
@@ -83,7 +92,7 @@ export const StoriesPage: React.FC = () => {
               My Stories
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              Build your interview story library with AI-formatted STAR responses
+              Build your interview story library with AI-formatted <Abbr variant="subtle">STAR</Abbr> responses
             </p>
           </div>
           <Button
@@ -448,7 +457,7 @@ const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose, onSave, initia
           <>
             <div>
               <label className="text-sm text-gray-400 mb-2 block">
-                Describe your experience (the AI will format it into STAR format)
+                Describe your experience (the AI will format it into <Abbr variant="subtle">STAR</Abbr> format)
               </label>
               <Textarea
                 value={rawInput}

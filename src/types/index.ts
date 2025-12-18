@@ -55,11 +55,72 @@ export interface UserProfile {
   };
 }
 
+// Application Recommendation Types
+export type RecommendationVerdict =
+  | 'strong-apply'      // Fit score ≥8, no deal breakers, aligned with goals
+  | 'apply'             // Fit score 6-7, minor gaps, worth pursuing
+  | 'consider'          // Fit score 5-6, moderate gaps, weigh options
+  | 'upskill-first'     // Low fit but aligns with goals, needs development
+  | 'pass';             // Deal breakers present or severe misalignment
+
+export type GapSeverity = 'minor' | 'moderate' | 'critical';
+
+export interface SkillGapDetail {
+  skill: string;
+  severity: GapSeverity;
+  importance: string;  // Why this skill matters for the role
+  timeToAcquire?: string;  // Estimated time to learn
+  suggestion?: string;  // How to acquire this skill
+}
+
+export interface DealBreakerMatch {
+  userDealBreaker: string;  // From user's profile
+  jobRequirement: string;   // What the JD requires
+  severity: 'hard' | 'soft';  // Hard = absolute no, Soft = negotiable
+}
+
+export interface CareerAlignment {
+  alignmentScore: number;  // 0-10
+  alignsWithGoals: string[];  // Which of user's goals this role supports
+  misalignedAreas: string[];  // Areas where role doesn't fit goals
+  growthPotential: 'high' | 'medium' | 'low';
+  trajectoryImpact: string;  // How this affects career trajectory
+}
+
+export interface CompensationFit {
+  salaryInRange: boolean;
+  assessment: string;  // "Below your minimum", "Within range", "Above expectations"
+  marketComparison?: string;  // How it compares to market
+  negotiationLeverage?: string;  // Your leverage for negotiation
+}
+
+export interface ApplicationRecommendation {
+  verdict: RecommendationVerdict;
+  confidence: number;  // 0-100
+  summary: string;  // 1-2 sentence recommendation
+  primaryReasons: string[];  // Top 3 reasons for the verdict
+  actionItems: string[];  // What to do next based on verdict
+}
+
 // Base JD Analysis
 export interface BaseJDAnalysis {
   fitScore: number;
   reasoning: string;
   analyzedAt: string;
+
+  // NEW: Enhanced recommendation fields
+  recommendation: ApplicationRecommendation;
+  careerAlignment: CareerAlignment;
+  compensationFit?: CompensationFit;
+  dealBreakerMatches: DealBreakerMatch[];
+  skillGapsDetailed: SkillGapDetail[];
+
+  // NEW: Work style compatibility
+  workStyleMatch: {
+    compatible: boolean;
+    jobWorkStyle: 'remote' | 'hybrid' | 'onsite' | 'unknown';
+    notes?: string;
+  };
 }
 
 // Full-time Employee Analysis
@@ -214,6 +275,8 @@ export interface Experience {
   timesUsed: number;
   createdAt: string;
   updatedAt: string;
+  // Profile linking for multi-profile support
+  profileId?: string;
 }
 
 export interface QuestionMatch {
@@ -285,6 +348,8 @@ export interface TechnicalAnswer {
   lastPracticedAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Profile linking for multi-profile support
+  profileId?: string;
 }
 
 export interface PracticeSession {
@@ -317,6 +382,8 @@ export interface JobApplication {
   updatedAt: string;
   platform?: 'upwork' | 'direct' | 'other';
   proposalSent?: string;
+  // Profile linking for multi-profile support
+  profileId?: string;
 }
 
 // Interview Types
@@ -441,6 +508,8 @@ export interface AnalyzedJob {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  // Profile linking for multi-profile support
+  profileId?: string;
 }
 
 // Resume Enhancement Types
@@ -610,6 +679,34 @@ export interface SkillsRoadmap {
   generatedAt: string;
 }
 
+// Profile Metadata for multi-profile support
+export interface ProfileMetadata {
+  id: string;
+  name: string; // Display name like "Frontend Focus", "Freelance Profile"
+  description?: string;
+  color?: string; // For visual distinction
+  createdAt: string;
+  updatedAt: string;
+  isDefault: boolean;
+}
+
+// User Profile with metadata for multi-profile support
+export interface UserProfileWithMeta extends UserProfile {
+  metadata: ProfileMetadata;
+}
+
+// Helper to create default profile metadata
+export function createProfileMetadata(name: string, isDefault = false): ProfileMetadata {
+  const now = new Date().toISOString();
+  return {
+    id: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name,
+    createdAt: now,
+    updatedAt: now,
+    isDefault,
+  };
+}
+
 // Default Profile
 export const DEFAULT_PROFILE: UserProfile = {
   name: 'Senior Engineer',
@@ -638,3 +735,23 @@ export const DEFAULT_PROFILE: UserProfile = {
     uniqueSellingPoints: [],
   },
 };
+
+// Create a new profile with metadata
+export function createDefaultProfileWithMeta(name: string, isDefault = false): UserProfileWithMeta {
+  return {
+    ...DEFAULT_PROFILE,
+    metadata: createProfileMetadata(name, isDefault),
+  };
+}
+
+// Profile colors for visual distinction
+export const PROFILE_COLORS = [
+  '#3B82F6', // blue
+  '#8B5CF6', // purple
+  '#10B981', // green
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+] as const;

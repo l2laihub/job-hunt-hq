@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
-import { useApplicationStore, useProfileStore, useStoriesStore, useTechnicalAnswersStore, useAnalyzedJobsStore, toast } from '@/src/stores';
+import { useApplicationStore, useProfileStore, useStoriesStore, useTechnicalAnswersStore, useAnalyzedJobsStore, useCurrentProfile, toast } from '@/src/stores';
 import { downloadJSON, safeJSONParse } from '@/src/lib/utils';
-import type { JobApplication, UserProfile, Experience, TechnicalAnswer, PracticeSession, AnalyzedJob } from '@/src/types';
+import type { JobApplication, UserProfile, UserProfileWithMeta, Experience, TechnicalAnswer, PracticeSession, AnalyzedJob } from '@/src/types';
 import { z } from 'zod';
 
 // Schema for validating imported data
@@ -10,6 +10,8 @@ const importSchema = z.object({
   exportedAt: z.string().optional(),
   applications: z.array(z.any()).optional(),
   profile: z.any().optional(),
+  profiles: z.array(z.any()).optional(), // Multi-profile support
+  activeProfileId: z.string().optional(), // Multi-profile support
   stories: z.array(z.any()).optional(),
   technicalAnswers: z.array(z.any()).optional(),
   practiceSessions: z.array(z.any()).optional(),
@@ -20,7 +22,9 @@ interface ExportData {
   version: string;
   exportedAt: string;
   applications: JobApplication[];
-  profile: UserProfile;
+  profile?: UserProfile; // Legacy single profile (for backward compatibility)
+  profiles: UserProfileWithMeta[]; // Multi-profile export
+  activeProfileId: string | null;
   stories: Experience[];
   technicalAnswers: TechnicalAnswer[];
   practiceSessions: PracticeSession[];
@@ -42,7 +46,9 @@ interface ImportResult {
 
 export function useDataExport() {
   const applications = useApplicationStore((s) => s.applications);
-  const profile = useProfileStore((s) => s.profile);
+  const profiles = useProfileStore((s) => s.profiles);
+  const activeProfileId = useProfileStore((s) => s.activeProfileId);
+  const profile = useCurrentProfile(); // Legacy support - uses stable selector
   const stories = useStoriesStore((s) => s.stories);
   const technicalAnswers = useTechnicalAnswersStore((s) => s.answers);
   const practiceSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
@@ -50,6 +56,7 @@ export function useDataExport() {
 
   const importApplications = useApplicationStore((s) => s.importApplications);
   const importProfile = useProfileStore((s) => s.importProfile);
+  const importProfiles = useProfileStore((s) => s.importProfiles);
   const importStories = useStoriesStore((s) => s.importStories);
   const importAnswers = useTechnicalAnswersStore((s) => s.importAnswers);
   const importPracticeSessions = useTechnicalAnswersStore((s) => s.importPracticeSessions);
@@ -63,10 +70,12 @@ export function useDataExport() {
    */
   const exportData = useCallback(() => {
     const data: ExportData = {
-      version: '2.0',
+      version: '3.0', // Bumped version for multi-profile support
       exportedAt: new Date().toISOString(),
       applications,
-      profile,
+      profiles, // Multi-profile export
+      activeProfileId,
+      profile, // Legacy support for older imports
       stories,
       technicalAnswers,
       practiceSessions,
@@ -83,10 +92,10 @@ export function useDataExport() {
     if (technicalAnswers.length > 0) parts.push(`${technicalAnswers.length} answers`);
     if (practiceSessions.length > 0) parts.push(`${practiceSessions.length} practices`);
     if (analyzedJobs.length > 0) parts.push(`${analyzedJobs.length} analyzed jobs`);
-    parts.push('profile');
+    if (profiles.length > 0) parts.push(`${profiles.length} profiles`);
 
     toast.success('Data exported', `Exported: ${parts.join(', ')}`);
-  }, [applications, profile, stories, technicalAnswers, practiceSessions, analyzedJobs]);
+  }, [applications, profiles, activeProfileId, profile, stories, technicalAnswers, practiceSessions, analyzedJobs]);
 
   /**
    * Export only applications
@@ -177,8 +186,24 @@ export function useDataExport() {
           }
         }
 
-        // Import profile
-        if (data.profile && typeof data.profile === 'object' && 'name' in data.profile) {
+        // Import profiles (multi-profile support)
+        if (data.profiles && Array.isArray(data.profiles) && data.profiles.length > 0) {
+          const validProfiles = data.profiles.filter(
+            (p: unknown) =>
+              p &&
+              typeof p === 'object' &&
+              'metadata' in p &&
+              'name' in p
+          ) as UserProfileWithMeta[];
+
+          if (validProfiles.length > 0) {
+            importProfiles(validProfiles);
+            result.imported.profile = true;
+            console.log(`[Import] Imported ${validProfiles.length} profiles`);
+          }
+        }
+        // Legacy single profile import (backward compatibility)
+        else if (data.profile && typeof data.profile === 'object' && 'name' in data.profile) {
           importProfile(data.profile as UserProfile);
           result.imported.profile = true;
         }
@@ -280,7 +305,7 @@ export function useDataExport() {
         return result;
       }
     },
-    [importApplications, importStories, importProfile, importAnswers, importPracticeSessions, importAnalyzedJobs]
+    [importApplications, importStories, importProfile, importProfiles, importAnswers, importPracticeSessions, importAnalyzedJobs]
   );
 
   /**
@@ -293,9 +318,10 @@ export function useDataExport() {
       technicalAnswers: technicalAnswers.length,
       practiceSessions: practiceSessions.length,
       analyzedJobs: analyzedJobs.length,
-      hasProfile: profile.name !== 'Senior Engineer', // Check if profile has been customized
+      profiles: profiles.length,
+      hasProfile: profiles.length > 0 && profile.name !== 'Senior Engineer', // Check if profile has been customized
     };
-  }, [applications.length, stories.length, technicalAnswers.length, practiceSessions.length, analyzedJobs.length, profile.name]);
+  }, [applications.length, stories.length, technicalAnswers.length, practiceSessions.length, analyzedJobs.length, profiles.length, profile.name]);
 
   /**
    * Trigger file picker for import

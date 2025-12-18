@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useApplicationStore, useStoriesStore, useProfileStore, toast } from '@/src/stores';
-import { Button, Card, CardHeader, CardContent, Select, Badge } from '@/src/components/ui';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useApplicationStore, useStoriesStore, useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
+import { Button, Card, CardHeader, CardContent, Select, Badge, Abbr } from '@/src/components/ui';
 import { InterviewEmptyState } from '@/src/components/shared';
 import { cn } from '@/src/lib/utils';
 import type { InterviewConfig, InterviewFeedback, TranscriptItem, JobApplication } from '@/src/types';
@@ -42,9 +42,20 @@ const durations = [
 ];
 
 export const InterviewPage: React.FC = () => {
-  const applications = useApplicationStore((s) => s.applications);
-  const stories = useStoriesStore((s) => s.stories);
-  const profile = useProfileStore((s) => s.profile);
+  const activeProfileId = useActiveProfileId();
+  const allApplications = useApplicationStore((s) => s.applications);
+  // Filter applications by active profile
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
+  const allStories = useStoriesStore((s) => s.stories);
+  // Filter stories by active profile
+  const stories = useMemo(() => {
+    if (!activeProfileId) return allStories;
+    return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
+  }, [allStories, activeProfileId]);
+  const profile = useCurrentProfile();
 
   const [phase, setPhase] = useState<'setup' | 'active' | 'feedback'>('setup');
   const [config, setConfig] = useState<InterviewConfig>({
@@ -250,7 +261,7 @@ export const InterviewPage: React.FC = () => {
                     <ul className="text-sm text-gray-400 space-y-1 list-disc list-inside">
                       <li>Find a quiet space with good lighting</li>
                       <li>Have your resume and notes ready</li>
-                      <li>Use the STAR format for behavioral questions</li>
+                      <li>Use the <Abbr variant="subtle">STAR</Abbr> format for behavioral questions</li>
                       <li>Think out loud during technical questions</li>
                     </ul>
                   </div>

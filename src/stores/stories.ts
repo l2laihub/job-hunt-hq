@@ -3,13 +3,14 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Experience, STAR } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
+import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
 interface StoriesState {
   stories: Experience[];
   isLoading: boolean;
 
   // Actions
-  addStory: (story: Partial<Experience>) => Experience;
+  addStory: (story: Partial<Experience>, profileId?: string) => Experience;
   updateStory: (id: string, updates: Partial<Experience>) => void;
   deleteStory: (id: string) => void;
 
@@ -20,6 +21,9 @@ interface StoriesState {
   // Search & Filter
   getStoriesByTags: (tags: string[]) => Experience[];
   searchStories: (query: string) => Experience[];
+
+  // Profile-filtered queries
+  getStoriesByProfile: (profileId: string) => Experience[];
 
   // Import/Export
   importStories: (stories: Experience[]) => void;
@@ -32,7 +36,7 @@ export const useStoriesStore = create<StoriesState>()(
       stories: [],
       isLoading: false,
 
-      addStory: (partial) => {
+      addStory: (partial, profileId) => {
         const now = new Date().toISOString();
         const newStory: Experience = {
           id: generateId(),
@@ -58,6 +62,7 @@ export const useStoriesStore = create<StoriesState>()(
           timesUsed: 0,
           createdAt: now,
           updatedAt: now,
+          profileId: profileId || partial.profileId,
         };
 
         set((state) => ({
@@ -133,6 +138,10 @@ export const useStoriesStore = create<StoriesState>()(
         );
       },
 
+      getStoriesByProfile: (profileId) => {
+        return get().stories.filter((story) => story.profileId === profileId);
+      },
+
       importStories: (stories) => {
         set((state) => {
           const existingIds = new Set(state.stories.map((s) => s.id));
@@ -149,11 +158,31 @@ export const useStoriesStore = create<StoriesState>()(
     }),
     {
       name: STORAGE_KEYS.STORIES,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => createSyncedStorage()),
       partialize: (state) => ({ stories: state.stories }),
     }
   )
 );
+
+// Set up cross-tab sync for stories store
+let storiesSyncUnsubscribe: (() => void) | null = null;
+
+export function initStoriesSync(): void {
+  if (storiesSyncUnsubscribe) return;
+
+  storiesSyncUnsubscribe = setupStoreSync<StoriesState>(
+    STORAGE_KEYS.STORIES,
+    (updates) => useStoriesStore.setState(updates),
+    () => ['stories']
+  );
+}
+
+export function destroyStoriesSync(): void {
+  if (storiesSyncUnsubscribe) {
+    storiesSyncUnsubscribe();
+    storiesSyncUnsubscribe = null;
+  }
+}
 
 // Migration helper for legacy data
 export function migrateLegacyStories(): void {

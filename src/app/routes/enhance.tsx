@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import {
   useProfileStore,
+  useCurrentProfile,
+  useActiveProfileId,
   useAnalyzedJobsStore,
   useEnhancementsStore,
   toast,
 } from '@/src/stores';
 import { enhanceResume } from '@/src/services/gemini';
 import { downloadResumePDF, previewResumeHTML } from '@/src/lib/resume-pdf';
-import { Button, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
+import { Button, Card, CardHeader, CardContent, Badge, Abbr, EditableText, EditableList } from '@/src/components/ui';
 import { cn, formatDate } from '@/src/lib/utils';
 import { ENHANCEMENT_MODES, SUGGESTION_TYPES, IMPACT_LEVELS } from '@/src/lib/constants';
 import type {
@@ -50,6 +52,55 @@ import {
 type DownloadFormat = 'markdown' | 'text' | 'json' | 'pdf';
 type PDFTemplate = 'professional' | 'modern' | 'minimal';
 
+/**
+ * Parse a duration string and extract the end date for sorting
+ */
+function parseDurationEndDate(duration: string): Date {
+  const now = new Date();
+  const normalizedDuration = duration.toLowerCase();
+
+  if (normalizedDuration.includes('present') || normalizedDuration.includes('current')) {
+    return now;
+  }
+
+  const parts = duration.split(/\s*[-–]\s*/);
+  const endPart = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+
+  const months: Record<string, number> = {
+    january: 0, jan: 0, february: 1, feb: 1, march: 2, mar: 2,
+    april: 3, apr: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+    august: 7, aug: 7, september: 8, sep: 8, sept: 8,
+    october: 9, oct: 9, november: 10, nov: 10, december: 11, dec: 11,
+  };
+
+  const monthYearMatch = endPart.match(/([a-zA-Z]+)\s+(\d{4})/);
+  if (monthYearMatch) {
+    const month = months[monthYearMatch[1].toLowerCase()];
+    const year = parseInt(monthYearMatch[2], 10);
+    if (month !== undefined && !isNaN(year)) {
+      return new Date(year, month, 1);
+    }
+  }
+
+  const yearMatch = endPart.match(/(\d{4})/);
+  if (yearMatch) {
+    return new Date(parseInt(yearMatch[1], 10), 11, 31);
+  }
+
+  return new Date(1970, 0, 1);
+}
+
+/**
+ * Sort roles by end date (most recent first)
+ */
+function sortRolesByDate<T extends { duration: string }>(roles: T[]): T[] {
+  return [...roles].sort((a, b) => {
+    const dateA = parseDurationEndDate(a.duration);
+    const dateB = parseDurationEndDate(b.duration);
+    return dateB.getTime() - dateA.getTime();
+  });
+}
+
 // Generate resume content in different formats
 const generateResumeContent = (
   enhanced: EnhancedProfile,
@@ -59,6 +110,9 @@ const generateResumeContent = (
   jobInfo?: { company?: string; role?: string }
 ): string => {
   const timestamp = new Date().toLocaleDateString();
+
+  // Sort roles by date (most recent first) for all formats
+  const sortedRoles = sortRolesByDate(enhanced.recentRoles);
 
   if (format === 'json') {
     return JSON.stringify(
@@ -71,7 +125,7 @@ const generateResumeContent = (
           summary: enhanced.summary,
           technicalSkills: enhanced.technicalSkills,
           softSkills: enhanced.softSkills,
-          experience: enhanced.recentRoles.map((role) => ({
+          experience: sortedRoles.map((role) => ({
             company: role.company,
             title: role.title,
             duration: role.duration,
@@ -119,7 +173,7 @@ const generateResumeContent = (
     }
 
     content += `## Experience\n\n`;
-    enhanced.recentRoles.forEach((role) => {
+    sortedRoles.forEach((role) => {
       content += `### ${role.title}\n`;
       content += `**${role.company}** | ${role.duration}\n\n`;
       role.enhancedHighlights.forEach((h) => {
@@ -170,7 +224,7 @@ const generateResumeContent = (
   }
 
   content += `EXPERIENCE\n${'-'.repeat(10)}\n\n`;
-  enhanced.recentRoles.forEach((role) => {
+  sortedRoles.forEach((role) => {
     content += `${role.title}\n`;
     content += `${role.company} | ${role.duration}\n`;
     role.enhancedHighlights.forEach((h) => {
@@ -226,6 +280,19 @@ const ScoreDisplay: React.FC<{ score: number; label: string; size?: 'sm' | 'lg' 
     return 'bg-red-900/30';
   };
 
+  // Render label with Abbr for known abbreviations
+  const renderLabel = () => {
+    if (label.includes('ATS')) {
+      const parts = label.split('ATS');
+      return (
+        <>
+          {parts[0]}<Abbr variant="subtle">ATS</Abbr>{parts[1]}
+        </>
+      );
+    }
+    return label;
+  };
+
   return (
     <div className={cn('flex flex-col items-center', size === 'lg' ? 'gap-2' : 'gap-1')}>
       <div
@@ -238,7 +305,7 @@ const ScoreDisplay: React.FC<{ score: number; label: string; size?: 'sm' | 'lg' 
       >
         {score}
       </div>
-      <span className={cn('text-gray-400', size === 'lg' ? 'text-sm' : 'text-xs')}>{label}</span>
+      <span className={cn('text-gray-400', size === 'lg' ? 'text-sm' : 'text-xs')}>{renderLabel()}</span>
     </div>
   );
 };
@@ -475,19 +542,77 @@ const AnalysisOverview: React.FC<{ analysis: ResumeAnalysis }> = ({ analysis }) 
   );
 };
 
-// Enhanced preview component
-const EnhancedPreview: React.FC<{ enhanced: EnhancedProfile; original: any }> = ({
+// Enhanced preview component with inline editing
+interface EnhancedPreviewProps {
+  enhanced: EnhancedProfile;
+  original: any;
+  onUpdate: (updates: Partial<EnhancedProfile>) => void;
+}
+
+const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
   enhanced,
   original,
+  onUpdate,
 }) => {
   const [activeTab, setActiveTab] = useState<'headline' | 'experience' | 'skills'>('headline');
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Sort roles for display
+  const sortedRoles = sortRolesByDate(enhanced.recentRoles);
+
+  const handleHeadlineChange = (headline: string) => {
+    onUpdate({ headline });
+  };
+
+  const handleSummaryChange = (summary: string) => {
+    onUpdate({ summary: summary || undefined });
+  };
+
+  const handleRoleBulletsChange = (roleIndex: number, bullets: string[]) => {
+    const updatedRoles = [...enhanced.recentRoles];
+    // Find the role by original index since we're displaying sorted
+    const sortedRole = sortedRoles[roleIndex];
+    const actualIndex = enhanced.recentRoles.findIndex(
+      (r) => r.company === sortedRole.company && r.title === sortedRole.title
+    );
+    if (actualIndex >= 0) {
+      updatedRoles[actualIndex] = {
+        ...updatedRoles[actualIndex],
+        enhancedHighlights: bullets,
+      };
+      onUpdate({ recentRoles: updatedRoles });
+    }
+  };
+
+  const handleTechnicalSkillsChange = (skills: string[]) => {
+    onUpdate({ technicalSkills: skills });
+  };
+
+  const handleSoftSkillsChange = (skills: string[]) => {
+    onUpdate({ softSkills: skills });
+  };
+
+  const handleAchievementChange = (index: number, description: string) => {
+    if (!enhanced.keyAchievements) return;
+    const updatedAchievements = [...enhanced.keyAchievements];
+    updatedAchievements[index] = {
+      ...updatedAchievements[index],
+      description,
+    };
+    onUpdate({ keyAchievements: updatedAchievements });
+  };
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Eye className="w-5 h-5 text-purple-400" />
-          <h3 className="font-semibold">Enhanced Preview</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Eye className="w-5 h-5 text-purple-400" />
+            <h3 className="font-semibold">Enhanced Preview</h3>
+            <Badge className="bg-blue-900/30 text-blue-400 text-xs">
+              Click any text to edit
+            </Badge>
+          </div>
         </div>
         <div className="flex gap-2 mt-2">
           {(['headline', 'experience', 'skills'] as const).map((tab) => (
@@ -511,26 +636,46 @@ const EnhancedPreview: React.FC<{ enhanced: EnhancedProfile; original: any }> = 
               <p className="text-gray-400">{original.headline}</p>
             </div>
             <div className="bg-green-900/20 border border-green-800/30 rounded-lg p-4">
-              <div className="text-xs text-green-400 mb-1">Enhanced</div>
-              <p className="text-gray-200">{enhanced.headline}</p>
-            </div>
-            {enhanced.summary && (
-              <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-4">
-                <div className="text-xs text-blue-400 mb-1">Generated Summary</div>
-                <p className="text-sm text-gray-300">{enhanced.summary}</p>
+              <div className="text-xs text-green-400 mb-1 flex items-center gap-2">
+                Enhanced
+                <span className="text-gray-500 text-[10px]">(click to edit)</span>
               </div>
-            )}
+              <EditableText
+                value={enhanced.headline}
+                onChange={handleHeadlineChange}
+                className="text-gray-200 font-medium"
+                placeholder="Enter headline..."
+              />
+            </div>
+            <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-4">
+              <div className="text-xs text-blue-400 mb-1 flex items-center gap-2">
+                Generated Summary
+                <span className="text-gray-500 text-[10px]">(click to edit)</span>
+              </div>
+              <EditableText
+                value={enhanced.summary || ''}
+                onChange={handleSummaryChange}
+                className="text-sm text-gray-300"
+                placeholder="Add a professional summary..."
+                multiline
+                rows={4}
+              />
+            </div>
           </div>
         )}
 
         {activeTab === 'experience' && (
           <div className="space-y-4">
-            {enhanced.recentRoles.map((role, i) => (
-              <div key={i} className="bg-gray-800/50 rounded-lg p-4">
+            <div className="text-xs text-gray-500 mb-2">
+              Click any bullet point to edit. Changes will be reflected in downloads.
+            </div>
+            {sortedRoles.map((role, i) => (
+              <div key={`${role.company}-${role.title}`} className="bg-gray-800/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <div className="font-medium text-gray-200">{role.title}</div>
                     <div className="text-sm text-gray-400">{role.company}</div>
+                    <div className="text-xs text-gray-500">{role.duration}</div>
                   </div>
                   {role.relevanceScore && (
                     <ScoreDisplay score={role.relevanceScore} label="Relevance" />
@@ -538,14 +683,14 @@ const EnhancedPreview: React.FC<{ enhanced: EnhancedProfile; original: any }> = 
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs text-gray-500">Enhanced Bullets:</div>
-                  <ul className="space-y-1">
-                    {role.enhancedHighlights.map((h, j) => (
-                      <li key={j} className="text-sm text-gray-300 flex items-start gap-2">
-                        <span className="text-green-400 mt-1">*</span>
-                        {h}
-                      </li>
-                    ))}
-                  </ul>
+                  <EditableList
+                    items={role.enhancedHighlights}
+                    onChange={(bullets) => handleRoleBulletsChange(i, bullets)}
+                    bulletStyle="disc"
+                    itemClassName="text-sm text-gray-300"
+                    addLabel="+ Add bullet point"
+                    placeholder="Enter achievement or responsibility..."
+                  />
                 </div>
               </div>
             ))}
@@ -554,41 +699,116 @@ const EnhancedPreview: React.FC<{ enhanced: EnhancedProfile; original: any }> = 
 
         {activeTab === 'skills' && (
           <div className="space-y-4">
+            <div className="text-xs text-gray-500 mb-2">
+              Click skills to edit. Green badges indicate new skills added by AI.
+            </div>
             <div>
               <div className="text-sm font-medium text-gray-300 mb-2">Technical Skills</div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-2">
                 {enhanced.technicalSkills.map((skill, i) => (
                   <Badge
                     key={i}
                     className={cn(
-                      'text-xs',
+                      'text-xs cursor-pointer hover:opacity-80 transition-opacity',
                       original.technicalSkills.includes(skill)
                         ? 'bg-gray-700 text-gray-300'
                         : 'bg-green-900/30 text-green-400'
                     )}
+                    onClick={() => {
+                      const newSkills = enhanced.technicalSkills.filter((_, idx) => idx !== i);
+                      handleTechnicalSkillsChange(newSkills);
+                    }}
+                    title="Click to remove"
                   >
                     {skill}
                     {!original.technicalSkills.includes(skill) && ' (new)'}
+                    <X className="w-3 h-3 ml-1 inline" />
                   </Badge>
                 ))}
               </div>
+              <AddSkillInput
+                onAdd={(skill) => handleTechnicalSkillsChange([...enhanced.technicalSkills, skill])}
+                placeholder="Add technical skill..."
+              />
             </div>
-            {enhanced.softSkills.length > 0 && (
-              <div>
-                <div className="text-sm font-medium text-gray-300 mb-2">Soft Skills</div>
-                <div className="flex flex-wrap gap-2">
-                  {enhanced.softSkills.map((skill, i) => (
-                    <Badge key={i} className="bg-gray-700 text-gray-300 text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
+            <div>
+              <div className="text-sm font-medium text-gray-300 mb-2">Soft Skills</div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {enhanced.softSkills.map((skill, i) => (
+                  <Badge
+                    key={i}
+                    className="bg-gray-700 text-gray-300 text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => {
+                      const newSkills = enhanced.softSkills.filter((_, idx) => idx !== i);
+                      handleSoftSkillsChange(newSkills);
+                    }}
+                    title="Click to remove"
+                  >
+                    {skill}
+                    <X className="w-3 h-3 ml-1 inline" />
+                  </Badge>
+                ))}
               </div>
-            )}
+              <AddSkillInput
+                onAdd={(skill) => handleSoftSkillsChange([...enhanced.softSkills, skill])}
+                placeholder="Add soft skill..."
+              />
+            </div>
           </div>
         )}
       </CardContent>
     </Card>
+  );
+};
+
+// Helper component for adding skills
+const AddSkillInput: React.FC<{ onAdd: (skill: string) => void; placeholder: string }> = ({
+  onAdd,
+  placeholder,
+}) => {
+  const [value, setValue] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = () => {
+    if (value.trim()) {
+      onAdd(value.trim());
+      setValue('');
+      setIsAdding(false);
+    }
+  };
+
+  if (!isAdding) {
+    return (
+      <button
+        onClick={() => setIsAdding(true)}
+        className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+      >
+        + Add skill
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 items-center">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleAdd();
+          if (e.key === 'Escape') setIsAdding(false);
+        }}
+        placeholder={placeholder}
+        className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        autoFocus
+      />
+      <Button size="sm" onClick={handleAdd} className="px-2 py-1">
+        <Check className="w-3 h-3" />
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => setIsAdding(false)} className="px-2 py-1">
+        <X className="w-3 h-3" />
+      </Button>
+    </div>
   );
 };
 
@@ -637,7 +857,7 @@ const HistoryItem: React.FC<{
               Overall: <span className="text-green-400">{enhancement.analysis.overallScore}</span>
             </span>
             <span className="text-xs text-gray-500">
-              ATS: <span className="text-blue-400">{enhancement.analysis.atsScore}</span>
+              <Abbr variant="subtle">ATS</Abbr>: <span className="text-blue-400">{enhancement.analysis.atsScore}</span>
             </span>
           </div>
         </div>
@@ -659,9 +879,15 @@ const HistoryItem: React.FC<{
 
 // Main component
 export const EnhancePage: React.FC = () => {
-  const profile = useProfileStore((s) => s.profile);
+  const profile = useCurrentProfile();
+  const activeProfileId = useActiveProfileId();
   const updateProfile = useProfileStore((s) => s.updateProfile);
-  const analyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+  const allAnalyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+  // Filter analyzed jobs by active profile
+  const analyzedJobs = useMemo(() => {
+    if (!activeProfileId) return allAnalyzedJobs;
+    return allAnalyzedJobs.filter((j) => !j.profileId || j.profileId === activeProfileId);
+  }, [allAnalyzedJobs, activeProfileId]);
   const enhancements = useEnhancementsStore((s) => s.enhancements);
   const addEnhancement = useEnhancementsStore((s) => s.addEnhancement);
   const deleteEnhancement = useEnhancementsStore((s) => s.deleteEnhancement);
@@ -776,6 +1002,22 @@ export const EnhancePage: React.FC = () => {
       return {
         ...prev,
         suggestions: prev.suggestions.filter((s) => s.id !== suggestionId),
+      };
+    });
+  };
+
+  // Handler for inline editing of enhanced profile
+  const handleUpdateEnhancedProfile = (updates: Partial<EnhancedProfile>) => {
+    if (!enhancement) return;
+
+    setEnhancement((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        enhancedProfile: {
+          ...prev.enhancedProfile,
+          ...updates,
+        },
       };
     });
   };
@@ -1255,7 +1497,11 @@ export const EnhancePage: React.FC = () => {
             </Card>
 
             {/* Enhanced Preview */}
-            <EnhancedPreview enhanced={enhancement.enhancedProfile} original={profile} />
+            <EnhancedPreview
+              enhanced={enhancement.enhancedProfile}
+              original={profile}
+              onUpdate={handleUpdateEnhancedProfile}
+            />
           </>
         )}
       </div>

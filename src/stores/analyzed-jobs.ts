@@ -11,13 +11,14 @@ import type {
 } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
+import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
 interface AnalyzedJobsState {
   jobs: AnalyzedJob[];
   isLoading: boolean;
 
   // CRUD
-  addJob: (job: Partial<AnalyzedJob>) => AnalyzedJob;
+  addJob: (job: Partial<AnalyzedJob>, profileId?: string) => AnalyzedJob;
   updateJob: (id: string, updates: Partial<AnalyzedJob>) => void;
   deleteJob: (id: string) => void;
 
@@ -48,6 +49,9 @@ interface AnalyzedJobsState {
   searchJobs: (query: string) => AnalyzedJob[];
   getRecentJobs: (limit?: number) => AnalyzedJob[];
 
+  // Profile-filtered queries
+  getJobsByProfile: (profileId: string) => AnalyzedJob[];
+
   // Import/Export
   importJobs: (jobs: AnalyzedJob[]) => void;
   exportJobs: () => AnalyzedJob[];
@@ -59,7 +63,7 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
       jobs: [],
       isLoading: false,
 
-      addJob: (partial) => {
+      addJob: (partial, profileId) => {
         const now = new Date().toISOString();
         const newJob: AnalyzedJob = {
           id: generateId(),
@@ -82,6 +86,7 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
           tags: partial.tags || [],
           createdAt: now,
           updatedAt: now,
+          profileId: profileId || partial.profileId,
         };
 
         set((state) => ({
@@ -278,6 +283,10 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
           .slice(0, limit);
       },
 
+      getJobsByProfile: (profileId) => {
+        return get().jobs.filter((job) => job.profileId === profileId);
+      },
+
       importJobs: (jobs) => {
         set((state) => {
           const existingIds = new Set(state.jobs.map((j) => j.id));
@@ -294,8 +303,28 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
     }),
     {
       name: STORAGE_KEYS.ANALYZED_JOBS,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => createSyncedStorage()),
       partialize: (state) => ({ jobs: state.jobs }),
     }
   )
 );
+
+// Set up cross-tab sync for analyzed jobs store
+let analyzedJobsSyncUnsubscribe: (() => void) | null = null;
+
+export function initAnalyzedJobsSync(): void {
+  if (analyzedJobsSyncUnsubscribe) return;
+
+  analyzedJobsSyncUnsubscribe = setupStoreSync<AnalyzedJobsState>(
+    STORAGE_KEYS.ANALYZED_JOBS,
+    (updates) => useAnalyzedJobsStore.setState(updates),
+    () => ['jobs']
+  );
+}
+
+export function destroyAnalyzedJobsSync(): void {
+  if (analyzedJobsSyncUnsubscribe) {
+    analyzedJobsSyncUnsubscribe();
+    analyzedJobsSyncUnsubscribe = null;
+  }
+}

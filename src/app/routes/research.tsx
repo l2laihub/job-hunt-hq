@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useApplicationStore, useCompanyResearchStore, toast } from '@/src/stores';
+import { useApplicationStore, useCompanyResearchStore, useActiveProfileId, toast } from '@/src/stores';
 import { researchCompany } from '@/src/services/gemini';
 import { Button, Input, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
 import { ResearchEmptyState } from '@/src/components/shared';
@@ -28,7 +28,13 @@ import {
 
 export const ResearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const applications = useApplicationStore((s) => s.applications);
+  const activeProfileId = useActiveProfileId();
+  const allApplications = useApplicationStore((s) => s.applications);
+  // Filter applications by active profile
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
   const setAppResearch = useApplicationStore((s) => s.setResearch);
 
   // Company research store

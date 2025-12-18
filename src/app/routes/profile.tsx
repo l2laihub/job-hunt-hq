@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { useProfileStore, toast } from '@/src/stores';
+import React, { useState, useRef, useEffect } from 'react';
+import { useProfileStore, useActiveProfile, useCurrentProfile, toast } from '@/src/stores';
 import { processDocuments } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select } from '@/src/components/ui';
 import { ProfileEmptyState } from '@/src/components/shared';
+import { ProfileManagement } from '@/src/components/profile';
 import { cn } from '@/src/lib/utils';
 import type { UserProfile, Achievement, Role, Project } from '@/src/types';
 import {
@@ -21,6 +22,7 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  Users,
 } from 'lucide-react';
 
 const workStyleOptions = [
@@ -31,7 +33,8 @@ const workStyleOptions = [
 ];
 
 export const ProfilePage: React.FC = () => {
-  const profile = useProfileStore((s) => s.profile);
+  const activeProfileWithMeta = useActiveProfile();
+  const profile = useCurrentProfile();
   const updateProfile = useProfileStore((s) => s.updateProfile);
 
   // Compute profile completeness locally
@@ -52,6 +55,12 @@ export const ProfilePage: React.FC = () => {
 
   // Local state for editing
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
+
+  // Reset edited profile when active profile changes
+  useEffect(() => {
+    setEditedProfile(profile);
+    setHasChanges(false);
+  }, [activeProfileWithMeta?.metadata.id]);
 
   const handleFieldChange = <K extends keyof UserProfile>(field: K, value: UserProfile[K]) => {
     setEditedProfile((prev) => ({ ...prev, [field]: value }));
@@ -151,6 +160,17 @@ export const ProfilePage: React.FC = () => {
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
               <User className="w-6 h-6 text-blue-500" />
               My Profile
+              {activeProfileWithMeta && (
+                <span
+                  className="text-sm font-normal px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: `${activeProfileWithMeta.metadata.color || '#3B82F6'}20`,
+                    color: activeProfileWithMeta.metadata.color || '#3B82F6',
+                  }}
+                >
+                  {activeProfileWithMeta.metadata.name}
+                </span>
+              )}
             </h2>
             <p className="text-gray-400 text-sm mt-1">
               Your profile powers AI analysis and interview prep
@@ -185,6 +205,16 @@ export const ProfilePage: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {/* Profile Management Section */}
+        <ProfileSection
+          title="Manage Profiles"
+          icon={<Users className="w-4 h-4" />}
+          isOpen={activeSection === 'profiles'}
+          onToggle={() => toggleSection('profiles')}
+        >
+          <ProfileManagement />
+        </ProfileSection>
 
         {/* Profile Completion */}
         {!isProfileComplete() && (

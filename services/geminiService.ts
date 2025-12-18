@@ -245,19 +245,185 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
   if (!ai) throw new Error("Gemini API Key is missing.");
   const isFreelance = /upwork|freelance|contract|hourly|fixed.price|proposal|gig|project based/i.test(jobDescription);
 
-  const contextBlock = isFreelance 
-    ? `Candidate Profile (Freelance): ${profile.headline}, Rate: $${profile.freelanceProfile.hourlyRate.min}-${profile.freelanceProfile.hourlyRate.max}/hr`
-    : `Candidate Profile (FTE): ${profile.headline}, ${profile.yearsExperience}y exp, Skills: ${profile.technicalSkills.slice(0, 10).join(', ')}`;
+  // Build comprehensive profile context
+  const workHistory = profile.recentRoles.slice(0, 3).map(r =>
+    `- ${r.title} at ${r.company} (${r.duration}): ${r.highlights.slice(0, 2).join('; ')}`
+  ).join('\n');
+
+  const achievements = profile.keyAchievements.slice(0, 3).map(a =>
+    `- ${a.description}${a.metrics ? ` (${a.metrics})` : ''}`
+  ).join('\n');
+
+  const contextBlock = isFreelance
+    ? `## Candidate Profile (Freelance)
+Name: ${profile.name}
+Headline: ${profile.headline}
+Hourly Rate Range: $${profile.freelanceProfile.hourlyRate.min}-${profile.freelanceProfile.hourlyRate.max}/hr
+Available Hours: ${profile.freelanceProfile.availableHours}
+Preferred Project Types: ${profile.freelanceProfile.preferredProjectTypes.join(', ') || 'Not specified'}
+Unique Selling Points: ${profile.freelanceProfile.uniqueSellingPoints.join(', ') || 'Not specified'}
+Technical Skills: ${profile.technicalSkills.join(', ')}
+Industries: ${profile.industries.join(', ') || 'Various'}
+
+## Work History
+${workHistory || 'Not provided'}
+
+## Key Achievements
+${achievements || 'Not provided'}
+
+## Career Goals
+${profile.goals.join(', ') || 'Not specified'}
+
+## Deal Breakers (Things candidate wants to avoid)
+${profile.preferences.dealBreakers.join(', ') || 'None specified'}
+
+## Constraints
+${profile.constraints.join(', ') || 'None specified'}`
+    : `## Candidate Profile (Full-Time Employment)
+Name: ${profile.name}
+Headline: ${profile.headline}
+Years of Experience: ${profile.yearsExperience}
+Current Situation: ${profile.currentSituation || 'Open to opportunities'}
+
+## Technical Skills
+${profile.technicalSkills.join(', ')}
+
+## Soft Skills
+${profile.softSkills.join(', ') || 'Not specified'}
+
+## Work History
+${workHistory || 'Not provided'}
+
+## Key Achievements
+${achievements || 'Not provided'}
+
+## Industries
+${profile.industries.join(', ') || 'Various'}
+
+## Career Goals
+${profile.goals.join(', ') || 'Not specified'}
+
+## Job Preferences
+- Target Roles: ${profile.preferences.targetRoles.join(', ') || 'Not specified'}
+- Work Style Preference: ${profile.preferences.workStyle}
+- Salary Range: $${profile.preferences.salaryRange.min.toLocaleString()}-$${profile.preferences.salaryRange.max.toLocaleString()}
+- Priority Factors: ${profile.preferences.priorityFactors.join(', ') || 'Not specified'}
+
+## Deal Breakers (Things candidate wants to avoid)
+${profile.preferences.dealBreakers.join(', ') || 'None specified'}
+
+## Constraints
+${profile.constraints.join(', ') || 'None specified'}`;
 
   const prompt = `
-    You are a ${isFreelance ? 'freelance proposal strategist' : 'job search advisor'}.
-    ${contextBlock}
-    ## ${isFreelance ? 'Project' : 'Job'} Description:
-    ${jobDescription}
-    ## Task
-    Evaluate fit, skills match, red flags, and strategy.
+You are an expert ${isFreelance ? 'freelance proposal strategist and career advisor' : 'job search advisor and career counselor'}.
+
+${contextBlock}
+
+## ${isFreelance ? 'Project' : 'Job'} Description:
+${jobDescription}
+
+## Your Task
+Provide a COMPREHENSIVE analysis including:
+
+1. **Fit Assessment**: Evaluate skills match, experience alignment, and overall fit (0-10 scale)
+
+2. **Application Recommendation**: Based on ALL factors (fit, career goals, deal breakers, compensation), provide a clear verdict:
+   - "strong-apply": Excellent fit (8+), no deal breakers, aligns with goals
+   - "apply": Good fit (6-7), minor gaps that won't disqualify, worth pursuing
+   - "consider": Moderate fit (5-6), weigh pros/cons carefully
+   - "upskill-first": Low fit but role aligns with career goals, candidate should develop skills first
+   - "pass": Deal breakers present, severe skill gaps, or fundamentally misaligned with goals
+
+3. **Career Alignment**: How does this role fit the candidate's stated career goals? Will it advance their trajectory or is it a lateral/backward move?
+
+4. **Deal Breaker Check**: Compare job requirements against candidate's stated deal breakers. Flag any conflicts.
+
+5. **Skill Gap Analysis**: For each missing skill, assess:
+   - Severity (minor/moderate/critical)
+   - Why it matters for this role
+   - How long it would take to acquire
+   - Suggestions for acquiring it
+
+6. **Compensation Fit**: Does the role's compensation (if mentioned) align with candidate's expectations?
+
+7. **Work Style Compatibility**: Does the job's work arrangement match candidate's preferences?
+
+8. **Red Flags & Green Flags**: What should excite or concern the candidate?
+
+9. **Actionable Next Steps**: Based on your verdict, what should the candidate do?
+
+Be honest and direct. If this isn't a good fit, say so clearly and explain why. The candidate's time is valuable.
   `;
   
+  // Common schema parts for recommendation fields
+  const recommendationSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      verdict: { type: Type.STRING, enum: ['strong-apply', 'apply', 'consider', 'upskill-first', 'pass'] },
+      confidence: { type: Type.NUMBER, description: '0-100 confidence in this recommendation' },
+      summary: { type: Type.STRING, description: '1-2 sentence recommendation summary' },
+      primaryReasons: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Top 3 reasons for verdict' },
+      actionItems: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'What to do next' }
+    },
+    required: ['verdict', 'confidence', 'summary', 'primaryReasons', 'actionItems']
+  };
+
+  const careerAlignmentSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      alignmentScore: { type: Type.NUMBER, description: '0-10 career alignment score' },
+      alignsWithGoals: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Which goals this supports' },
+      misalignedAreas: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Areas of misalignment' },
+      growthPotential: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+      trajectoryImpact: { type: Type.STRING, description: 'How this affects career trajectory' }
+    },
+    required: ['alignmentScore', 'alignsWithGoals', 'misalignedAreas', 'growthPotential', 'trajectoryImpact']
+  };
+
+  const skillGapDetailSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      skill: { type: Type.STRING },
+      severity: { type: Type.STRING, enum: ['minor', 'moderate', 'critical'] },
+      importance: { type: Type.STRING, description: 'Why this skill matters' },
+      timeToAcquire: { type: Type.STRING, description: 'Estimated learning time' },
+      suggestion: { type: Type.STRING, description: 'How to acquire this skill' }
+    },
+    required: ['skill', 'severity', 'importance']
+  };
+
+  const dealBreakerMatchSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      userDealBreaker: { type: Type.STRING, description: 'The deal breaker from profile' },
+      jobRequirement: { type: Type.STRING, description: 'The conflicting job requirement' },
+      severity: { type: Type.STRING, enum: ['hard', 'soft'] }
+    },
+    required: ['userDealBreaker', 'jobRequirement', 'severity']
+  };
+
+  const workStyleMatchSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      compatible: { type: Type.BOOLEAN },
+      jobWorkStyle: { type: Type.STRING, enum: ['remote', 'hybrid', 'onsite', 'unknown'] },
+      notes: { type: Type.STRING }
+    },
+    required: ['compatible', 'jobWorkStyle']
+  };
+
+  const compensationFitSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      salaryInRange: { type: Type.BOOLEAN },
+      assessment: { type: Type.STRING, description: 'Brief assessment like "Within range" or "Below minimum"' },
+      marketComparison: { type: Type.STRING },
+      negotiationLeverage: { type: Type.STRING }
+    },
+    required: ['salaryInRange', 'assessment']
+  };
+
   const fteSchema: Schema = {
     type: Type.OBJECT,
     properties: {
@@ -271,9 +437,16 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
       greenFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
       talkingPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
       questionsToAsk: { type: Type.ARRAY, items: { type: Type.STRING } },
-      salaryAssessment: { type: Type.STRING }
+      salaryAssessment: { type: Type.STRING },
+      // NEW: Enhanced recommendation fields
+      recommendation: recommendationSchema,
+      careerAlignment: careerAlignmentSchema,
+      compensationFit: compensationFitSchema,
+      dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
+      skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
+      workStyleMatch: workStyleMatchSchema
     },
-    required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills']
+    required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch']
   };
 
   const freelanceSchema: Schema = {
@@ -292,9 +465,16 @@ export const analyzeJD = async (jobDescription: string, profile: UserProfile): P
       openingHook: { type: Type.STRING },
       relevantExperience: { type: Type.ARRAY, items: { type: Type.STRING } },
       questionsForClient: { type: Type.ARRAY, items: { type: Type.STRING } },
-      suggestedBid: { type: Type.OBJECT, properties: { hourly: { type: Type.NUMBER }, fixed: { type: Type.NUMBER }, rationale: { type: Type.STRING } } }
+      suggestedBid: { type: Type.OBJECT, properties: { hourly: { type: Type.NUMBER }, fixed: { type: Type.NUMBER }, rationale: { type: Type.STRING } } },
+      // NEW: Enhanced recommendation fields
+      recommendation: recommendationSchema,
+      careerAlignment: careerAlignmentSchema,
+      compensationFit: compensationFitSchema,
+      dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
+      skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
+      workStyleMatch: workStyleMatchSchema
     },
-    required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid']
+    required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch']
   };
 
   try {

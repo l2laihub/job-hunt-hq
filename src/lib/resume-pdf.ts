@@ -5,7 +5,77 @@
  * Creates a styled HTML document and triggers print-to-PDF.
  */
 
-import type { EnhancedProfile, ResumeAnalysis, UserProfile } from '@/src/types';
+import type { EnhancedProfile, EnhancedRole, ResumeAnalysis, UserProfile } from '@/src/types';
+
+/**
+ * Parse a duration string and extract the end date for sorting
+ * Handles formats like:
+ * - "2023 - February 2025"
+ * - "March 2025 - Present"
+ * - "2018 - 2023"
+ * - "January 2020 - December 2022"
+ */
+function parseDurationEndDate(duration: string): Date {
+  const now = new Date();
+  const normalizedDuration = duration.toLowerCase();
+
+  // Check for "present" or "current" - this is the most recent
+  if (normalizedDuration.includes('present') || normalizedDuration.includes('current')) {
+    return now;
+  }
+
+  // Split by " - " or "-" to get end date portion
+  const parts = duration.split(/\s*[-–]\s*/);
+  const endPart = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+
+  // Month name mapping
+  const months: Record<string, number> = {
+    january: 0, jan: 0,
+    february: 1, feb: 1,
+    march: 2, mar: 2,
+    april: 3, apr: 3,
+    may: 4,
+    june: 5, jun: 5,
+    july: 6, jul: 6,
+    august: 7, aug: 7,
+    september: 8, sep: 8, sept: 8,
+    october: 9, oct: 9,
+    november: 10, nov: 10,
+    december: 11, dec: 11,
+  };
+
+  // Try to parse "Month Year" format (e.g., "February 2025")
+  const monthYearMatch = endPart.match(/([a-zA-Z]+)\s+(\d{4})/);
+  if (monthYearMatch) {
+    const month = months[monthYearMatch[1].toLowerCase()];
+    const year = parseInt(monthYearMatch[2], 10);
+    if (month !== undefined && !isNaN(year)) {
+      return new Date(year, month, 1);
+    }
+  }
+
+  // Try to parse just year (e.g., "2023")
+  const yearMatch = endPart.match(/(\d{4})/);
+  if (yearMatch) {
+    const year = parseInt(yearMatch[1], 10);
+    return new Date(year, 11, 31); // End of year
+  }
+
+  // Fallback to very old date for unparseable durations
+  return new Date(1970, 0, 1);
+}
+
+/**
+ * Sort roles by end date (most recent first)
+ */
+function sortRolesByDate<T extends { duration: string }>(roles: T[]): T[] {
+  return [...roles].sort((a, b) => {
+    const dateA = parseDurationEndDate(a.duration);
+    const dateB = parseDurationEndDate(b.duration);
+    // Sort descending (most recent first)
+    return dateB.getTime() - dateA.getTime();
+  });
+}
 
 interface ResumePDFOptions {
   enhanced: EnhancedProfile;
@@ -445,7 +515,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     <!-- Experience -->
     <section class="section">
       <h2 class="section-title">Professional Experience</h2>
-      ${enhanced.recentRoles
+      ${sortRolesByDate(enhanced.recentRoles)
         .map(
           (role) => `
         <div class="experience-item">

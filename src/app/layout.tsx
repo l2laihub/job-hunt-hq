@@ -15,25 +15,33 @@ import {
   Menu,
   X,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
 import { ApplicationModal } from '@/src/components/applications';
+import { ProfileSwitcher } from '@/src/components/profile';
 import { useDataExport } from '@/src/hooks';
 
 const navItems = [
+  // Overview
   { to: '/', label: 'Dashboard', icon: Briefcase },
+  // Setup & Preparation
+  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/stories', label: 'My Stories', icon: Book },
+  // Job Search
   { to: '/analyzer', label: 'JD Analyzer', icon: Search },
   { to: '/research', label: 'Research', icon: Globe },
-  { to: '/stories', label: 'My Stories', icon: Book },
-  { to: '/interview', label: 'Mock Interview', icon: Mic },
+  // Interview Prep
   { to: '/answers', label: 'Answer Prep', icon: Zap },
+  { to: '/interview', label: 'Mock Interview', icon: Mic },
+  // Tools
   { to: '/enhance', label: 'Enhance', icon: Sparkles },
-  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 export const AppLayout: React.FC = () => {
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const applications = useApplicationStore((s) => s.applications);
@@ -52,12 +60,23 @@ export const AppLayout: React.FC = () => {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden md:flex flex-col border-r border-gray-800 bg-gray-900/50 backdrop-blur-md transition-all duration-300 ease-in-out shrink-0',
+          'hidden md:flex flex-col border-r border-gray-800 bg-gray-900/50 backdrop-blur-md transition-all duration-300 ease-in-out shrink-0 relative',
           sidebarExpanded ? 'w-56' : 'w-16'
         )}
-        onMouseEnter={() => setSidebarExpanded(true)}
-        onMouseLeave={() => setSidebarExpanded(false)}
       >
+        {/* Toggle Button */}
+        <button
+          onClick={() => setSidebarExpanded(!sidebarExpanded)}
+          className="absolute -right-3 top-20 z-10 w-6 h-6 bg-gray-800 border border-gray-700 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors shadow-lg"
+          aria-label={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {sidebarExpanded ? (
+            <ChevronLeft className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+        </button>
+
         {/* Logo */}
         <div className="h-16 flex items-center px-4 border-b border-gray-800 shrink-0">
           <NavLink to="/" className="flex items-center gap-3 text-blue-500 overflow-hidden">
@@ -71,6 +90,11 @@ export const AppLayout: React.FC = () => {
               Job Hunt HQ
             </span>
           </NavLink>
+        </div>
+
+        {/* Profile Switcher */}
+        <div className="px-2 py-3 border-b border-gray-800">
+          <ProfileSwitcher collapsed={!sidebarExpanded} />
         </div>
 
         {/* Navigation */}
@@ -180,6 +204,11 @@ export const AppLayout: React.FC = () => {
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
+        {/* Mobile Profile Switcher */}
+        <div className="px-3 py-3 border-b border-gray-800">
+          <ProfileSwitcher />
+        </div>
+
         <nav className="flex-1 py-4 px-3 space-y-1">
           {navItems.map((item) => (
             <NavLink

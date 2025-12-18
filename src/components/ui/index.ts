@@ -6,3 +6,6 @@ export { Badge, ScoreBadge, type BadgeProps, type ScoreBadgeProps } from './badg
 export { Select, ButtonGroup, type SelectProps, type SelectOption, type ButtonGroupProps, type ButtonGroupOption } from './select';
 export { ToastContainer } from './toast';
 export { Skeleton, CardSkeleton, ListSkeleton, AnalysisSkeleton, ProfileSkeleton, type SkeletonProps } from './skeleton';
+export { Tooltip, type TooltipProps } from './tooltip';
+export { Abbr, type AbbrProps } from './abbr';
+export { EditableText, EditableList, type EditableTextProps, type EditableListProps } from './editable-text';

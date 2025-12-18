@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { TechnicalAnswer, PracticeSession, TechnicalQuestionType } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
+import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
 interface TechnicalAnswersState {
   answers: TechnicalAnswer[];
@@ -10,7 +11,7 @@ interface TechnicalAnswersState {
   isLoading: boolean;
 
   // CRUD Operations
-  addAnswer: (answer: Partial<TechnicalAnswer>) => TechnicalAnswer;
+  addAnswer: (answer: Partial<TechnicalAnswer>, profileId?: string) => TechnicalAnswer;
   updateAnswer: (id: string, updates: Partial<TechnicalAnswer>) => void;
   deleteAnswer: (id: string) => void;
 
@@ -25,6 +26,9 @@ interface TechnicalAnswersState {
   searchAnswers: (query: string) => TechnicalAnswer[];
   getAnswersForApplication: (appId: string) => TechnicalAnswer[];
   getMostUsedAnswers: (limit?: number) => TechnicalAnswer[];
+
+  // Profile-filtered queries
+  getAnswersByProfile: (profileId: string) => TechnicalAnswer[];
 
   // Practice Sessions
   getPracticeSessions: (answerId: string) => PracticeSession[];
@@ -42,7 +46,7 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
       practiceSessions: [],
       isLoading: false,
 
-      addAnswer: (partial) => {
+      addAnswer: (partial, profileId) => {
         const now = new Date().toISOString();
         const newAnswer: TechnicalAnswer = {
           id: generateId(),
@@ -64,6 +68,7 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
           practiceCount: 0,
           createdAt: now,
           updatedAt: now,
+          profileId: profileId || partial.profileId,
         };
 
         set((state) => ({
@@ -188,6 +193,10 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
         return get().practiceSessions.filter((s) => s.answerId === answerId);
       },
 
+      getAnswersByProfile: (profileId) => {
+        return get().answers.filter((a) => a.profileId === profileId);
+      },
+
       importAnswers: (answers) => {
         set((state) => {
           const existingIds = new Set(state.answers.map((a) => a.id));
@@ -214,7 +223,7 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
     }),
     {
       name: STORAGE_KEYS.TECHNICAL_ANSWERS,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => createSyncedStorage()),
       partialize: (state) => ({
         answers: state.answers,
         practiceSessions: state.practiceSessions,
@@ -222,3 +231,23 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
     }
   )
 );
+
+// Set up cross-tab sync for technical answers store
+let technicalAnswersSyncUnsubscribe: (() => void) | null = null;
+
+export function initTechnicalAnswersSync(): void {
+  if (technicalAnswersSyncUnsubscribe) return;
+
+  technicalAnswersSyncUnsubscribe = setupStoreSync<TechnicalAnswersState>(
+    STORAGE_KEYS.TECHNICAL_ANSWERS,
+    (updates) => useTechnicalAnswersStore.setState(updates),
+    () => ['answers', 'practiceSessions']
+  );
+}
+
+export function destroyTechnicalAnswersSync(): void {
+  if (technicalAnswersSyncUnsubscribe) {
+    technicalAnswersSyncUnsubscribe();
+    technicalAnswersSyncUnsubscribe = null;
+  }
+}

@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import {
   useUIStore,
   useApplicationStore,
-  useProfileStore,
+  useCurrentProfile,
+  useActiveProfileId,
   useStoriesStore,
   useAnalyzedJobsStore,
   toast,
@@ -17,6 +18,7 @@ import {
 } from '@/src/services/gemini';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
+import { AnalysisResultView } from '@/components/AnalysisResultView';
 import { cn, formatDate, parseMarkdown } from '@/src/lib/utils';
 import { JOB_TYPES, COVER_LETTER_STYLES } from '@/src/lib/constants';
 import type {
@@ -70,12 +72,23 @@ type ViewType = 'analyze' | 'history' | 'detail';
 type ResultTab = 'overview' | 'cover-letter' | 'phone-prep' | 'tech-prep' | 'strategy' | 'roadmap';
 
 export const AnalyzerPage: React.FC = () => {
-  const profile = useProfileStore((s) => s.profile);
-  const stories = useStoriesStore((s) => s.stories);
+  const profile = useCurrentProfile();
+  const activeProfileId = useActiveProfileId();
+  const allStories = useStoriesStore((s) => s.stories);
+  // Filter stories by active profile
+  const stories = useMemo(() => {
+    if (!activeProfileId) return allStories;
+    return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
+  }, [allStories, activeProfileId]);
   const openModal = useUIStore((s) => s.openModal);
 
   // Analyzed Jobs Store
-  const analyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+  const allAnalyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+  // Filter analyzed jobs by active profile
+  const analyzedJobs = useMemo(() => {
+    if (!activeProfileId) return allAnalyzedJobs;
+    return allAnalyzedJobs.filter((j) => !j.profileId || j.profileId === activeProfileId);
+  }, [allAnalyzedJobs, activeProfileId]);
   const addAnalyzedJob = useAnalyzedJobsStore((s) => s.addJob);
   const updateAnalyzedJob = useAnalyzedJobsStore((s) => s.updateJob);
   const deleteAnalyzedJob = useAnalyzedJobsStore((s) => s.deleteJob);
@@ -104,10 +117,12 @@ export const AnalyzerPage: React.FC = () => {
   const [isGeneratingTechPrep, setIsGeneratingTechPrep] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [coverLetterStyle, setCoverLetterStyle] = useState<CoverLetterStyle>('professional');
 
   // History search
   const [historySearch, setHistorySearch] = useState('');
+  const [reanalyzingJobId, setReanalyzingJobId] = useState<string | null>(null);
 
   // Get selected job
   const selectedJob = useMemo(
@@ -167,7 +182,7 @@ export const AnalyzerPage: React.FC = () => {
       company: extractedInfo.company,
       role: extractedInfo.role,
       analysis: currentAnalysis,
-    });
+    }, activeProfileId || undefined);
 
     toast.success('Analysis saved', 'You can access it from history');
     setSelectedJobId(newJob.id);
@@ -321,6 +336,64 @@ export const AnalyzerPage: React.FC = () => {
       toast.error('Generation failed', 'Please try again');
     } finally {
       setIsGeneratingRoadmap(false);
+    }
+  };
+
+  // Re-analyze existing job with current profile
+  const handleReanalyze = async () => {
+    if (!selectedJob) return;
+
+    setIsReanalyzing(true);
+    try {
+      const result = await analyzeJobDescription(
+        selectedJob.jobDescription,
+        profile,
+        selectedJob.type
+      );
+
+      // Update the job with new analysis
+      updateAnalyzedJob(selectedJob.id, {
+        analysis: result,
+        updatedAt: new Date().toISOString(),
+      });
+
+      toast.success(
+        'Re-analysis complete',
+        `New fit score: ${result.fitScore}/10 (was ${selectedJob.analysis.fitScore}/10)`
+      );
+    } catch (error) {
+      console.error('Re-analysis failed:', error);
+      toast.error('Re-analysis failed', 'Please try again');
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
+
+  // Re-analyze job from history list
+  const handleReanalyzeFromList = async (job: AnalyzedJob) => {
+    setReanalyzingJobId(job.id);
+    try {
+      const result = await analyzeJobDescription(
+        job.jobDescription,
+        profile,
+        job.type
+      );
+
+      // Update the job with new analysis
+      updateAnalyzedJob(job.id, {
+        analysis: result,
+        updatedAt: new Date().toISOString(),
+      });
+
+      toast.success(
+        'Re-analysis complete',
+        `New fit score: ${result.fitScore}/10 (was ${job.analysis.fitScore}/10)`
+      );
+    } catch (error) {
+      console.error('Re-analysis failed:', error);
+      toast.error('Re-analysis failed', 'Please try again');
+    } finally {
+      setReanalyzingJobId(null);
     }
   };
 
@@ -576,6 +649,23 @@ export const AnalyzerPage: React.FC = () => {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
+                            handleReanalyzeFromList(job);
+                          }}
+                          disabled={reanalyzingJobId === job.id}
+                          title="Re-analyze with current profile"
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          {reanalyzingJobId === job.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             toggleFavorite(job.id);
                           }}
                         >
@@ -657,7 +747,23 @@ export const AnalyzerPage: React.FC = () => {
                 <div className="space-y-4">
                   <Card>
                     <CardContent className="p-4">
-                      <h4 className="text-sm font-bold text-gray-400 uppercase mb-2">Job Description</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-gray-400 uppercase">Job Description</h4>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleReanalyze}
+                          disabled={isReanalyzing}
+                          isLoading={isReanalyzing}
+                          leftIcon={<Sparkles className="w-4 h-4" />}
+                          title="Re-analyze with your current profile to get updated insights"
+                        >
+                          {isReanalyzing ? 'Analyzing...' : 'Re-analyze'}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Re-analyze to get updated recommendations based on your current profile.
+                      </p>
                       <div className="max-h-[400px] overflow-y-auto text-sm text-gray-300 whitespace-pre-wrap">
                         {selectedJob.jobDescription}
                       </div>
@@ -864,162 +970,6 @@ export const AnalyzerPage: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
-  );
-};
-
-// Analysis Result View Component
-interface AnalysisResultViewProps {
-  analysis: JDAnalysis;
-}
-
-const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-400 border-green-500/30 bg-green-900/20';
-    if (score >= 5) return 'text-yellow-400 border-yellow-500/30 bg-yellow-900/20';
-    return 'text-red-400 border-red-500/30 bg-red-900/20';
-  };
-
-  if (analysis.analysisType === 'freelance') {
-    const data = analysis;
-    return (
-      <div className="space-y-4">
-        <div className="flex gap-4">
-          <div className={cn('flex flex-col items-center justify-center p-4 rounded-xl border min-w-[100px]', getScoreColor(data.fitScore))}>
-            <span className="text-3xl font-bold">{data.fitScore}</span>
-            <span className="text-xs uppercase tracking-wider opacity-80">Fit Score</span>
-          </div>
-          <div className="flex-1 p-4 bg-gray-800/50 rounded-xl border border-gray-700 space-y-2">
-            <p className="text-sm text-gray-300 italic">"{data.reasoning}"</p>
-            <div className="flex gap-2">
-              <Badge variant="info" size="sm">{data.projectType}</Badge>
-              {data.estimatedEffort && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300">
-                  <Clock className="w-3 h-3 mr-1" /> {data.estimatedEffort}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <Card>
-          <CardContent className="p-4 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
-            <h3 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-              <Target className="w-4 h-4" /> Winning Proposal Strategy
-            </h3>
-            <p className="text-sm text-gray-300 mb-4">{data.proposalAngle}</p>
-            <div className="bg-gray-900/50 p-3 rounded border border-gray-700/50">
-              <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Opening Hook</span>
-              <p className="text-sm text-white font-medium">"{data.openingHook}"</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
-              <DollarSign className="w-4 h-4" /> Suggested Bid
-            </h3>
-            <div className="flex items-center gap-6 mb-2">
-              {data.suggestedBid.hourly && (
-                <div>
-                  <span className="text-xs text-gray-500 block">Hourly Rate</span>
-                  <span className="text-lg font-bold text-white">${data.suggestedBid.hourly}/hr</span>
-                </div>
-              )}
-              {data.suggestedBid.fixed && (
-                <div>
-                  <span className="text-xs text-gray-500 block">Fixed Price</span>
-                  <span className="text-lg font-bold text-white">${data.suggestedBid.fixed}</span>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 border-t border-gray-700 pt-2">{data.suggestedBid.rationale}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // FTE or Contract Analysis
-  const data = analysis;
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-4">
-        <div className={cn('flex flex-col items-center justify-center p-4 rounded-xl border min-w-[100px]', getScoreColor(data.fitScore))}>
-          <span className="text-3xl font-bold">{data.fitScore}</span>
-          <span className="text-xs uppercase tracking-wider opacity-80">Fit Score</span>
-        </div>
-        <div className="flex-1 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-          <p className="text-sm text-gray-300 italic">"{data.reasoning}"</p>
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
-            {'roleType' in data && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
-                Role: <span className="text-white ml-1 capitalize">{data.roleType}</span>
-              </span>
-            )}
-            {'contractType' in data && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-900/30 text-orange-300 border border-orange-800/50">
-                {data.contractType}
-              </span>
-            )}
-            {'salaryAssessment' in data && data.salaryAssessment && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/30 text-green-300 border border-green-800/50">
-                <DollarSign className="w-3 h-3 mr-1" /> {data.salaryAssessment}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" /> You Have
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {data.matchedSkills?.map((skill) => (
-                <span key={skill} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" /> Missing / Gaps
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {data.missingSkills?.map((skill) => (
-                <span key={skill} className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs border border-red-800">
-                  {skill}
-                </span>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {'talkingPoints' in data && data.talkingPoints && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-blue-400 mb-3">
-              <MessageCircle className="w-4 h-4" /> Talking Points
-            </h3>
-            <div className="space-y-2">
-              {data.talkingPoints.map((point, i) => (
-                <div key={i} className="flex gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                  <span className="text-blue-500 font-mono text-xs mt-0.5">0{i + 1}</span>
-                  <p className="text-sm text-gray-300">{point}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

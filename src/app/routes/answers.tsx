@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTechnicalAnswersStore, useStoriesStore, useProfileStore, useApplicationStore, toast } from '@/src/stores';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTechnicalAnswersStore, useStoriesStore, useApplicationStore, useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
 import { generateTechnicalAnswer, generateFollowUps } from '@/src/services/gemini';
 import { COMMON_TECHNICAL_QUESTIONS, DIFFICULTY_LEVELS, TECHNICAL_QUESTION_TYPES } from '@/src/lib/constants';
 import { formatTime, cn, parseMarkdown } from '@/src/lib/utils';
@@ -59,7 +59,8 @@ export const AnswersPage: React.FC = () => {
   const [view, setView] = useState<ViewType>('list');
 
   // Stores
-  const answers = useTechnicalAnswersStore((s) => s.answers);
+  const activeProfileId = useActiveProfileId();
+  const allAnswers = useTechnicalAnswersStore((s) => s.answers);
   const practiceSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
   const addAnswer = useTechnicalAnswersStore((s) => s.addAnswer);
   const deleteAnswer = useTechnicalAnswersStore((s) => s.deleteAnswer);
@@ -67,9 +68,26 @@ export const AnswersPage: React.FC = () => {
   const recordPractice = useTechnicalAnswersStore((s) => s.recordPractice);
   const getPracticeSessions = useTechnicalAnswersStore((s) => s.getPracticeSessions);
 
-  const profile = useProfileStore((s) => s.profile);
-  const stories = useStoriesStore((s) => s.stories);
-  const applications = useApplicationStore((s) => s.applications);
+  // Filter answers by active profile
+  const answers = useMemo(() => {
+    if (!activeProfileId) return allAnswers;
+    return allAnswers.filter((a) => !a.profileId || a.profileId === activeProfileId);
+  }, [allAnswers, activeProfileId]);
+
+  const profile = useCurrentProfile();
+  const allStories = useStoriesStore((s) => s.stories);
+  // Filter stories by active profile
+  const stories = useMemo(() => {
+    if (!activeProfileId) return allStories;
+    return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
+  }, [allStories, activeProfileId]);
+
+  const allApplications = useApplicationStore((s) => s.applications);
+  // Filter applications by active profile
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
 
   // Generator State
   const [questionInput, setQuestionInput] = useState('');
@@ -305,7 +323,7 @@ export const AnswersPage: React.FC = () => {
         targetCompany: appContext?.company,
         applicationId: selectedAppId || undefined,
       },
-    });
+    }, activeProfileId || undefined);
 
     toast.success('Answer saved!', 'You can practice and reuse this answer');
     resetForm();
