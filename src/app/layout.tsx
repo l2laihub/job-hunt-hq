@@ -14,6 +14,7 @@ import {
   Upload,
   Menu,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/stories', label: 'My Stories', icon: Book },
   { to: '/interview', label: 'Mock Interview', icon: Mic },
   { to: '/answers', label: 'Answer Prep', icon: Zap },
+  { to: '/enhance', label: 'Enhance', icon: Sparkles },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 

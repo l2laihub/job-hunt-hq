@@ -1,15 +1,29 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
-import { fteAnalysisSchema, freelanceAnalysisSchema } from './schemas';
+import { fteAnalysisSchema, freelanceAnalysisSchema, contractAnalysisSchema } from './schemas';
 import { aiCache, cacheKeys } from './cache';
-import type { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis } from '@/src/types';
+import type { UserProfile, JDAnalysis, AnalyzedJobType } from '@/src/types';
 import { CACHE_TTL } from '@/src/lib/constants';
 
 /**
- * Detect if a job description is for freelance/contract work
+ * Auto-detect job type from description (only used when no explicit type provided)
  */
-function isFreelanceJob(jobDescription: string): boolean {
-  const freelancePatterns = /upwork|freelance|contract|hourly|fixed.price|proposal|gig|project based|fiverr|toptal/i;
-  return freelancePatterns.test(jobDescription);
+function detectJobType(jobDescription: string): AnalyzedJobType {
+  const jdLower = jobDescription.toLowerCase();
+
+  // Freelance patterns - platform-specific gigs
+  const freelancePatterns = /upwork|fiverr|toptal|freelancer\.com|fixed.price|proposal|gig|project.based/i;
+  if (freelancePatterns.test(jdLower)) {
+    return 'freelance';
+  }
+
+  // Contract patterns - W-2/1099 contracts
+  const contractPatterns = /\b(contract|contractor|c2c|corp.to.corp|w-2|1099|6.month|12.month|contract.to.hire)\b/i;
+  if (contractPatterns.test(jdLower)) {
+    return 'contract';
+  }
+
+  // Default to fulltime
+  return 'fulltime';
 }
 
 /**
@@ -31,11 +45,15 @@ function hashJD(jd: string): string {
 export async function analyzeJD(
   jobDescription: string,
   profile: UserProfile,
-  options?: {
+  jobTypeOrOptions?: 'fulltime' | 'contract' | 'freelance' | {
     skipCache?: boolean;
-    forceType?: 'fulltime' | 'freelance';
+    forceType?: 'fulltime' | 'contract' | 'freelance';
   }
 ): Promise<JDAnalysis> {
+  // Normalize options - support both direct jobType string and options object
+  const options = typeof jobTypeOrOptions === 'string'
+    ? { forceType: jobTypeOrOptions }
+    : jobTypeOrOptions;
   const ai = requireGemini();
 
   // Check cache
@@ -49,44 +67,81 @@ export async function analyzeJD(
     }
   }
 
-  const isFreelance = options?.forceType
-    ? options.forceType === 'freelance'
-    : isFreelanceJob(jobDescription);
+  // Determine job type: use explicit forceType, or auto-detect as fallback
+  const jobType: AnalyzedJobType = options?.forceType || detectJobType(jobDescription);
 
   // Build context block based on job type
-  const contextBlock = isFreelance
-    ? `Candidate Profile (Freelance):
+  const buildContextBlock = () => {
+    if (jobType === 'freelance') {
+      return `Candidate Profile (Freelance):
        - Name: ${profile.name}
        - Headline: ${profile.headline}
        - Hourly Rate: $${profile.freelanceProfile.hourlyRate.min}-${profile.freelanceProfile.hourlyRate.max}/hr
        - Availability: ${profile.freelanceProfile.availableHours}
        - Key Skills: ${profile.technicalSkills.slice(0, 10).join(', ')}
-       - USPs: ${profile.freelanceProfile.uniqueSellingPoints.join(', ') || 'Not specified'}`
-    : `Candidate Profile (Full-Time):
+       - USPs: ${profile.freelanceProfile.uniqueSellingPoints.join(', ') || 'Not specified'}`;
+    }
+
+    // Full-time and Contract use similar profile data
+    return `Candidate Profile (${jobType === 'contract' ? 'Contract' : 'Full-Time'}):
        - Name: ${profile.name}
        - Headline: ${profile.headline}
        - Years of Experience: ${profile.yearsExperience}
        - Technical Skills: ${profile.technicalSkills.slice(0, 15).join(', ')}
-       - Target Salary: $${profile.preferences.salaryRange.min.toLocaleString()}-${profile.preferences.salaryRange.max.toLocaleString()}
+       - Target ${jobType === 'contract' ? 'Rate/Salary' : 'Salary'}: $${profile.preferences.salaryRange.min.toLocaleString()}-${profile.preferences.salaryRange.max.toLocaleString()}
        - Work Style: ${profile.preferences.workStyle}
        - Recent Roles: ${profile.recentRoles.slice(0, 3).map(r => `${r.title} at ${r.company}`).join('; ')}`;
+  };
 
-  const prompt = `You are a ${isFreelance ? 'freelance proposal strategist' : 'senior career advisor'}.
+  const contextBlock = buildContextBlock();
+
+  const getPromptDetails = () => {
+    if (jobType === 'freelance') {
+      return {
+        role: 'freelance proposal strategist',
+        descriptor: 'Project/Gig',
+        tasks: '5. Proposal strategy and suggested bid',
+      };
+    }
+    if (jobType === 'contract') {
+      return {
+        role: 'senior contract staffing advisor',
+        descriptor: 'Contract Position',
+        tasks: '5. Talking points, rate negotiation tips, and questions to ask about contract terms',
+      };
+    }
+    return {
+      role: 'senior career advisor',
+      descriptor: 'Job',
+      tasks: '5. Talking points and questions to ask',
+    };
+  };
+
+  const promptDetails = getPromptDetails();
+
+  const prompt = `You are a ${promptDetails.role}.
 
 ${contextBlock}
 
-## ${isFreelance ? 'Project/Gig' : 'Job'} Description:
+## ${promptDetails.descriptor} Description:
 ${jobDescription}
 
 ## Task
-Analyze this ${isFreelance ? 'project' : 'job'} against the candidate's profile. Evaluate:
+Analyze this ${promptDetails.descriptor.toLowerCase()} against the candidate's profile. Evaluate:
 1. Overall fit score (0-10, be honest and critical)
 2. Skills match and gaps
 3. Red flags (concerning aspects)
 4. Green flags (positive aspects)
-${isFreelance ? '5. Proposal strategy and suggested bid' : '5. Talking points and questions to ask'}
+${promptDetails.tasks}
 
 Be specific and actionable in your analysis.`;
+
+  // Select appropriate schema based on job type
+  const getSchema = () => {
+    if (jobType === 'freelance') return freelanceAnalysisSchema;
+    if (jobType === 'contract') return contractAnalysisSchema;
+    return fteAnalysisSchema;
+  };
 
   try {
     const response = await ai.models.generateContent({
@@ -94,7 +149,7 @@ Be specific and actionable in your analysis.`;
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: isFreelance ? freelanceAnalysisSchema : fteAnalysisSchema,
+        responseSchema: getSchema(),
         thinkingConfig: { thinkingBudget: DEFAULT_THINKING_BUDGET },
       },
     });
@@ -106,7 +161,7 @@ Be specific and actionable in your analysis.`;
     const result = JSON.parse(response.text);
     const analysis: JDAnalysis = {
       ...result,
-      analysisType: isFreelance ? 'freelance' : 'fulltime',
+      analysisType: jobType,
       analyzedAt: new Date().toISOString(),
     };
 

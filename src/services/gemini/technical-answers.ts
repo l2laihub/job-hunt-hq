@@ -170,10 +170,23 @@ Be specific, use real metrics/numbers from the profile, and help the candidate t
       .map((idx: number) => stories[idx]?.id)
       .filter(Boolean);
 
+    // Ensure answer has all required fields with defaults
+    const answer = {
+      structured: result.answer?.structured || [],
+      narrative: result.answer?.narrative || '',
+      bulletPoints: result.answer?.bulletPoints || [],
+    };
+
+    // Ensure format has required fields
+    const format = {
+      type: result.format?.type || 'STAR',
+      sections: result.format?.sections || [],
+    };
+
     return {
-      questionType: result.questionType,
-      format: result.format,
-      answer: result.answer,
+      questionType: result.questionType || 'conceptual',
+      format,
+      answer,
       sources: {
         storyIds: matchedStoryIds,
         profileSections: result.sources?.profileSectionsUsed || [],

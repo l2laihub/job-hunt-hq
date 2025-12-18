@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTechnicalAnswersStore, useStoriesStore, useProfileStore, useApplicationStore, toast } from '@/src/stores';
 import { generateTechnicalAnswer, generateFollowUps } from '@/src/services/gemini';
 import { COMMON_TECHNICAL_QUESTIONS, DIFFICULTY_LEVELS, TECHNICAL_QUESTION_TYPES } from '@/src/lib/constants';
-import { formatTime, cn } from '@/src/lib/utils';
+import { formatTime, cn, parseMarkdown } from '@/src/lib/utils';
 import { Button, Input, Card, Badge, Dialog } from '@/src/components/ui';
 import type { TechnicalAnswer, TechnicalQuestionType, AnswerSection, FollowUpQA, PracticeSession } from '@/src/types';
 import {
@@ -35,9 +35,11 @@ import {
   Volume2,
   Square,
   Circle,
+  Eye,
+  ArrowLeft,
 } from 'lucide-react';
 
-type ViewType = 'list' | 'generate' | 'result' | 'practice' | 'history';
+type ViewType = 'list' | 'generate' | 'result' | 'practice' | 'history' | 'details';
 
 const QUESTION_TYPE_COLORS: Record<TechnicalQuestionType, { bg: string; text: string; border: string }> = {
   'behavioral-technical': { bg: 'bg-purple-900/30', text: 'text-purple-400', border: 'border-purple-700/50' },
@@ -117,6 +119,11 @@ export const AnswersPage: React.FC = () => {
   // History View State
   const [historyAnswerId, setHistoryAnswerId] = useState<string | null>(null);
   const [playingSessionId, setPlayingSessionId] = useState<string | null>(null);
+
+  // Details View State
+  const [detailsAnswerId, setDetailsAnswerId] = useState<string | null>(null);
+  const [detailsView, setDetailsView] = useState<'structured' | 'narrative' | 'bullets'>('structured');
+  const [detailsExpandedFollowUps, setDetailsExpandedFollowUps] = useState<Set<number>>(new Set());
 
   // Voice Recording for Question Input
   const [isRecording, setIsRecording] = useState(false);
@@ -463,18 +470,57 @@ export const AnswersPage: React.FC = () => {
   const practiceAnswer = practiceAnswerId ? answers.find((a) => a.id === practiceAnswerId) : null;
   const historyAnswer = historyAnswerId ? answers.find((a) => a.id === historyAnswerId) : null;
   const historySessions = historyAnswerId ? getPracticeSessions(historyAnswerId) : [];
+  const detailsAnswer = detailsAnswerId ? answers.find((a) => a.id === detailsAnswerId) : null;
+
+  // View details function
+  const viewDetails = (id: string) => {
+    setDetailsAnswerId(id);
+    setDetailsView('structured');
+    setDetailsExpandedFollowUps(new Set());
+    setView('details');
+  };
+
+  // Toggle follow-up expansion for details view
+  const toggleDetailsFollowUp = (index: number) => {
+    setDetailsExpandedFollowUps((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  // Markdown content component
+  const MarkdownContent: React.FC<{ content: string; className?: string }> = ({ content, className }) => (
+    <div
+      className={cn('text-gray-300 text-sm leading-relaxed prose-invert', className)}
+      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+    />
+  );
 
   // Render section content
-  const renderSectionContent = (sections: AnswerSection[]) => (
-    <div className="space-y-4">
-      {sections.map((section, i) => (
-        <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-          <span className="text-xs font-bold text-blue-400 uppercase block mb-2">{section.label}</span>
-          <p className="text-gray-300 text-sm whitespace-pre-wrap">{section.content}</p>
+  const renderSectionContent = (sections: AnswerSection[] | undefined) => {
+    if (!sections || sections.length === 0) {
+      return (
+        <div className="text-gray-500 text-sm italic">
+          No structured content available. Try the narrative view instead.
         </div>
-      ))}
-    </div>
-  );
+      );
+    }
+    return (
+      <div className="space-y-4">
+        {sections.map((section, i) => (
+          <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+            <span className="text-xs font-bold text-blue-400 uppercase block mb-2">{section.label}</span>
+            <MarkdownContent content={section.content} />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   // Render star rating
   const renderStarRating = (rating: number, interactive: boolean = false, onChange?: (r: number) => void) => (
@@ -584,6 +630,15 @@ export const AnswersPage: React.FC = () => {
                             <h3 className="font-semibold text-white text-sm">{answer.question}</h3>
                           </div>
                           <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => viewDetails(answer.id)}
+                              title="View Full Answer"
+                              className="text-yellow-400 hover:text-yellow-300"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -856,33 +911,37 @@ export const AnswersPage: React.FC = () => {
             <Card className="p-4">
               {answerView === 'structured' && renderSectionContent(generatedResult.answer.structured)}
               {answerView === 'narrative' && (
-                <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
-                  {generatedResult.answer.narrative}
-                </p>
+                <MarkdownContent content={generatedResult.answer.narrative} />
               )}
               {answerView === 'bullets' && (
-                <ul className="space-y-2">
-                  {generatedResult.answer.bulletPoints.map((point, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
+                generatedResult.answer.bulletPoints && generatedResult.answer.bulletPoints.length > 0 ? (
+                  <ul className="space-y-2">
+                    {generatedResult.answer.bulletPoints.map((point, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <MarkdownContent content={point} className="flex-1" />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-500 text-sm italic">
+                    No bullet points available. Try the narrative view instead.
+                  </div>
+                )
               )}
             </Card>
 
             {/* Sources */}
-            {(generatedResult.sources.storyIds.length > 0 || generatedResult.sources.profileSections.length > 0) && (
+            {((generatedResult.sources?.storyIds?.length || 0) > 0 || (generatedResult.sources?.profileSections?.length || 0) > 0) && (
               <Card className="p-4 bg-blue-900/10 border-blue-800/30">
                 <h4 className="text-xs font-bold text-blue-400 uppercase mb-2">Sources Used</h4>
                 <div className="flex flex-wrap gap-2">
-                  {generatedResult.sources.profileSections.map((s) => (
+                  {(generatedResult.sources?.profileSections || []).map((s) => (
                     <Badge key={s} variant="info" size="sm">
                       Profile: {s}
                     </Badge>
                   ))}
-                  {generatedResult.sources.storyIds.map((id) => {
+                  {(generatedResult.sources?.storyIds || []).map((id) => {
                     const story = stories.find((s) => s.id === id);
                     return story ? (
                       <Badge key={id} variant="default" size="sm" className="bg-purple-900/30 text-purple-300">
@@ -890,7 +949,7 @@ export const AnswersPage: React.FC = () => {
                       </Badge>
                     ) : null;
                   })}
-                  {generatedResult.sources.synthesized && (
+                  {generatedResult.sources?.synthesized && (
                     <Badge variant="warning" size="sm">
                       AI Synthesized
                     </Badge>
@@ -900,9 +959,9 @@ export const AnswersPage: React.FC = () => {
             )}
 
             {/* Tags */}
-            {generatedResult.suggestedTags.length > 0 && (
+            {(generatedResult.suggestedTags?.length || 0) > 0 && (
               <div className="flex flex-wrap gap-2">
-                {generatedResult.suggestedTags.map((tag) => (
+                {(generatedResult.suggestedTags || []).map((tag) => (
                   <Badge key={tag} variant="default" size="sm">
                     {tag}
                   </Badge>
@@ -918,7 +977,7 @@ export const AnswersPage: React.FC = () => {
                 {isGeneratingFollowUps && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
               </h4>
               <div className="space-y-3">
-                {generatedResult.followUps.map((fu, i) => (
+                {(generatedResult.followUps || []).map((fu, i) => (
                   <div key={i} className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
                     <button
                       onClick={() => toggleFollowUp(i)}
@@ -940,15 +999,15 @@ export const AnswersPage: React.FC = () => {
                       <div className="px-4 pb-4 border-t border-gray-700 pt-3 space-y-3">
                         <div>
                           <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Suggested Answer</span>
-                          <p className="text-sm text-gray-300">{fu.suggestedAnswer}</p>
+                          <MarkdownContent content={fu.suggestedAnswer} />
                         </div>
                         <div>
                           <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Key Points</span>
                           <ul className="space-y-1">
                             {fu.keyPoints.map((kp, j) => (
-                              <li key={j} className="text-xs text-gray-400 flex items-center gap-2">
-                                <CheckCircle className="w-3 h-3 text-green-400" />
-                                {kp}
+                              <li key={j} className="text-xs text-gray-400 flex items-start gap-2">
+                                <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                                <MarkdownContent content={kp} className="flex-1 text-xs" />
                               </li>
                             ))}
                           </ul>
@@ -1100,6 +1159,268 @@ export const AnswersPage: React.FC = () => {
               </Button>
             </div>
           </Card>
+        )}
+
+        {/* DETAILS VIEW - View full answer details */}
+        {view === 'details' && detailsAnswer && (
+          <div className="space-y-6">
+            {/* Header with Back button */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span
+                    className={cn(
+                      'px-2 py-0.5 rounded text-[10px] font-bold uppercase border',
+                      QUESTION_TYPE_COLORS[detailsAnswer.questionType].bg,
+                      QUESTION_TYPE_COLORS[detailsAnswer.questionType].text,
+                      QUESTION_TYPE_COLORS[detailsAnswer.questionType].border
+                    )}
+                  >
+                    {detailsAnswer.questionType.replace('-', ' ')}
+                  </span>
+                  <span className="text-xs text-gray-500">{detailsAnswer.format.type}</span>
+                  {detailsAnswer.metadata.targetCompany && (
+                    <span className="text-xs text-blue-400">{detailsAnswer.metadata.targetCompany}</span>
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold text-white">{detailsAnswer.question}</h3>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => startPractice(detailsAnswer.id)}
+                  className="text-green-400 hover:text-green-300"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Practice
+                </Button>
+                <Button variant="ghost" onClick={() => setView('list')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              </div>
+            </div>
+
+            {/* View Tabs */}
+            <div className="flex gap-2 p-1 bg-gray-800 rounded-lg w-fit">
+              <button
+                onClick={() => setDetailsView('structured')}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2',
+                  detailsView === 'structured'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white'
+                )}
+              >
+                <List className="w-4 h-4" />
+                Structured
+              </button>
+              <button
+                onClick={() => setDetailsView('narrative')}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2',
+                  detailsView === 'narrative'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white'
+                )}
+              >
+                <FileText className="w-4 h-4" />
+                Narrative
+              </button>
+              <button
+                onClick={() => setDetailsView('bullets')}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2',
+                  detailsView === 'bullets'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-400 hover:text-white'
+                )}
+              >
+                <CheckCircle className="w-4 h-4" />
+                Bullets
+              </button>
+            </div>
+
+            {/* Answer Content */}
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-bold text-white">Answer</h4>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(detailsAnswer.answer.narrative)}
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy
+                </Button>
+              </div>
+
+              {detailsView === 'structured' && renderSectionContent(detailsAnswer.answer.structured)}
+
+              {detailsView === 'narrative' && (
+                detailsAnswer.answer.narrative ? (
+                  <MarkdownContent content={detailsAnswer.answer.narrative} />
+                ) : (
+                  <p className="text-gray-500 text-sm italic">No narrative content available.</p>
+                )
+              )}
+
+              {detailsView === 'bullets' && (
+                (detailsAnswer.answer.bulletPoints?.length || 0) > 0 ? (
+                  <ul className="space-y-2">
+                    {(detailsAnswer.answer.bulletPoints || []).map((point, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <MarkdownContent content={point} className="flex-1" />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-500 text-sm italic">
+                    No bullet points available. Try the narrative view instead.
+                  </div>
+                )
+              )}
+            </Card>
+
+            {/* Format Sections */}
+            {(detailsAnswer.format.sections?.length || 0) > 0 && (
+              <Card className="p-5">
+                <h4 className="text-sm font-bold text-white mb-4">Format Structure ({detailsAnswer.format.type})</h4>
+                <div className="space-y-3">
+                  {(detailsAnswer.format.sections || []).map((section, i) => (
+                    <div key={i} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                      <span className="text-xs font-bold text-purple-400 uppercase">{section.label}</span>
+                      <MarkdownContent content={section.content} className="mt-1" />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Sources */}
+            {((detailsAnswer.sources?.storyIds?.length || 0) > 0 || (detailsAnswer.sources?.profileSections?.length || 0) > 0) && (
+              <Card className="p-5 bg-blue-900/10 border-blue-800/30">
+                <h4 className="text-sm font-bold text-blue-400 mb-3">Sources Used</h4>
+                <div className="flex flex-wrap gap-2">
+                  {(detailsAnswer.sources?.profileSections || []).map((s) => (
+                    <Badge key={s} variant="info" size="sm">
+                      Profile: {s}
+                    </Badge>
+                  ))}
+                  {(detailsAnswer.sources?.storyIds || []).map((id) => {
+                    const story = stories.find((s) => s.id === id);
+                    return story ? (
+                      <Badge key={id} variant="default" size="sm" className="bg-purple-900/30 text-purple-300">
+                        Story: {story.title}
+                      </Badge>
+                    ) : null;
+                  })}
+                  {detailsAnswer.sources?.synthesized && (
+                    <Badge variant="warning" size="sm">
+                      AI Synthesized
+                    </Badge>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Tags */}
+            {(detailsAnswer.metadata.tags?.length || 0) > 0 && (
+              <Card className="p-5">
+                <h4 className="text-sm font-bold text-white mb-3">Tags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {(detailsAnswer.metadata.tags || []).map((tag) => (
+                    <Badge key={tag} variant="default" size="sm">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Follow-up Questions */}
+            {(detailsAnswer.followUps?.length || 0) > 0 && (
+              <Card className="p-5">
+                <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-400" />
+                  Follow-up Questions ({detailsAnswer.followUps.length})
+                </h4>
+                <div className="space-y-3">
+                  {(detailsAnswer.followUps || []).map((fu, i) => (
+                    <div key={i} className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
+                      <button
+                        onClick={() => toggleDetailsFollowUp(i)}
+                        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-800/80"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase border', LIKELIHOOD_COLORS[fu.likelihood])}>
+                            {fu.likelihood}
+                          </span>
+                          <span className="text-sm text-white">{fu.question}</span>
+                        </div>
+                        {detailsExpandedFollowUps.has(i) ? (
+                          <ChevronUp className="w-4 h-4 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                        )}
+                      </button>
+                      {detailsExpandedFollowUps.has(i) && (
+                        <div className="px-4 pb-4 border-t border-gray-700 pt-3 space-y-3">
+                          <div>
+                            <span className="text-xs font-bold text-gray-500 uppercase block mb-1">Suggested Answer</span>
+                            <MarkdownContent content={fu.suggestedAnswer} />
+                          </div>
+                          {(fu.keyPoints?.length || 0) > 0 && (
+                            <div>
+                              <span className="text-xs font-bold text-gray-500 uppercase block mb-2">Key Points</span>
+                              <ul className="space-y-1">
+                                {(fu.keyPoints || []).map((point, j) => (
+                                  <li key={j} className="flex items-start gap-2 text-xs text-gray-400">
+                                    <CheckCircle className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                                    <MarkdownContent content={point} className="flex-1 text-xs" />
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Metadata */}
+            <Card className="p-5">
+              <h4 className="text-sm font-bold text-white mb-3">Stats & Metadata</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="bg-gray-800/50 p-3 rounded-lg">
+                  <span className="text-2xl font-mono text-white">{detailsAnswer.practiceCount}</span>
+                  <span className="text-xs text-gray-500 block mt-1">Practices</span>
+                </div>
+                <div className="bg-gray-800/50 p-3 rounded-lg">
+                  <span className="text-2xl font-mono text-white">{detailsAnswer.timesUsed}</span>
+                  <span className="text-xs text-gray-500 block mt-1">Times Used</span>
+                </div>
+                <div className="bg-gray-800/50 p-3 rounded-lg">
+                  <span className="text-2xl font-mono text-white">{detailsAnswer.followUps?.length || 0}</span>
+                  <span className="text-xs text-gray-500 block mt-1">Follow-ups</span>
+                </div>
+                <div className="bg-gray-800/50 p-3 rounded-lg">
+                  <span className="text-sm font-mono text-white">{detailsAnswer.metadata.difficulty || 'mid'}</span>
+                  <span className="text-xs text-gray-500 block mt-1">Difficulty</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+                <span>Created: {new Date(detailsAnswer.createdAt).toLocaleDateString()}</span>
+                {detailsAnswer.lastPracticedAt && (
+                  <span>Last practiced: {new Date(detailsAnswer.lastPracticedAt).toLocaleDateString()}</span>
+                )}
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* HISTORY VIEW */}

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
-import { useApplicationStore, useProfileStore, useStoriesStore, useTechnicalAnswersStore, toast } from '@/src/stores';
+import { useApplicationStore, useProfileStore, useStoriesStore, useTechnicalAnswersStore, useAnalyzedJobsStore, toast } from '@/src/stores';
 import { downloadJSON, safeJSONParse } from '@/src/lib/utils';
-import type { JobApplication, UserProfile, Experience, TechnicalAnswer, PracticeSession } from '@/src/types';
+import type { JobApplication, UserProfile, Experience, TechnicalAnswer, PracticeSession, AnalyzedJob } from '@/src/types';
 import { z } from 'zod';
 
 // Schema for validating imported data
@@ -13,6 +13,7 @@ const importSchema = z.object({
   stories: z.array(z.any()).optional(),
   technicalAnswers: z.array(z.any()).optional(),
   practiceSessions: z.array(z.any()).optional(),
+  analyzedJobs: z.array(z.any()).optional(),
 });
 
 interface ExportData {
@@ -23,6 +24,7 @@ interface ExportData {
   stories: Experience[];
   technicalAnswers: TechnicalAnswer[];
   practiceSessions: PracticeSession[];
+  analyzedJobs: AnalyzedJob[];
 }
 
 interface ImportResult {
@@ -33,6 +35,7 @@ interface ImportResult {
     profile: boolean;
     technicalAnswers: number;
     practiceSessions: number;
+    analyzedJobs: number;
   };
   errors: string[];
 }
@@ -43,12 +46,14 @@ export function useDataExport() {
   const stories = useStoriesStore((s) => s.stories);
   const technicalAnswers = useTechnicalAnswersStore((s) => s.answers);
   const practiceSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
+  const analyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
 
   const importApplications = useApplicationStore((s) => s.importApplications);
   const importProfile = useProfileStore((s) => s.importProfile);
   const importStories = useStoriesStore((s) => s.importStories);
   const importAnswers = useTechnicalAnswersStore((s) => s.importAnswers);
   const importPracticeSessions = useTechnicalAnswersStore((s) => s.importPracticeSessions);
+  const importAnalyzedJobs = useAnalyzedJobsStore((s) => s.importJobs);
 
   // File input ref for triggering file picker
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,6 +70,7 @@ export function useDataExport() {
       stories,
       technicalAnswers,
       practiceSessions,
+      analyzedJobs,
     };
 
     const filename = `jobhunt-hq-backup-${new Date().toISOString().split('T')[0]}.json`;
@@ -76,10 +82,11 @@ export function useDataExport() {
     if (stories.length > 0) parts.push(`${stories.length} stories`);
     if (technicalAnswers.length > 0) parts.push(`${technicalAnswers.length} answers`);
     if (practiceSessions.length > 0) parts.push(`${practiceSessions.length} practices`);
+    if (analyzedJobs.length > 0) parts.push(`${analyzedJobs.length} analyzed jobs`);
     parts.push('profile');
 
     toast.success('Data exported', `Exported: ${parts.join(', ')}`);
-  }, [applications, profile, stories, technicalAnswers, practiceSessions]);
+  }, [applications, profile, stories, technicalAnswers, practiceSessions, analyzedJobs]);
 
   /**
    * Export only applications
@@ -106,7 +113,7 @@ export function useDataExport() {
     async (file: File): Promise<ImportResult> => {
       const result: ImportResult = {
         success: false,
-        imported: { applications: 0, stories: 0, profile: false, technicalAnswers: 0, practiceSessions: 0 },
+        imported: { applications: 0, stories: 0, profile: false, technicalAnswers: 0, practiceSessions: 0, analyzedJobs: 0 },
         errors: [],
       };
 
@@ -134,6 +141,7 @@ export function useDataExport() {
           stories: data.stories?.length || 0,
           technicalAnswers: data.technicalAnswers?.length || 0,
           practiceSessions: data.practiceSessions?.length || 0,
+          analyzedJobs: data.analyzedJobs?.length || 0,
           hasProfile: !!data.profile,
         });
 
@@ -207,6 +215,23 @@ export function useDataExport() {
           }
         }
 
+        // Import analyzed jobs
+        if (data.analyzedJobs && Array.isArray(data.analyzedJobs)) {
+          const validJobs = data.analyzedJobs.filter(
+            (job: unknown) =>
+              job &&
+              typeof job === 'object' &&
+              'id' in job &&
+              'jobDescription' in job &&
+              'analysis' in job
+          ) as AnalyzedJob[];
+
+          if (validJobs.length > 0) {
+            importAnalyzedJobs(validJobs);
+            result.imported.analyzedJobs = validJobs.length;
+          }
+        }
+
         // Small delay to ensure Zustand persist middleware writes to localStorage
         await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -228,6 +253,9 @@ export function useDataExport() {
         }
         if (result.imported.practiceSessions > 0) {
           parts.push(`${result.imported.practiceSessions} practice sessions`);
+        }
+        if (result.imported.analyzedJobs > 0) {
+          parts.push(`${result.imported.analyzedJobs} analyzed jobs`);
         }
 
         if (parts.length > 0) {
@@ -252,7 +280,7 @@ export function useDataExport() {
         return result;
       }
     },
-    [importApplications, importStories, importProfile, importAnswers, importPracticeSessions]
+    [importApplications, importStories, importProfile, importAnswers, importPracticeSessions, importAnalyzedJobs]
   );
 
   /**
@@ -264,9 +292,10 @@ export function useDataExport() {
       stories: stories.length,
       technicalAnswers: technicalAnswers.length,
       practiceSessions: practiceSessions.length,
+      analyzedJobs: analyzedJobs.length,
       hasProfile: profile.name !== 'Senior Engineer', // Check if profile has been customized
     };
-  }, [applications.length, stories.length, technicalAnswers.length, practiceSessions.length, profile.name]);
+  }, [applications.length, stories.length, technicalAnswers.length, practiceSessions.length, analyzedJobs.length, profile.name]);
 
   /**
    * Trigger file picker for import

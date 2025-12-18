@@ -164,3 +164,39 @@ export function formatTime(seconds: number): string {
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Parse simple markdown to HTML
+ * Supports: **bold**, *italic*, `code`, - lists, numbered lists, headers, newlines
+ */
+export function parseMarkdown(text: string): string {
+  if (!text) return '';
+
+  let html = text
+    // Escape HTML entities first
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // Bold: **text** or __text__
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-white">$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong class="font-semibold text-white">$1</strong>')
+    // Italic: *text* or _text_ (but not inside bold)
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em class="italic">$1</em>')
+    .replace(/(?<!_)_([^_]+)_(?!_)/g, '<em class="italic">$1</em>')
+    // Inline code: `code`
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 text-xs font-mono">$1</code>')
+    // Headers: # ## ###
+    .replace(/^### (.+)$/gm, '<h4 class="text-sm font-bold text-white mt-3 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="text-base font-bold text-white mt-4 mb-2">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="text-lg font-bold text-white mt-4 mb-2">$1</h2>')
+    // Bullet lists: - item or * item
+    .replace(/^[-*] (.+)$/gm, '<li class="flex items-start gap-2 ml-4"><span class="text-blue-400 mt-1.5">•</span><span>$1</span></li>')
+    // Numbered lists: 1. item
+    .replace(/^\d+\. (.+)$/gm, '<li class="flex items-start gap-2 ml-4"><span class="text-blue-400 font-mono text-xs mt-0.5">▸</span><span>$1</span></li>')
+    // Line breaks: double newline = paragraph, single newline = <br>
+    .replace(/\n\n/g, '</p><p class="mt-2">')
+    .replace(/\n/g, '<br />');
+
+  // Wrap in paragraph
+  return `<p>${html}</p>`;
+}

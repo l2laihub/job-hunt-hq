@@ -8,6 +8,10 @@ export { formatExperience, formatExperience as formatExperienceToSTAR, matchStor
 export { processDocuments } from './process-documents';
 export { createLiveSession, generateInterviewFeedback } from './live-interview';
 export { generateTechnicalAnswer, generateFollowUps } from './technical-answers';
+export { generateCoverLetter } from './cover-letter';
+export { generatePhoneScreenPrep, generateTechnicalInterviewPrep, generateApplicationStrategy } from './interview-prep';
+export { enhanceResume, analyzeResumeQuick } from './resume-enhance';
+export { generateSkillsRoadmap } from './skills-roadmap';
 
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';
