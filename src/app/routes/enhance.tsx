@@ -550,7 +550,7 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
   original,
   onUpdate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'headline' | 'experience' | 'skills'>('headline');
+  const [activeTab, setActiveTab] = useState<'headline' | 'experience' | 'skills' | 'achievements'>('headline');
   const [isEditing, setIsEditing] = useState(false);
 
   // Sort roles for display
@@ -605,13 +605,31 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
     onUpdate({ softSkills: skills });
   };
 
-  const handleAchievementChange = (index: number, description: string) => {
+  const handleAchievementChange = (index: number, field: 'description' | 'metrics', value: string) => {
     if (!enhanced.keyAchievements) return;
     const updatedAchievements = [...enhanced.keyAchievements];
     updatedAchievements[index] = {
       ...updatedAchievements[index],
-      description,
+      [field]: value || undefined,
     };
+    onUpdate({ keyAchievements: updatedAchievements });
+  };
+
+  const handleAddAchievement = () => {
+    const newAchievement = {
+      description: '',
+      metrics: undefined,
+      skills: [],
+      storyType: 'impact' as const,
+    };
+    onUpdate({
+      keyAchievements: [...(enhanced.keyAchievements || []), newAchievement]
+    });
+  };
+
+  const handleRemoveAchievement = (index: number) => {
+    if (!enhanced.keyAchievements) return;
+    const updatedAchievements = enhanced.keyAchievements.filter((_, i) => i !== index);
     onUpdate({ keyAchievements: updatedAchievements });
   };
 
@@ -628,7 +646,7 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
           </div>
         </div>
         <div className="flex gap-2 mt-2">
-          {(['headline', 'experience', 'skills'] as const).map((tab) => (
+          {(['headline', 'experience', 'skills', 'achievements'] as const).map((tab) => (
             <Button
               key={tab}
               size="sm"
@@ -636,7 +654,12 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
               onClick={() => setActiveTab(tab)}
               className="capitalize"
             >
-              {tab}
+              {tab === 'achievements' ? (
+                <span className="flex items-center gap-1">
+                  <Trophy className="w-3 h-3" />
+                  {tab}
+                </span>
+              ) : tab}
             </Button>
           ))}
         </div>
@@ -782,6 +805,87 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
                 placeholder="Add soft skill..."
               />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'achievements' && (
+          <div className="space-y-4">
+            <div className="text-xs text-gray-500 mb-2">
+              Edit your key achievements. These highlight your most impactful accomplishments.
+            </div>
+            {(!enhanced.keyAchievements || enhanced.keyAchievements.length === 0) ? (
+              <div className="text-center py-8 text-gray-500">
+                <Trophy className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No key achievements yet</p>
+                <p className="text-sm mb-4">Add achievements to showcase your impact</p>
+                <Button
+                  size="sm"
+                  onClick={handleAddAchievement}
+                  className="bg-purple-600 hover:bg-purple-500"
+                >
+                  + Add Achievement
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {enhanced.keyAchievements.map((achievement, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-800/50 rounded-lg p-4 border border-gray-700"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Achievement Description</div>
+                          <EditableText
+                            value={achievement.description}
+                            onChange={(value) => handleAchievementChange(index, 'description', value)}
+                            className="text-gray-200"
+                            placeholder="Describe your achievement..."
+                            multiline
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Metrics (optional)</div>
+                          <EditableText
+                            value={achievement.metrics || ''}
+                            onChange={(value) => handleAchievementChange(index, 'metrics', value)}
+                            className="text-sm text-purple-400"
+                            placeholder="e.g., 50% increase, $1M savings..."
+                          />
+                        </div>
+                        {achievement.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {achievement.skills.map((skill, i) => (
+                              <Badge key={i} className="bg-gray-700 text-gray-300 text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveAchievement(index)}
+                        className="text-gray-500 hover:text-red-400 shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleAddAchievement}
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  + Add Achievement
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

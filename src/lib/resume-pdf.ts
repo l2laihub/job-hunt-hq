@@ -335,7 +335,24 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     /* Experience */
     .experience-item {
       margin-bottom: 14px;
-      page-break-inside: avoid;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+
+    /* Keep header and first bullet together, allow rest to break */
+    .experience-header {
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    .experience-highlights {
+      page-break-before: avoid;
+      break-before: avoid;
+    }
+
+    .experience-highlights li:first-child {
+      page-break-before: avoid;
+      break-before: avoid;
     }
 
     .experience-header {
@@ -434,8 +451,21 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
         padding: 0;
       }
 
+      /* Allow sections to break across pages - only keep section titles with first item */
       .section {
+        page-break-inside: auto;
+        break-inside: auto;
+      }
+
+      .section-title {
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      /* Keep achievements together when small, allow break when many */
+      .achievement-item {
         page-break-inside: avoid;
+        break-inside: avoid;
       }
 
       /* Remove browser headers and footers */
