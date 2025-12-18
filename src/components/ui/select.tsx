@@ -8,17 +8,22 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'children'> {
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'children' | 'onChange'> {
   label?: string;
   error?: string;
   hint?: string;
   options: SelectOption[];
   placeholder?: string;
+  onChange?: (value: string) => void;
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, hint, options, placeholder, id, ...props }, ref) => {
+  ({ className, label, error, hint, options, placeholder, id, onChange, ...props }, ref) => {
     const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      onChange?.(e.target.value);
+    };
 
     return (
       <div className="space-y-1">
@@ -42,6 +47,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               error && 'border-red-500 focus:ring-red-500/50 focus:border-red-500',
               className
             )}
+            onChange={handleChange}
             {...props}
           >
             {placeholder && (

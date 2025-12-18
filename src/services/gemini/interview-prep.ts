@@ -65,7 +65,7 @@ export async function generatePhoneScreenPrep(
 
   const profileContext = buildProfileContext(profile);
 
-  const prompt = `You are a career coach preparing a candidate for a phone screen interview.
+  const prompt = `You are helping prepare a candidate for a phone screen. Write all suggested answers and talking points AS the candidate would say them - natural, human voice.
 
 ## Candidate Profile
 ${profileContext}
@@ -83,18 +83,28 @@ Matched Skills: ${analysis.analysisType !== 'freelance' ? analysis.matchedSkills
 Missing Skills: ${analysis.missingSkills?.join(', ') || 'None identified'}
 ${analysis.analysisType === 'fulltime' || analysis.analysisType === 'contract' ? `Red Flags: ${analysis.redFlags?.join('; ') || 'None'}` : ''}
 
+## CRITICAL: Sound Human, Not AI
+All suggested answers and scripts MUST:
+- Use contractions (I'm, I've, we'd, didn't)
+- Sound conversational, not rehearsed or robotic
+- Avoid: "I am excited", "I am passionate", "I believe", "leverage", "utilize", "synergy"
+- Avoid: "Throughout my career", "In my current role", "This position aligns perfectly"
+- Be specific with real numbers, project names, and concrete examples
+- Vary sentence length - short punchy sentences mixed with longer explanations
+- Never start more than 2 sentences in a row with "I"
+
 ## Your Task
-Create comprehensive phone screen preparation including:
+Create phone screen preparation:
 
-1. **Company Research Points**: Key facts about the company to mention naturally (research common industry knowledge)
-2. **Likely Questions**: Questions they'll probably ask with suggested answers tailored to this role
-3. **Questions to Ask**: Smart questions that show you've done research and are genuinely interested
-4. **Talking Points**: Key achievements to weave into your answers
-5. **Red Flag Responses**: How to address gaps or concerns they might have (${analysis.missingSkills?.slice(0, 3).join(', ') || 'none'})
-6. **Elevator Pitch**: A compelling 30-second introduction
-7. **Closing Statement**: A strong way to end the call expressing interest
+1. **Company Research Points**: Key facts to mention naturally - NOT generic platitudes
+2. **Likely Questions**: Questions they'll ask with suggested answers in natural conversational voice
+3. **Questions to Ask**: Smart questions showing genuine curiosity (not brown-nosing)
+4. **Talking Points**: Specific achievements to weave in - with numbers
+5. **Red Flag Responses**: How to address gaps honestly but positively (${analysis.missingSkills?.slice(0, 3).join(', ') || 'none'})
+6. **Elevator Pitch**: A 30-second intro that sounds natural when spoken aloud
+7. **Closing Statement**: A confident (not desperate) way to end
 
-Be specific to this role and company, not generic advice.`;
+Make it sound like a real person talking, not a script.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -148,7 +158,7 @@ export async function generateTechnicalInterviewPrep(
   const profileContext = buildProfileContext(profile);
   const storiesContext = buildStoriesWithIndices(stories);
 
-  const prompt = `You are a technical interview coach preparing a candidate for technical interviews.
+  const prompt = `You are helping prepare a candidate for technical interviews. All suggested talking points and approaches should sound like natural human speech.
 
 ## Candidate Profile
 ${profileContext}
@@ -169,19 +179,27 @@ Required Skills: ${analysis.analysisType !== 'freelance' ? analysis.requiredSkil
 Matched Skills: ${analysis.matchedSkills?.join(', ')}
 Missing Skills: ${analysis.missingSkills?.join(', ') || 'None'}
 
+## CRITICAL: Sound Human, Not AI
+When writing suggested approaches or talking points:
+- Use natural language, not corporate speak
+- Avoid: "leverage", "utilize", "innovative", "cutting-edge", "synergy"
+- Be specific - name actual technologies, not just categories
+- Include realistic trade-offs and honest limitations
+- Sound like an engineer explaining to another engineer, not marketing copy
+
 ## Your Task
-Create comprehensive technical interview preparation:
+Create technical interview preparation:
 
-1. **Focus Areas**: Main technical areas to study based on job requirements
-2. **Likely Topics**: Specific topics they'll test, with depth level (basic/intermediate/deep) and key notes
-3. **Relevant Stories**: Story indices that best demonstrate technical competence (use actual indices from list above)
-4. **System Design Topics**: If senior role, what system design topics might come up
-5. **Coding Patterns**: Common algorithms/patterns to review
-6. **Behavioral Questions**: Technical behavioral questions with recommended story index and approach
-7. **Study Resources**: Specific resources with priority (high/medium/low)
-8. **Practice Problems**: Specific problems or exercises to practice
+1. **Focus Areas**: Main technical areas based on job requirements (be specific to their stack)
+2. **Likely Topics**: Specific topics with depth level (basic/intermediate/deep) and practical notes
+3. **Relevant Stories**: Story indices that best demonstrate technical competence (use actual indices)
+4. **System Design Topics**: For senior roles - realistic design scenarios they might ask
+5. **Coding Patterns**: Specific algorithms/patterns to review (not generic "know data structures")
+6. **Behavioral Questions**: Technical behavioral questions with recommended story and natural approach
+7. **Study Resources**: Specific resources with priority (high/medium/low) - actual book/course names
+8. **Practice Problems**: Specific problems to practice (LeetCode numbers, system design scenarios)
 
-Be specific to the tech stack and role level. Reference actual story indices where relevant.`;
+Be practical and specific. Reference actual story indices where relevant.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -244,7 +262,7 @@ export async function generateApplicationStrategy(
 
   const profileContext = buildProfileContext(profile);
 
-  const prompt = `You are a career strategist helping a candidate decide whether to apply and how to maximize their chances.
+  const prompt = `You are helping a candidate decide whether to apply and how to maximize their chances. Be direct and honest - no sugarcoating.
 
 ## Candidate Profile
 ${profileContext}
@@ -268,29 +286,36 @@ Missing Skills: ${analysis.missingSkills?.join(', ') || 'None'}
 Red Flags: ${analysis.redFlags?.join('; ') || 'None'}
 Green Flags: ${analysis.greenFlags?.join('; ') || 'None'}
 
+## CRITICAL: Be Direct and Human
+- Give honest assessments, not empty encouragement
+- If it's a stretch, say so clearly
+- Avoid corporate buzzwords and generic advice
+- Be specific about what to actually do, not vague suggestions
+- Write like you're giving advice to a friend, not a client
+
 ## Your Task
-Provide a comprehensive application strategy:
+Provide a practical application strategy:
 
 1. **Fit Assessment**:
-   - Overall score and honest summary
-   - Specific strengths for this role
-   - Gaps to address
-   - Any deal breakers (be honest if this isn't a good fit)
-   - Competitiveness rating (strong/moderate/weak)
+   - Honest score and direct summary (don't sugarcoat)
+   - Real strengths for this specific role
+   - Gaps that matter (not just "could improve")
+   - Deal breakers if any (be honest if this isn't worth pursuing)
+   - Competitiveness: strong/moderate/weak with why
 
-2. **Application Timing**: When to apply and why (consider company hiring cycles, urgency signals)
+2. **Application Timing**: When to apply - be specific (not "ASAP")
 
-3. **Customization Tips**: Specific ways to tailor resume and cover letter
+3. **Customization Tips**: Concrete changes to make to resume/cover letter
 
-4. **Networking Opportunities**: Ways to get a referral or connect with people at the company
+4. **Networking Opportunities**: Realistic ways to connect (not "just network!")
 
-5. **Salary Negotiation Notes**: Based on the role and candidate's profile
+5. **Salary Negotiation Notes**: Practical leverage points based on profile
 
-6. **Application Checklist**: Required, recommended, and optional items to complete
+6. **Application Checklist**: What actually matters vs. nice-to-haves
 
-7. **Follow-up Strategy**: How and when to follow up after applying
+7. **Follow-up Strategy**: Specific timing and approach
 
-Be honest and specific. If this isn't a good fit, say so.`;
+Be honest. If this isn't a good fit, say so directly.`;
 
   try {
     const response = await ai.models.generateContent({

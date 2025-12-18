@@ -204,6 +204,52 @@ export const ProfilePage: React.FC = () => {
     );
   };
 
+  // Preference input handlers
+  const [targetRoleInput, setTargetRoleInput] = useState('');
+  const [dealBreakerInput, setDealBreakerInput] = useState('');
+  const [uspInput, setUspInput] = useState('');
+  const [projectTypeInput, setProjectTypeInput] = useState('');
+
+  const addTargetRole = () => {
+    if (targetRoleInput.trim() && !editedProfile.preferences.targetRoles.includes(targetRoleInput.trim())) {
+      handleNestedChange('preferences', 'targetRoles', [...editedProfile.preferences.targetRoles, targetRoleInput.trim()]);
+      setTargetRoleInput('');
+    }
+  };
+  const removeTargetRole = (role: string) => {
+    handleNestedChange('preferences', 'targetRoles', editedProfile.preferences.targetRoles.filter((r) => r !== role));
+  };
+
+  const addDealBreaker = () => {
+    if (dealBreakerInput.trim() && !editedProfile.preferences.dealBreakers.includes(dealBreakerInput.trim())) {
+      handleNestedChange('preferences', 'dealBreakers', [...editedProfile.preferences.dealBreakers, dealBreakerInput.trim()]);
+      setDealBreakerInput('');
+    }
+  };
+  const removeDealBreaker = (item: string) => {
+    handleNestedChange('preferences', 'dealBreakers', editedProfile.preferences.dealBreakers.filter((d) => d !== item));
+  };
+
+  const addUSP = () => {
+    if (uspInput.trim() && !editedProfile.freelanceProfile.uniqueSellingPoints.includes(uspInput.trim())) {
+      handleNestedChange('freelanceProfile', 'uniqueSellingPoints', [...editedProfile.freelanceProfile.uniqueSellingPoints, uspInput.trim()]);
+      setUspInput('');
+    }
+  };
+  const removeUSP = (usp: string) => {
+    handleNestedChange('freelanceProfile', 'uniqueSellingPoints', editedProfile.freelanceProfile.uniqueSellingPoints.filter((u) => u !== usp));
+  };
+
+  const addProjectType = () => {
+    if (projectTypeInput.trim() && !editedProfile.freelanceProfile.preferredProjectTypes.includes(projectTypeInput.trim())) {
+      handleNestedChange('freelanceProfile', 'preferredProjectTypes', [...editedProfile.freelanceProfile.preferredProjectTypes, projectTypeInput.trim()]);
+      setProjectTypeInput('');
+    }
+  };
+  const removeProjectType = (type: string) => {
+    handleNestedChange('freelanceProfile', 'preferredProjectTypes', editedProfile.freelanceProfile.preferredProjectTypes.filter((t) => t !== type));
+  };
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -587,23 +633,65 @@ export const ProfilePage: React.FC = () => {
 
             <div>
               <label className="text-sm text-gray-400 block mb-2">Target Roles</label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-3">
                 {editedProfile.preferences.targetRoles.map((role, i) => (
-                  <Badge key={i} variant="info">
-                    {role}
+                  <Badge
+                    key={i}
+                    variant="info"
+                    className="cursor-pointer hover:bg-red-900/30"
+                    onClick={() => removeTargetRole(role)}
+                  >
+                    {role} ×
                   </Badge>
                 ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={targetRoleInput}
+                  onChange={(e) => setTargetRoleInput(e.target.value)}
+                  placeholder="Add target role (e.g., Senior Software Engineer)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addTargetRole();
+                    }
+                  }}
+                />
+                <Button variant="ghost" onClick={addTargetRole}>
+                  Add
+                </Button>
               </div>
             </div>
 
             <div>
               <label className="text-sm text-gray-400 block mb-2">Deal Breakers</label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-3">
                 {editedProfile.preferences.dealBreakers.map((item, i) => (
-                  <Badge key={i} variant="danger">
-                    {item}
+                  <Badge
+                    key={i}
+                    variant="danger"
+                    className="cursor-pointer hover:bg-red-900/50"
+                    onClick={() => removeDealBreaker(item)}
+                  >
+                    {item} ×
                   </Badge>
                 ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={dealBreakerInput}
+                  onChange={(e) => setDealBreakerInput(e.target.value)}
+                  placeholder="Add deal breaker (e.g., No remote option)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addDealBreaker();
+                    }
+                  }}
+                />
+                <Button variant="ghost" onClick={addDealBreaker}>
+                  Add
+                </Button>
               </div>
             </div>
           </div>
@@ -650,13 +738,65 @@ export const ProfilePage: React.FC = () => {
               placeholder="e.g. 20 hrs/week"
             />
             <div>
-              <label className="text-sm text-gray-400 block mb-2">Unique Selling Points</label>
-              <div className="flex flex-wrap gap-2">
-                {editedProfile.freelanceProfile.uniqueSellingPoints.map((usp, i) => (
-                  <Badge key={i} variant="success">
-                    {usp}
+              <label className="text-sm text-gray-400 block mb-2">Preferred Project Types</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {editedProfile.freelanceProfile.preferredProjectTypes.map((type, i) => (
+                  <Badge
+                    key={i}
+                    variant="info"
+                    className="cursor-pointer hover:bg-red-900/30"
+                    onClick={() => removeProjectType(type)}
+                  >
+                    {type} ×
                   </Badge>
                 ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={projectTypeInput}
+                  onChange={(e) => setProjectTypeInput(e.target.value)}
+                  placeholder="Add project type (e.g., API Development)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addProjectType();
+                    }
+                  }}
+                />
+                <Button variant="ghost" onClick={addProjectType}>
+                  Add
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-gray-400 block mb-2">Unique Selling Points</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {editedProfile.freelanceProfile.uniqueSellingPoints.map((usp, i) => (
+                  <Badge
+                    key={i}
+                    variant="success"
+                    className="cursor-pointer hover:bg-red-900/30"
+                    onClick={() => removeUSP(usp)}
+                  >
+                    {usp} ×
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={uspInput}
+                  onChange={(e) => setUspInput(e.target.value)}
+                  placeholder="Add selling point (e.g., 10+ years enterprise experience)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addUSP();
+                    }
+                  }}
+                />
+                <Button variant="ghost" onClick={addUSP}>
+                  Add
+                </Button>
               </div>
             </div>
           </div>

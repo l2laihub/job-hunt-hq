@@ -230,10 +230,10 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
                 <AlertOctagon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${match.severity === 'hard' ? 'text-red-400' : 'text-orange-400'}`} />
                 <div>
                   <p className="text-sm text-gray-200">
-                    <span className="font-medium">Your preference:</span> {match.userDealBreaker}
+                    <span className="font-medium">You want to avoid:</span> {match.userDealBreaker}
                   </p>
                   <p className="text-sm text-gray-400 mt-1">
-                    <span className="font-medium">Job requires:</span> {match.jobRequirement}
+                    <span className="font-medium">But this job has:</span> {match.jobRequirement}
                   </p>
                   <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${match.severity === 'hard' ? 'bg-red-800 text-red-200' : 'bg-orange-800 text-orange-200'}`}>
                     {match.severity === 'hard' ? 'Hard Deal Breaker' : 'Soft - Negotiable'}

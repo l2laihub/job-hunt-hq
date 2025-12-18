@@ -114,10 +114,24 @@ const skillGapDetailSchema: Schema = {
 
 const dealBreakerMatchSchema: Schema = {
   type: Type.OBJECT,
+  description: `CRITICAL: Only include entries when there is a REAL VIOLATION. This array should be EMPTY if the job does NOT contain what the candidate wants to avoid.
+
+CORRECT usage (include in array):
+- Deal breaker "Pure management roles" + Job IS pure management → INCLUDE (violation)
+- Deal breaker "Salary below $150K" + Job pays $120K → INCLUDE (violation)
+- Deal breaker "On-site only" + Job requires on-site → INCLUDE (violation)
+
+INCORRECT usage (DO NOT include):
+- Deal breaker "Pure management roles" + Job is IC-heavy → DO NOT INCLUDE (no violation - this is GOOD)
+- Deal breaker "Salary below $150K" + Job pays $200K → DO NOT INCLUDE (no violation - this is GOOD)
+- Deal breaker "On-site only" + Job is fully remote → DO NOT INCLUDE (no violation - this is GOOD)
+- Deal breaker "No equity" + Job has equity → DO NOT INCLUDE (no violation - this is GOOD)
+
+If a job DOES NOT have what the candidate wants to avoid, that is a GREEN FLAG, not a deal breaker match.`,
   properties: {
-    userDealBreaker: { type: Type.STRING, description: 'The deal breaker from profile' },
-    jobRequirement: { type: Type.STRING, description: 'The conflicting job requirement' },
-    severity: { type: Type.STRING, enum: ['hard', 'soft'] },
+    userDealBreaker: { type: Type.STRING, description: 'The thing the candidate wants to AVOID' },
+    jobRequirement: { type: Type.STRING, description: 'What the job ACTUALLY HAS that violates this preference. Must be something BAD/unwanted.' },
+    severity: { type: Type.STRING, enum: ['hard', 'soft'], description: 'hard = absolute deal breaker, soft = negotiable concern' },
   },
   required: ['userDealBreaker', 'jobRequirement', 'severity'],
 };

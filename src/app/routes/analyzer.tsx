@@ -10,6 +10,8 @@ import {
 } from '@/src/stores';
 import {
   analyzeJobDescription,
+  reanalyzeJD,
+  extractJobInfo,
   generateCoverLetter,
   generatePhoneScreenPrep,
   generateTechnicalInterviewPrep,
@@ -20,7 +22,7 @@ import {
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
 import { AnalysisResultView } from '@/components/AnalysisResultView';
-import { cn, formatDate, parseMarkdown } from '@/src/lib/utils';
+import { cn, formatDate, parseMarkdown, coverLetterToHtml } from '@/src/lib/utils';
 import { JOB_TYPES, COVER_LETTER_STYLES } from '@/src/lib/constants';
 import type {
   JDAnalysis,
@@ -72,6 +74,7 @@ import {
   HelpCircle,
   Send,
   RotateCcw,
+  Building,
 } from 'lucide-react';
 
 type ViewType = 'analyze' | 'history' | 'detail';
@@ -123,7 +126,13 @@ export const AnalyzerPage: React.FC = () => {
   const [jobType, setJobType] = useState<AnalyzedJobType>('fulltime');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<JDAnalysis | null>(null);
-  const [extractedInfo, setExtractedInfo] = useState<{ company?: string; role?: string }>({});
+  const [extractedInfo, setExtractedInfo] = useState<{
+    company?: string;
+    role?: string;
+    location?: string;
+    salaryRange?: string;
+    remote?: 'remote' | 'hybrid' | 'onsite' | 'unknown';
+  }>({});
 
   // Generation states
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
@@ -163,7 +172,7 @@ export const AnalyzerPage: React.FC = () => {
     );
   }, [analyzedJobs, historySearch]);
 
-  // Handle analyze
+  // Handle analyze - always get fresh results to ensure latest profile/prompt changes are used
   const handleAnalyze = async () => {
     if (!jdText.trim()) {
       toast.error('Missing job description', 'Please paste a job description to analyze');
@@ -172,17 +181,27 @@ export const AnalyzerPage: React.FC = () => {
 
     setIsAnalyzing(true);
     try {
-      const result = await analyzeJobDescription(jdText, profile, jobType);
+      // Run analysis and job info extraction in parallel for better performance
+      const [result, jobInfo] = await Promise.all([
+        reanalyzeJD(jdText, profile),
+        extractJobInfo(jdText),
+      ]);
+
       setCurrentAnalysis(result);
 
-      // Try to extract company/role from JD (simple extraction)
-      const companyMatch = jdText.match(/(?:at|@|company[:\s]+)([A-Z][a-zA-Z\s]+?)(?:\.|,|\n|$)/i);
-      const roleMatch = jdText.match(/(?:title|position|role)[:\s]+(.+?)(?:\.|,|\n|$)/i);
-
+      // Use AI-extracted company/role info (much more accurate than regex)
       setExtractedInfo({
-        company: companyMatch?.[1]?.trim(),
-        role: roleMatch?.[1]?.trim(),
+        company: jobInfo.company !== 'Unknown Company' ? jobInfo.company : undefined,
+        role: jobInfo.role !== 'Unknown Role' ? jobInfo.role : undefined,
+        location: jobInfo.location,
+        salaryRange: jobInfo.salaryRange,
+        remote: jobInfo.remote,
       });
+
+      // Auto-update job type if AI detected differently
+      if (jobInfo.jobType && jobInfo.jobType !== jobType) {
+        setJobType(jobInfo.jobType);
+      }
 
       toast.success('Analysis complete', `Fit score: ${result.fitScore}/10`);
     } catch (error) {
@@ -202,6 +221,8 @@ export const AnalyzerPage: React.FC = () => {
       type: jobType,
       company: extractedInfo.company,
       role: extractedInfo.role,
+      location: extractedInfo.location,
+      salaryRange: extractedInfo.salaryRange,
       analysis: currentAnalysis,
     }, activeProfileId || undefined);
 
@@ -222,8 +243,11 @@ export const AnalyzerPage: React.FC = () => {
 
     openModal('application', {
       type: jobType,
+      company: extractedInfo.company,
+      role: extractedInfo.role,
       jobDescriptionRaw: jdText,
       analysis: currentAnalysis,
+      salaryRange: extractedInfo.salaryRange ? { display: extractedInfo.salaryRange } : undefined,
       status: 'wishlist',
     });
   };
@@ -437,16 +461,15 @@ export const AnalyzerPage: React.FC = () => {
     toast.success('Question removed');
   };
 
-  // Re-analyze existing job with current profile
+  // Re-analyze existing job with current profile (skip cache for fresh results)
   const handleReanalyze = async () => {
     if (!selectedJob) return;
 
     setIsReanalyzing(true);
     try {
-      const result = await analyzeJobDescription(
+      const result = await reanalyzeJD(
         selectedJob.jobDescription,
-        profile,
-        selectedJob.type
+        profile
       );
 
       // Update the job with new analysis
@@ -467,14 +490,13 @@ export const AnalyzerPage: React.FC = () => {
     }
   };
 
-  // Re-analyze job from history list
+  // Re-analyze job from history list (skip cache for fresh results)
   const handleReanalyzeFromList = async (job: AnalyzedJob) => {
     setReanalyzingJobId(job.id);
     try {
-      const result = await analyzeJobDescription(
+      const result = await reanalyzeJD(
         job.jobDescription,
-        profile,
-        job.type
+        profile
       );
 
       // Update the job with new analysis
@@ -716,6 +738,70 @@ export const AnalyzerPage: React.FC = () => {
               <div className="space-y-4">
                 {currentAnalysis ? (
                   <>
+                    {/* Extracted Job Info - Editable */}
+                    <Card className="p-4 bg-gray-900/50 border-gray-700">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Building className="w-4 h-4 text-blue-400" />
+                        <span className="text-sm font-medium text-gray-300">Job Details (Auto-Extracted)</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Company</label>
+                          <Input
+                            value={extractedInfo.company || ''}
+                            onChange={(e) => setExtractedInfo(prev => ({ ...prev, company: e.target.value }))}
+                            placeholder="Company name"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Role</label>
+                          <Input
+                            value={extractedInfo.role || ''}
+                            onChange={(e) => setExtractedInfo(prev => ({ ...prev, role: e.target.value }))}
+                            placeholder="Job title"
+                            className="text-sm"
+                          />
+                        </div>
+                        {extractedInfo.location && (
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Location</label>
+                            <Input
+                              value={extractedInfo.location}
+                              onChange={(e) => setExtractedInfo(prev => ({ ...prev, location: e.target.value }))}
+                              placeholder="Location"
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
+                        {extractedInfo.salaryRange && (
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Salary Range</label>
+                            <Input
+                              value={extractedInfo.salaryRange}
+                              onChange={(e) => setExtractedInfo(prev => ({ ...prev, salaryRange: e.target.value }))}
+                              placeholder="Salary"
+                              className="text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {extractedInfo.remote && extractedInfo.remote !== 'unknown' && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge className={cn(
+                            'text-xs',
+                            extractedInfo.remote === 'remote' ? 'bg-green-900/30 text-green-400' :
+                            extractedInfo.remote === 'hybrid' ? 'bg-yellow-900/30 text-yellow-400' :
+                            'bg-gray-700 text-gray-400'
+                          )}>
+                            {extractedInfo.remote === 'remote' ? '🏠 Remote' :
+                             extractedInfo.remote === 'hybrid' ? '🏢 Hybrid' :
+                             '🏢 On-site'}
+                          </Badge>
+                        </div>
+                      )}
+                    </Card>
+
                     <AnalysisResultView analysis={currentAnalysis} />
                     <div className="flex gap-3">
                       <Button
@@ -1026,9 +1112,10 @@ export const AnalyzerPage: React.FC = () => {
                               Copy
                             </Button>
                           </div>
-                          <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 whitespace-pre-wrap text-sm text-gray-300">
-                            {cl.editedContent || cl.content}
-                          </div>
+                          <div
+                            className="bg-gray-800/50 p-5 rounded-lg border border-gray-700 text-sm text-gray-300 leading-relaxed cover-letter-content"
+                            dangerouslySetInnerHTML={{ __html: coverLetterToHtml(cl.editedContent || cl.content) }}
+                          />
                           {cl.keyPoints.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-gray-700">
                               <span className="text-xs font-bold text-gray-500 uppercase">Key Points</span>

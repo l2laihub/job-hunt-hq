@@ -3,6 +3,7 @@ export { geminiClient, isGeminiAvailable, getApiKeyStatus, requireGemini } from 
 
 // AI Functions - with aliases for convenience
 export { analyzeJD, analyzeJD as analyzeJobDescription, reanalyzeJD } from './analyze-jd';
+export { extractJobInfo } from './extract-job-info';
 export { researchCompany, refreshCompanyResearch, clearCompanyResearchCache } from './research-company';
 export { formatExperience, formatExperience as formatExperienceToSTAR, matchStoriesToQuestion } from './format-experience';
 export { processDocuments } from './process-documents';

@@ -146,8 +146,29 @@ export const aiCache = new AIResponseCache();
 
 // Helper functions for specific cache types
 export const cacheKeys = {
-  analysis: (jdHash: string) => `analysis:${jdHash}`,
+  analysis: (jdHash: string, profileHash?: string) =>
+    profileHash ? `analysis:${jdHash}:${profileHash}` : `analysis:${jdHash}`,
   research: (company: string) => `research:${company.toLowerCase().replace(/\s+/g, '-')}`,
   storyMatch: (question: string, storyIds: string[]) =>
     `match:${aiCache.generateKey('match', question, storyIds.sort())}`,
 };
+
+/**
+ * Generate a hash of profile preferences that affect analysis caching
+ * This ensures cache is invalidated when relevant profile data changes
+ */
+export function hashProfileForAnalysis(profile: {
+  preferences?: { dealBreakers?: string[]; salaryRange?: { min: number; max: number }; workStyle?: string };
+  technicalSkills?: string[];
+  yearsExperience?: number;
+}): string {
+  // Only include fields that affect analysis results
+  const relevantData = {
+    dealBreakers: profile.preferences?.dealBreakers || [],
+    salaryRange: profile.preferences?.salaryRange,
+    workStyle: profile.preferences?.workStyle,
+    skills: profile.technicalSkills?.slice(0, 10) || [], // First 10 skills for reasonable hash
+    experience: profile.yearsExperience,
+  };
+  return aiCache.generateKey('profile', relevantData);
+}

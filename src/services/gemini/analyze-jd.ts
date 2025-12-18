@@ -1,6 +1,6 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import { fteAnalysisSchema, freelanceAnalysisSchema, contractAnalysisSchema } from './schemas';
-import { aiCache, cacheKeys } from './cache';
+import { aiCache, cacheKeys, hashProfileForAnalysis } from './cache';
 import type { UserProfile, JDAnalysis, AnalyzedJobType } from '@/src/types';
 import { CACHE_TTL } from '@/src/lib/constants';
 
@@ -56,9 +56,10 @@ export async function analyzeJD(
     : jobTypeOrOptions;
   const ai = requireGemini();
 
-  // Check cache
+  // Check cache - include profile hash to invalidate when preferences change
   const jdHash = hashJD(jobDescription);
-  const cacheKey = cacheKeys.analysis(jdHash);
+  const profileHash = hashProfileForAnalysis(profile);
+  const cacheKey = cacheKeys.analysis(jdHash, profileHash);
 
   if (!options?.skipCache) {
     const cached = aiCache.get<JDAnalysis>(cacheKey);
@@ -190,7 +191,26 @@ Provide a COMPREHENSIVE analysis including:
 
 3. **Career Alignment**: How does this role fit the candidate's stated career goals? Will it advance their trajectory or is it a lateral/backward move?
 
-4. **Deal Breaker Check**: Compare job requirements against candidate's stated deal breakers. Flag any conflicts.
+4. **Deal Breaker Check**: CRITICAL - READ THIS CAREFULLY!
+
+   Deal breakers are things the candidate wants to AVOID. The dealBreakerMatches array should ONLY contain items where the job ACTUALLY VIOLATES the candidate's preference.
+
+   ✅ CORRECT - Add to dealBreakerMatches when there IS a violation:
+   - Deal breaker "Pure management roles" + Job IS a pure management role → ADD (violation exists)
+   - Deal breaker "Salary below $150K" + Job pays $120K → ADD (salary IS below $150K)
+   - Deal breaker "On-site only" + Job requires on-site work → ADD (job IS on-site only)
+   - Deal breaker "No equity" + Job has NO equity → ADD (equity IS missing)
+
+   ❌ WRONG - Do NOT add to dealBreakerMatches when the job is GOOD:
+   - Deal breaker "Pure management roles" + Job is IC-heavy coding role → NO VIOLATION (IC is good!)
+   - Deal breaker "Salary below $150K" + Job pays $180K+ → NO VIOLATION ($180K > $150K is good!)
+   - Deal breaker "On-site only" + Job is fully remote → NO VIOLATION (remote is good!)
+   - Deal breaker "No equity" + Job offers equity → NO VIOLATION (having equity is good!)
+   - Deal breaker "Architect roles with no coding" + Job has 70% coding → NO VIOLATION (coding is good!)
+
+   If the job DOES NOT have what the candidate wants to avoid, that's a POSITIVE - put it in greenFlags instead, not dealBreakerMatches.
+
+   The dealBreakerMatches array should be EMPTY for jobs that don't violate any deal breakers.
 
 5. **Skill Gap Analysis**: For each missing skill, assess:
    - Severity (minor/moderate/critical)

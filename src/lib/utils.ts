@@ -200,3 +200,77 @@ export function parseMarkdown(text: string): string {
   // Wrap in paragraph
   return `<p>${html}</p>`;
 }
+
+/**
+ * Format cover letter content to ensure proper paragraph breaks
+ * This can be used to fix display of cover letters that were generated without line breaks
+ * Returns text with proper newlines that can be displayed with whitespace-pre-wrap
+ */
+export function formatCoverLetter(content: string): string {
+  let formatted = content.trim();
+
+  // If content already has enough line breaks, just clean it up
+  if ((formatted.match(/\n\n/g) || []).length >= 3) {
+    return formatted;
+  }
+
+  // Step 1: Add break after greeting (Dear X,)
+  formatted = formatted.replace(/^(Dear[^,]+,)\s*/i, '$1\n\n');
+
+  // Step 2: Add break before common sign-offs
+  formatted = formatted.replace(
+    /\s+(Best regards|Sincerely|Kind regards|Regards|Thank you|Warm regards|Yours truly|Respectfully),?\s*/gi,
+    '\n\n$1,\n'
+  );
+
+  // Step 3: Check if we need to add more paragraph breaks in the body
+  const paragraphCount = (formatted.match(/\n\n/g) || []).length;
+
+  if (paragraphCount < 3) {
+    // Find body section
+    const greetingMatch = formatted.match(/^(Dear[^,]+,\n\n)/i);
+    const signoffMatch = formatted.match(/(\n\n(?:Best regards|Sincerely|Kind regards|Regards|Thank you|Warm regards|Yours truly|Respectfully),[\s\S]*$)/i);
+
+    if (greetingMatch && signoffMatch) {
+      const greeting = greetingMatch[1];
+      const signoffIndex = formatted.lastIndexOf(signoffMatch[1]);
+      const body = formatted.slice(greeting.length, signoffIndex);
+      const signoff = signoffMatch[1];
+
+      // Split body intelligently
+      let formattedBody = body
+        // Break before transition phrases
+        .replace(/\.\s+(In my |At |During |While |After |Before |Throughout |Additionally|Furthermore|Moreover|Beyond this|My experience|My background|My work|I've also|I also|Most recently|Previously|Before that)/gi, '.\n\n$1')
+        // Break before closing statements
+        .replace(/\.\s+(I(?:'m| am) (?:particularly|especially|most|confident|eager|excited)|What (?:excites|interests|draws|attracts)|I would (?:welcome|love|be)|I look forward|I'd (?:love|welcome|be))/gi, '.\n\n$1')
+        // If still no breaks, split after first few sentences
+        .replace(/^([^.]+\.[^.]+\.)\s+/g, '$1\n\n');
+
+      formatted = greeting + formattedBody.trim() + signoff;
+    }
+  }
+
+  return formatted.trim();
+}
+
+/**
+ * Convert cover letter text to HTML for rich display
+ * Converts newlines to proper paragraph tags with spacing
+ */
+export function coverLetterToHtml(content: string): string {
+  const formatted = formatCoverLetter(content);
+
+  // Split by double newlines into paragraphs
+  const paragraphs = formatted.split(/\n\n+/);
+
+  return paragraphs
+    .map((p) => {
+      // Handle sign-off + name (single newline between them)
+      if (p.includes('\n')) {
+        const lines = p.split('\n').map((line) => line.trim()).filter(Boolean);
+        return `<p class="mb-4 last:mb-0">${lines.join('<br />')}</p>`;
+      }
+      return `<p class="mb-4 last:mb-0">${p.trim()}</p>`;
+    })
+    .join('');
+}
