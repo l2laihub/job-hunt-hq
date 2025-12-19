@@ -7,7 +7,7 @@ import {
   useEnhancementsStore,
   toast,
 } from '@/src/stores';
-import { enhanceResume } from '@/src/services/gemini';
+import { enhanceResume, processDocuments } from '@/src/services/gemini';
 import { downloadResumePDF, previewResumeHTML } from '@/src/lib/resume-pdf';
 import { Button, Card, CardHeader, CardContent, Badge, Abbr, EditableText, EditableList } from '@/src/components/ui';
 import { cn, formatDate } from '@/src/lib/utils';
@@ -18,6 +18,7 @@ import type {
   ResumeAnalysis,
   EnhancementSuggestion,
   EnhancedProfile,
+  UserProfile,
 } from '@/src/types';
 import {
   Sparkles,
@@ -46,7 +47,15 @@ import {
   FileType,
   Palette,
   Clock,
+  Upload,
+  FileUp,
+  UserPlus,
+  ExternalLink,
 } from 'lucide-react';
+
+// Source of data for enhancement
+type EnhanceSource = 'profile' | 'upload';
+type UploadAction = 'enhance-only' | 'import-and-enhance';
 
 // Resume download format types
 type DownloadFormat = 'markdown' | 'text' | 'json' | 'pdf';
@@ -1033,6 +1042,13 @@ export const EnhancePage: React.FC = () => {
   const [pdfTemplate, setPdfTemplate] = useState<PDFTemplate>('professional');
   const [includeScoresInPDF, setIncludeScoresInPDF] = useState(false);
 
+  // Upload state
+  const [enhanceSource, setEnhanceSource] = useState<EnhanceSource>('profile');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedProfile, setUploadedProfile] = useState<UserProfile | null>(null);
+  const [uploadAction, setUploadAction] = useState<UploadAction>('enhance-only');
+  const [isParsingUpload, setIsParsingUpload] = useState(false);
+
   const [enhancement, setEnhancement] = useState<{
     analysis: ResumeAnalysis;
     suggestions: EnhancementSuggestion[];
@@ -1049,9 +1065,74 @@ export const EnhancePage: React.FC = () => {
     profile.headline.trim() !== '' &&
     profile.technicalSkills.length > 0;
 
+  const isUploadReady = uploadedProfile !== null;
+
+  // Determine which profile to use for enhancement
+  const activeProfile = enhanceSource === 'upload' && uploadedProfile ? uploadedProfile : profile;
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFile(file);
+    setIsParsingUpload(true);
+    setUploadedProfile(null);
+
+    try {
+      const parsedProfile = await processDocuments([file]);
+      setUploadedProfile(parsedProfile);
+      toast.success('Resume parsed', `Extracted profile for ${parsedProfile.name}`);
+    } catch (error) {
+      console.error('Failed to parse resume:', error);
+      toast.error('Parse failed', error instanceof Error ? error.message : 'Could not parse the uploaded file');
+      setUploadedFile(null);
+    } finally {
+      setIsParsingUpload(false);
+    }
+  };
+
+  const handleClearUpload = () => {
+    setUploadedFile(null);
+    setUploadedProfile(null);
+    setEnhanceSource('profile');
+  };
+
+  const handleImportToProfile = () => {
+    if (!uploadedProfile) return;
+
+    // Import all fields from uploaded profile to current profile
+    updateProfile({
+      name: uploadedProfile.name,
+      headline: uploadedProfile.headline,
+      yearsExperience: uploadedProfile.yearsExperience,
+      technicalSkills: uploadedProfile.technicalSkills,
+      softSkills: uploadedProfile.softSkills,
+      industries: uploadedProfile.industries,
+      keyAchievements: uploadedProfile.keyAchievements,
+      recentRoles: uploadedProfile.recentRoles,
+      currentSituation: uploadedProfile.currentSituation,
+      goals: uploadedProfile.goals,
+      constraints: uploadedProfile.constraints,
+      activeProjects: uploadedProfile.activeProjects,
+      preferences: uploadedProfile.preferences,
+      freelanceProfile: uploadedProfile.freelanceProfile,
+    });
+
+    toast.success('Profile updated', 'Resume data has been imported to your profile');
+    setEnhanceSource('profile');
+    handleClearUpload();
+  };
+
   const handleAnalyze = async () => {
-    if (!isProfileReady) {
+    const sourceProfile = enhanceSource === 'upload' ? uploadedProfile : profile;
+
+    if (enhanceSource === 'profile' && !isProfileReady) {
       toast.error('Profile incomplete', 'Please fill out your profile first');
+      return;
+    }
+
+    if (enhanceSource === 'upload' && !isUploadReady) {
+      toast.error('No resume uploaded', 'Please upload a resume first');
       return;
     }
 
@@ -1062,8 +1143,9 @@ export const EnhancePage: React.FC = () => {
 
     setIsAnalyzing(true);
     try {
+      const profileToEnhance = sourceProfile!;
       const result = await enhanceResume({
-        profile,
+        profile: profileToEnhance,
         mode,
         jobDescription: selectedJob?.jobDescription,
         analysis: selectedJob?.analysis,
@@ -1083,6 +1165,11 @@ export const EnhancePage: React.FC = () => {
         jobTitle: selectedJob?.role,
         companyName: selectedJob?.company,
       });
+
+      // If user chose to import and enhance, apply to profile after enhancement
+      if (enhanceSource === 'upload' && uploadAction === 'import-and-enhance') {
+        handleImportToProfile();
+      }
 
       toast.success('Analysis complete', 'Review the suggestions below');
     } catch (error) {
@@ -1464,6 +1551,230 @@ export const EnhancePage: React.FC = () => {
           </Card>
         )}
 
+        {/* Source Selection */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileUp className="w-5 h-5 text-cyan-400" />
+              <h3 className="font-semibold">Resume Source</h3>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Source Toggle */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setEnhanceSource('profile')}
+                className={cn(
+                  'p-4 rounded-lg border-2 transition-all text-left',
+                  enhanceSource === 'profile'
+                    ? 'border-cyan-500 bg-cyan-900/20'
+                    : 'border-gray-700 hover:border-gray-600'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-cyan-400" />
+                  <div>
+                    <div className="font-medium text-white">Use My Profile</div>
+                    <div className="text-sm text-gray-400">
+                      Enhance from your saved profile data
+                    </div>
+                  </div>
+                </div>
+                {isProfileReady && (
+                  <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Profile ready: {profile.name}
+                  </div>
+                )}
+              </button>
+
+              <button
+                onClick={() => setEnhanceSource('upload')}
+                className={cn(
+                  'p-4 rounded-lg border-2 transition-all text-left',
+                  enhanceSource === 'upload'
+                    ? 'border-cyan-500 bg-cyan-900/20'
+                    : 'border-gray-700 hover:border-gray-600'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Upload className="w-5 h-5 text-cyan-400" />
+                  <div>
+                    <div className="font-medium text-white">Upload Resume</div>
+                    <div className="text-sm text-gray-400">
+                      Upload a resume file to enhance
+                    </div>
+                  </div>
+                </div>
+                {uploadedProfile && (
+                  <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    Parsed: {uploadedProfile.name}
+                  </div>
+                )}
+              </button>
+            </div>
+
+            {/* Upload Section */}
+            {enhanceSource === 'upload' && (
+              <div className="pt-4 border-t border-gray-800 space-y-4">
+                {!uploadedFile ? (
+                  <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center hover:border-gray-600 transition-colors">
+                    <Upload className="w-10 h-10 mx-auto mb-3 text-gray-500" />
+                    <p className="text-gray-300 mb-2">
+                      Drag and drop your resume, or click to browse
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Supports PDF, DOCX, TXT, and Markdown files
+                    </p>
+                    <label className="inline-flex items-center justify-center font-medium rounded-lg border transition-colors px-4 py-2 text-sm gap-2 bg-transparent hover:bg-gray-800 text-gray-300 border-gray-600 cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.txt,.md"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <FileUp className="w-4 h-4" />
+                      Choose File
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* File Info */}
+                    <div className="flex items-center justify-between bg-gray-800/50 rounded-lg p-3">
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-blue-400" />
+                        <div>
+                          <p className="text-sm text-gray-200">{uploadedFile.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {(uploadedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isParsingUpload && (
+                          <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClearUpload}
+                          className="text-gray-400 hover:text-red-400"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Parsed Profile Preview */}
+                    {uploadedProfile && (
+                      <div className="bg-green-900/20 border border-green-800/30 rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                            <span className="text-green-400 font-medium">Resume Parsed Successfully</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-500">Name:</span>{' '}
+                            <span className="text-gray-200">{uploadedProfile.name}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Experience:</span>{' '}
+                            <span className="text-gray-200">{uploadedProfile.yearsExperience} years</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Skills:</span>{' '}
+                            <span className="text-gray-200">{uploadedProfile.technicalSkills.length} found</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Roles:</span>{' '}
+                            <span className="text-gray-200">{uploadedProfile.recentRoles.length} found</span>
+                          </div>
+                        </div>
+
+                        {/* Upload Action Selection */}
+                        <div className="pt-3 border-t border-green-800/30 space-y-3">
+                          <p className="text-sm text-gray-300">After enhancement:</p>
+                          <div className="flex flex-col gap-2">
+                            <label
+                              className={cn(
+                                'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
+                                uploadAction === 'enhance-only'
+                                  ? 'bg-gray-800 border border-gray-600'
+                                  : 'bg-gray-800/50 border border-gray-700 hover:border-gray-600'
+                              )}
+                            >
+                              <input
+                                type="radio"
+                                name="uploadAction"
+                                value="enhance-only"
+                                checked={uploadAction === 'enhance-only'}
+                                onChange={() => setUploadAction('enhance-only')}
+                                className="text-cyan-500"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <ExternalLink className="w-4 h-4 text-blue-400" />
+                                  <span className="text-sm font-medium text-gray-200">Export Only</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Enhance for download only, profile stays unchanged
+                                </p>
+                              </div>
+                            </label>
+
+                            <label
+                              className={cn(
+                                'flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors',
+                                uploadAction === 'import-and-enhance'
+                                  ? 'bg-gray-800 border border-gray-600'
+                                  : 'bg-gray-800/50 border border-gray-700 hover:border-gray-600'
+                              )}
+                            >
+                              <input
+                                type="radio"
+                                name="uploadAction"
+                                value="import-and-enhance"
+                                checked={uploadAction === 'import-and-enhance'}
+                                onChange={() => setUploadAction('import-and-enhance')}
+                                className="text-cyan-500"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <UserPlus className="w-4 h-4 text-green-400" />
+                                  <span className="text-sm font-medium text-gray-200">Import & Enhance</span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Save to profile first, then enhance
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+
+                          {/* Quick import button */}
+                          <div className="flex justify-end pt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleImportToProfile}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              <UserPlus className="w-4 h-4 mr-1" />
+                              Import to Profile Now
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Mode Selection */}
         <Card>
           <CardContent className="p-6">
@@ -1524,7 +1835,11 @@ export const EnhancePage: React.FC = () => {
             <div className="mt-6 flex justify-center">
               <Button
                 onClick={handleAnalyze}
-                disabled={isAnalyzing || !isProfileReady}
+                disabled={
+                  isAnalyzing ||
+                  (enhanceSource === 'profile' && !isProfileReady) ||
+                  (enhanceSource === 'upload' && !isUploadReady)
+                }
                 className="px-8"
               >
                 {isAnalyzing ? (
@@ -1541,9 +1856,14 @@ export const EnhancePage: React.FC = () => {
               </Button>
             </div>
 
-            {!isProfileReady && (
+            {enhanceSource === 'profile' && !isProfileReady && (
               <p className="text-center text-sm text-yellow-400 mt-4">
                 Please complete your profile before analyzing
+              </p>
+            )}
+            {enhanceSource === 'upload' && !isUploadReady && (
+              <p className="text-center text-sm text-yellow-400 mt-4">
+                Please upload and parse a resume before analyzing
               </p>
             )}
           </CardContent>
@@ -1641,7 +1961,7 @@ export const EnhancePage: React.FC = () => {
             {/* Enhanced Preview */}
             <EnhancedPreview
               enhanced={enhancement.enhancedProfile}
-              original={profile}
+              original={activeProfile}
               onUpdate={handleUpdateEnhancedProfile}
             />
           </>
