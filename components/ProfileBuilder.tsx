@@ -194,7 +194,7 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
                <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-1">
                    <label className="text-xs font-medium text-gray-400">Full Name</label>
-                   <input 
+                   <input
                      value={localProfile.name}
                      onChange={e => setLocalProfile({...localProfile, name: e.target.value})}
                      className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-sm text-white"
@@ -202,10 +202,33 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
                  </div>
                  <div className="space-y-1">
                    <label className="text-xs font-medium text-gray-400">Professional Headline</label>
-                   <input 
+                   <input
                      value={localProfile.headline}
                      onChange={e => setLocalProfile({...localProfile, headline: e.target.value})}
                      className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-sm text-white"
+                   />
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-1">
+                   <label className="text-xs font-medium text-gray-400">Email</label>
+                   <input
+                     type="email"
+                     value={localProfile.email || ''}
+                     onChange={e => setLocalProfile({...localProfile, email: e.target.value})}
+                     placeholder="your@email.com"
+                     className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
+                   />
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-xs font-medium text-gray-400">Phone</label>
+                   <input
+                     type="tel"
+                     value={localProfile.phone || ''}
+                     onChange={e => setLocalProfile({...localProfile, phone: e.target.value})}
+                     placeholder="+1 (555) 123-4567"
+                     className="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
                    />
                  </div>
                </div>

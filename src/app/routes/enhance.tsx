@@ -157,6 +157,9 @@ const generateResumeContent = (
   if (format === 'markdown') {
     let content = `# ${profile.name}\n\n`;
     content += `**${enhanced.headline}**\n\n`;
+    if (profile.email || profile.phone) {
+      content += `${[profile.email, profile.phone].filter(Boolean).join(' • ')}\n\n`;
+    }
 
     if (enhanced.summary) {
       content += `## Summary\n\n${enhanced.summary}\n\n`;
@@ -206,7 +209,11 @@ const generateResumeContent = (
   // Plain text format
   let content = `${profile.name.toUpperCase()}\n`;
   content += `${'='.repeat(profile.name.length)}\n\n`;
-  content += `${enhanced.headline}\n\n`;
+  content += `${enhanced.headline}\n`;
+  if (profile.email || profile.phone) {
+    content += `${[profile.email, profile.phone].filter(Boolean).join(' | ')}\n`;
+  }
+  content += `\n`;
 
   if (enhanced.summary) {
     content += `SUMMARY\n${'-'.repeat(7)}\n${enhanced.summary}\n\n`;
