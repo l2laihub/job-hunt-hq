@@ -202,6 +202,39 @@ export function parseMarkdown(text: string): string {
 }
 
 /**
+ * Strip markdown syntax for plain text previews
+ */
+export function stripMarkdown(text: string): string {
+  if (!text) return '';
+
+  return text
+    // Remove headers
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove bold/italic
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove inline code
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove code blocks
+    .replace(/```[\s\S]*?```/g, '')
+    // Remove blockquotes
+    .replace(/^>\s+/gm, '')
+    // Remove bullet points
+    .replace(/^[-*+]\s+/gm, '')
+    // Remove numbered lists
+    .replace(/^\d+\.\s+/gm, '')
+    // Remove links but keep text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove horizontal rules
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    // Clean up extra whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Format cover letter content to ensure proper paragraph breaks
  * This can be used to fix display of cover letters that were generated without line breaks
  * Returns text with proper newlines that can be displayed with whitespace-pre-wrap

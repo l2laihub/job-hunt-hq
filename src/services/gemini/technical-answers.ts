@@ -136,12 +136,20 @@ ${difficulty} (tailor complexity and depth accordingly)
 
 5. Provide the answer in multiple formats:
    - Structured: Section-by-section breakdown following the format
-   - Narrative: Natural conversational flow (2-3 minute spoken response)
-   - Bullet Points: Key points to remember
+   - Narrative: Natural conversational flow (2-3 minute spoken response) formatted in **rich Markdown**:
+     * Use **bold** for key terms, metrics, and important concepts
+     * Use *italics* for emphasis on technical terms or notable achievements
+     * Use \`inline code\` for technology names, tools, frameworks, and technical terms
+     * Use bullet points or numbered lists to organize key points
+     * Use ### subheadings to break up longer answers into logical sections
+     * Include code blocks with syntax highlighting for any code examples
+     * Use > blockquotes for direct quotes or important callouts
+     * Make numbers and metrics stand out with bold formatting
+   - Bullet Points: Key points to remember (also use markdown formatting)
 
 6. Suggest relevant tags for categorization
 
-Be specific, use real metrics/numbers from the profile, and help the candidate tell a compelling story.`;
+Be specific, use real metrics/numbers from the profile, and help the candidate tell a compelling story. The markdown formatting in the narrative should make the answer easy to scan and highlight the most important information.`;
 
   try {
     const response = await ai.models.generateContent({

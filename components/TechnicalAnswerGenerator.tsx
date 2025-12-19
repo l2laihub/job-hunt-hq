@@ -11,12 +11,13 @@ import type {
 import { useTechnicalAnswersStore } from '../src/stores';
 import { generateTechnicalAnswer, generateFollowUps } from '../src/services/gemini';
 import { COMMON_TECHNICAL_QUESTIONS, DIFFICULTY_LEVELS, TECHNICAL_QUESTION_TYPES } from '../src/lib/constants';
-import { formatTime } from '../src/lib/utils';
+import { formatTime, stripMarkdown } from '../src/lib/utils';
 import {
   Zap, Loader2, Plus, Edit2, Trash2, Copy, Save, ChevronDown, ChevronUp,
   Mic, StopCircle, Play, Pause, RotateCcw, Search, Filter, Clock, Target,
   MessageSquare, BookOpen, CheckCircle, AlertCircle, Sparkles, List, FileText
 } from 'lucide-react';
+import { MarkdownRenderer } from '../src/components/ui/markdown-renderer';
 
 interface TechnicalAnswerGeneratorProps {
   profile: UserProfile;
@@ -299,7 +300,7 @@ export const TechnicalAnswerGenerator: React.FC<TechnicalAnswerGeneratorProps> =
       {sections.map((section, i) => (
         <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
           <span className="text-xs font-bold text-blue-400 uppercase block mb-2">{section.label}</span>
-          <p className="text-gray-300 text-sm whitespace-pre-wrap">{section.content}</p>
+          <MarkdownRenderer content={section.content} variant="compact" />
         </div>
       ))}
     </div>
@@ -432,7 +433,7 @@ export const TechnicalAnswerGenerator: React.FC<TechnicalAnswerGeneratorProps> =
                       </div>
                     </div>
 
-                    <p className="text-gray-400 text-xs line-clamp-2 mb-3">{answer.answer.narrative.slice(0, 150)}...</p>
+                    <p className="text-gray-400 text-xs line-clamp-2 mb-3">{stripMarkdown(answer.answer.narrative).slice(0, 150)}...</p>
 
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
@@ -645,16 +646,14 @@ export const TechnicalAnswerGenerator: React.FC<TechnicalAnswerGeneratorProps> =
               <div className="bg-gray-900/50 rounded-lg border border-gray-700 p-4">
                 {answerView === 'structured' && renderSectionContent(generatedResult.answer.structured)}
                 {answerView === 'narrative' && (
-                  <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
-                    {generatedResult.answer.narrative}
-                  </p>
+                  <MarkdownRenderer content={generatedResult.answer.narrative} />
                 )}
                 {answerView === 'bullets' && (
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {generatedResult.answer.bulletPoints.map((point, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                        {point}
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-1 flex-shrink-0" />
+                        <MarkdownRenderer content={point} variant="compact" className="flex-1" />
                       </li>
                     ))}
                   </ul>
@@ -800,8 +799,8 @@ export const TechnicalAnswerGenerator: React.FC<TechnicalAnswerGeneratorProps> =
               </button>
 
               {showAnswerDuringPractice && (
-                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 max-w-2xl w-full max-h-48 overflow-y-auto">
-                  <p className="text-gray-300 text-sm">{practiceAnswer.answer.narrative}</p>
+                <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 max-w-2xl w-full max-h-64 overflow-y-auto">
+                  <MarkdownRenderer content={practiceAnswer.answer.narrative} />
                 </div>
               )}
 
