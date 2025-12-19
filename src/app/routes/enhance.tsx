@@ -59,7 +59,7 @@ type UploadAction = 'enhance-only' | 'import-and-enhance';
 
 // Resume download format types
 type DownloadFormat = 'markdown' | 'text' | 'json' | 'pdf';
-type PDFTemplate = 'professional' | 'modern' | 'minimal';
+type PDFTemplate = 'professional' | 'modern' | 'minimal' | 'executive';
 
 /**
  * Parse a duration string and extract the end date for sorting
@@ -1046,7 +1046,7 @@ export const EnhancePage: React.FC = () => {
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
-  const [pdfTemplate, setPdfTemplate] = useState<PDFTemplate>('professional');
+  const [pdfTemplate, setPdfTemplate] = useState<PDFTemplate>('executive');
   const [includeScoresInPDF, setIncludeScoresInPDF] = useState(false);
 
   // Upload state
@@ -1425,19 +1425,28 @@ export const EnhancePage: React.FC = () => {
                           <Palette className="w-4 h-4" />
                           <span>PDF Template</span>
                         </div>
-                        <div className="flex gap-2">
-                          {(['professional', 'modern', 'minimal'] as const).map((t) => (
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { id: 'executive', label: 'Executive', desc: 'Premium layout' },
+                            { id: 'professional', label: 'Professional', desc: 'Clean & classic' },
+                            { id: 'modern', label: 'Modern', desc: 'Contemporary' },
+                            { id: 'minimal', label: 'Minimal', desc: 'Simple & clean' },
+                          ] as const).map((t) => (
                             <button
-                              key={t}
-                              onClick={() => setPdfTemplate(t)}
+                              key={t.id}
+                              onClick={() => setPdfTemplate(t.id)}
                               className={cn(
-                                'px-3 py-1.5 text-xs rounded-md capitalize transition-colors',
-                                pdfTemplate === t
+                                'px-3 py-2 text-xs rounded-md text-left transition-colors',
+                                pdfTemplate === t.id
                                   ? 'bg-purple-600 text-white'
                                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                               )}
                             >
-                              {t}
+                              <div className="font-medium">{t.label}</div>
+                              <div className={cn(
+                                'text-[10px]',
+                                pdfTemplate === t.id ? 'text-purple-200' : 'text-gray-500'
+                              )}>{t.desc}</div>
                             </button>
                           ))}
                         </div>

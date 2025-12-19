@@ -29,6 +29,8 @@ export interface Project {
 // User Profile
 export interface UserProfile {
   name: string;
+  email?: string;
+  phone?: string;
   headline: string;
   yearsExperience: number;
   technicalSkills: string[];
@@ -777,6 +779,8 @@ export function createProfileMetadata(name: string, isDefault = false): ProfileM
 // Default Profile
 export const DEFAULT_PROFILE: UserProfile = {
   name: 'Senior Engineer',
+  email: '',
+  phone: '',
   headline: 'Senior Software Engineer',
   yearsExperience: 5,
   technicalSkills: [],

@@ -356,6 +356,22 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <Input
+                label="Email"
+                type="email"
+                value={editedProfile.email || ''}
+                onChange={(e) => handleFieldChange('email', e.target.value)}
+                placeholder="your@email.com"
+              />
+              <Input
+                label="Phone"
+                type="tel"
+                value={editedProfile.phone || ''}
+                onChange={(e) => handleFieldChange('phone', e.target.value)}
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Input
                 label="Years of Experience"
                 type="number"
                 value={editedProfile.yearsExperience.toString()}

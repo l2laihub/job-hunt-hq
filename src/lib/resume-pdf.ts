@@ -85,7 +85,7 @@ interface ResumePDFOptions {
     company?: string;
     role?: string;
   };
-  template?: 'professional' | 'modern' | 'minimal';
+  template?: 'professional' | 'modern' | 'minimal' | 'executive';
   includeScores?: boolean;
 }
 
@@ -118,7 +118,591 @@ const templates = {
     muted: '#6b7280',
     border: '#d1d5db',
   },
+  executive: {
+    primary: '#0f172a',
+    secondary: '#334155',
+    accent: '#0369a1',
+    background: '#ffffff',
+    text: '#1e293b',
+    muted: '#64748b',
+    border: '#cbd5e1',
+    headerBg: '#f8fafc',
+  },
 };
+
+/**
+ * Generate executive template HTML - premium layout with improved visual hierarchy
+ */
+function generateExecutiveHTML(options: ResumePDFOptions): string {
+  const { enhanced, profile, analysis, jobInfo, includeScores = false } = options;
+  const colors = templates.executive;
+
+  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+  const datePart = new Date().toISOString().split('T')[0];
+  const namePart = sanitize(profile.name || 'Resume');
+
+  let pdfTitle: string;
+  if (jobInfo?.company && jobInfo?.role) {
+    pdfTitle = `${namePart} - ${sanitize(jobInfo.company)} ${sanitize(jobInfo.role)} - ${datePart}`;
+  } else if (jobInfo?.company) {
+    pdfTitle = `${namePart} - ${sanitize(jobInfo.company)} - ${datePart}`;
+  } else {
+    pdfTitle = `${namePart} - Resume - ${datePart}`;
+  }
+
+  // Group technical skills by category for better organization
+  const categorizeSkills = (skills: string[]): Record<string, string[]> => {
+    const categories: Record<string, string[]> = {
+      'Languages & Frameworks': [],
+      'Cloud & Infrastructure': [],
+      'AI & ML': [],
+      'Databases': [],
+      'Tools & Practices': [],
+      'Other': [],
+    };
+
+    const patterns: Record<string, RegExp> = {
+      'Languages & Frameworks': /react|angular|vue|next|node|python|typescript|javascript|java|c#|c\+\+|go|rust|ruby|php|swift|kotlin|flutter|\.net|express|fastapi|flask|django|spring/i,
+      'Cloud & Infrastructure': /aws|azure|gcp|google cloud|docker|kubernetes|k8s|terraform|jenkins|ci\/cd|github actions|vercel|netlify|heroku|microservices|api gateway|serverless/i,
+      'AI & ML': /ai|ml|machine learning|deep learning|llm|gpt|gemini|claude|langchain|tensorflow|pytorch|openai|anthropic|rag|graphrag|nlp|computer vision|mediapipe/i,
+      'Databases': /sql|postgres|mysql|mongodb|redis|dynamodb|cosmos|supabase|firebase|elasticsearch|neo4j|graphql/i,
+    };
+
+    skills.forEach(skill => {
+      let placed = false;
+      for (const [category, pattern] of Object.entries(patterns)) {
+        if (pattern.test(skill)) {
+          categories[category].push(skill);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        categories['Tools & Practices'].push(skill);
+      }
+    });
+
+    // Remove empty categories
+    return Object.fromEntries(
+      Object.entries(categories).filter(([_, skills]) => skills.length > 0)
+    );
+  };
+
+  const technicalCategories = categorizeSkills(enhanced.technicalSkills);
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pdfTitle}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    @page {
+      size: letter;
+      margin: 0.4in 0.5in;
+    }
+
+    body {
+      font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 10pt;
+      line-height: 1.45;
+      color: ${colors.text};
+      background: ${colors.background};
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .container {
+      max-width: 8.5in;
+      margin: 0 auto;
+    }
+
+    /* Executive Header */
+    .header {
+      text-align: center;
+      padding: 0 0 14px 0;
+      margin-bottom: 14px;
+    }
+
+    .name {
+      font-family: 'Merriweather', Georgia, serif;
+      font-size: 26pt;
+      font-weight: 700;
+      color: ${colors.primary};
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .headline-container {
+      background: linear-gradient(90deg, ${colors.accent}15, ${colors.accent}08);
+      border-left: 3px solid ${colors.accent};
+      padding: 8px 16px;
+      margin: 10px auto;
+      max-width: 90%;
+    }
+
+    .headline {
+      font-size: 11pt;
+      font-weight: 600;
+      color: ${colors.secondary};
+      line-height: 1.4;
+    }
+
+    .contact-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-top: 10px;
+      font-size: 9.5pt;
+      color: ${colors.muted};
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .contact-icon {
+      width: 16px;
+      height: 16px;
+      fill: ${colors.accent};
+      flex-shrink: 0;
+    }
+
+    .contact-link {
+      color: ${colors.accent};
+      text-decoration: none;
+    }
+
+    /* Score badges */
+    .scores-row {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid ${colors.border};
+    }
+
+    .score-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: ${colors.accent}10;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .score-value {
+      font-size: 14pt;
+      font-weight: 700;
+      color: ${colors.accent};
+    }
+
+    .score-label {
+      font-size: 8pt;
+      color: ${colors.muted};
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Summary */
+    .summary {
+      background: ${colors.headerBg};
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      border: 1px solid ${colors.border};
+    }
+
+    .summary p {
+      font-size: 10pt;
+      color: ${colors.secondary};
+      line-height: 1.55;
+      font-style: italic;
+    }
+
+    /* Section styling */
+    .section {
+      margin-bottom: 14px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid ${colors.primary};
+    }
+
+    .section-icon {
+      width: 16px;
+      height: 16px;
+      fill: ${colors.accent};
+    }
+
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: ${colors.primary};
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    /* Skills - Compact categorized layout */
+    .skills-container {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 16px;
+    }
+
+    .skills-column {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .skill-category {
+      margin-bottom: 6px;
+    }
+
+    .skill-category-name {
+      font-size: 9pt;
+      font-weight: 600;
+      color: ${colors.accent};
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .skill-category-name::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: ${colors.accent};
+      border-radius: 50%;
+    }
+
+    .skill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .skill-tag {
+      display: inline-block;
+      background: ${colors.primary}08;
+      color: ${colors.secondary};
+      font-size: 8.5pt;
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid ${colors.border};
+    }
+
+    .soft-skills-section {
+      background: ${colors.headerBg};
+      padding: 10px 12px;
+      border-radius: 4px;
+    }
+
+    .soft-skills-title {
+      font-size: 9pt;
+      font-weight: 600;
+      color: ${colors.secondary};
+      margin-bottom: 6px;
+    }
+
+    .soft-skill-tag {
+      display: inline-block;
+      color: ${colors.muted};
+      font-size: 8.5pt;
+      padding: 2px 6px;
+      margin: 2px;
+    }
+
+    .soft-skill-tag::before {
+      content: "•";
+      margin-right: 4px;
+      color: ${colors.accent};
+    }
+
+    /* Experience */
+    .experience-item {
+      margin-bottom: 12px;
+      page-break-inside: auto;
+    }
+
+    .experience-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 2px;
+      page-break-after: avoid;
+    }
+
+    .experience-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .experience-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: ${colors.primary};
+    }
+
+    .experience-company {
+      font-size: 10pt;
+      color: ${colors.accent};
+      font-weight: 600;
+    }
+
+    .experience-duration {
+      font-size: 9pt;
+      color: ${colors.muted};
+      font-style: italic;
+    }
+
+    .experience-highlights {
+      margin-top: 4px;
+      padding-left: 14px;
+      page-break-before: avoid;
+    }
+
+    .experience-highlights li {
+      font-size: 9.5pt;
+      color: ${colors.text};
+      margin-bottom: 2px;
+      line-height: 1.4;
+    }
+
+    .experience-highlights li::marker {
+      color: ${colors.accent};
+      font-size: 8pt;
+    }
+
+    /* Achievements */
+    .achievements-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .achievement-card {
+      background: ${colors.headerBg};
+      padding: 8px 10px;
+      border-radius: 4px;
+      border-left: 3px solid ${colors.accent};
+    }
+
+    .achievement-text {
+      font-size: 9pt;
+      color: ${colors.text};
+      font-weight: 500;
+    }
+
+    .achievement-metric {
+      font-size: 8.5pt;
+      color: ${colors.accent};
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Tailored badge */
+    .tailored-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(90deg, ${colors.accent}20, ${colors.accent}10);
+      color: ${colors.accent};
+      font-size: 8pt;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 12px;
+      margin-top: 8px;
+    }
+
+    /* Print optimizations */
+    @media print {
+      html, body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .section {
+        page-break-inside: auto;
+      }
+
+      .section-header {
+        page-break-after: avoid;
+      }
+
+      .experience-item {
+        page-break-inside: auto;
+      }
+
+      .achievement-card {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Executive Header -->
+    <header class="header">
+      <h1 class="name">${profile.name}</h1>
+
+      <div class="headline-container">
+        <p class="headline">${enhanced.headline}</p>
+      </div>
+
+      ${profile.email || profile.phone ? `
+      <div class="contact-row">
+        ${profile.email ? `
+        <div class="contact-item">
+          <svg class="contact-icon" viewBox="0 0 24 24">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          <a href="mailto:${profile.email}" class="contact-link">${profile.email}</a>
+        </div>
+        ` : ''}
+        ${profile.phone ? `
+        <div class="contact-item">
+          <svg class="contact-icon" viewBox="0 0 24 24">
+            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+          </svg>
+          <span>${profile.phone}</span>
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
+
+      ${jobInfo?.role && jobInfo?.company ? `
+      <span class="tailored-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        Tailored for ${jobInfo.role} at ${jobInfo.company}
+      </span>
+      ` : ''}
+
+      ${includeScores && analysis ? `
+      <div class="scores-row">
+        <div class="score-badge">
+          <span class="score-value">${analysis.overallScore}</span>
+          <span class="score-label">Match</span>
+        </div>
+        <div class="score-badge">
+          <span class="score-value">${analysis.atsScore}</span>
+          <span class="score-label">ATS</span>
+        </div>
+      </div>
+      ` : ''}
+    </header>
+
+    ${enhanced.summary ? `
+    <!-- Summary -->
+    <div class="summary">
+      <p>${enhanced.summary}</p>
+    </div>
+    ` : ''}
+
+    <!-- Skills -->
+    <section class="section">
+      <div class="section-header">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <h2 class="section-title">Skills & Expertise</h2>
+      </div>
+      <div class="skills-container">
+        <div class="skills-column">
+          ${Object.entries(technicalCategories).map(([category, skills]) => `
+          <div class="skill-category">
+            <div class="skill-category-name">${category}</div>
+            <div class="skill-list">
+              ${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+            </div>
+          </div>
+          `).join('')}
+        </div>
+        ${enhanced.softSkills.length > 0 ? `
+        <div class="skills-column">
+          <div class="soft-skills-section">
+            <div class="soft-skills-title">Professional Skills</div>
+            <div>
+              ${enhanced.softSkills.map(skill => `<span class="soft-skill-tag">${skill}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </section>
+
+    <!-- Experience -->
+    <section class="section">
+      <div class="section-header">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
+        </svg>
+        <h2 class="section-title">Professional Experience</h2>
+      </div>
+      ${sortRolesByDate(enhanced.recentRoles).map(role => `
+      <div class="experience-item">
+        <div class="experience-header">
+          <div class="experience-title-row">
+            <span class="experience-title">${role.title}</span>
+            <span class="experience-company">${role.company}</span>
+          </div>
+          <span class="experience-duration">${role.duration}</span>
+        </div>
+        <ul class="experience-highlights">
+          ${role.enhancedHighlights.map(h => `<li>${h}</li>`).join('')}
+        </ul>
+      </div>
+      `).join('')}
+    </section>
+
+    ${enhanced.keyAchievements && enhanced.keyAchievements.length > 0 ? `
+    <!-- Key Achievements -->
+    <section class="section">
+      <div class="section-header">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+        </svg>
+        <h2 class="section-title">Key Achievements</h2>
+      </div>
+      <div class="achievements-grid">
+        ${enhanced.keyAchievements.map(a => `
+        <div class="achievement-card">
+          <div class="achievement-text">${a.description}</div>
+          ${a.metrics ? `<div class="achievement-metric">${a.metrics}</div>` : ''}
+        </div>
+        `).join('')}
+      </div>
+    </section>
+    ` : ''}
+
+  </div>
+</body>
+</html>
+`;
+}
 
 /**
  * Generate professional resume HTML for PDF export
@@ -132,6 +716,11 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     template = 'professional',
     includeScores = false,
   } = options;
+
+  // Use executive template if selected
+  if (template === 'executive') {
+    return generateExecutiveHTML(options);
+  }
 
   const colors = templates[template];
 
@@ -225,13 +814,32 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       margin-bottom: 8px;
     }
 
-    .contact-info {
+    .contact-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 6px;
       font-size: 9pt;
       color: ${colors.muted};
     }
 
-    .contact-info span {
-      margin: 0 8px;
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .contact-icon {
+      width: 16px;
+      height: 16px;
+      fill: ${colors.accent};
+      flex-shrink: 0;
+    }
+
+    .contact-link {
+      color: ${colors.accent};
+      text-decoration: none;
     }
 
     /* Tailored Badge */
@@ -488,7 +1096,26 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       <p class="headline">${enhanced.headline}</p>
       ${
         profile.email || profile.phone
-          ? `<p class="contact-info">${[profile.email, profile.phone].filter(Boolean).join('<span>•</span>')}</p>`
+          ? `
+      <div class="contact-row">
+        ${profile.email ? `
+        <div class="contact-item">
+          <svg class="contact-icon" viewBox="0 0 24 24">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          <a href="mailto:${profile.email}" class="contact-link">${profile.email}</a>
+        </div>
+        ` : ''}
+        ${profile.phone ? `
+        <div class="contact-item">
+          <svg class="contact-icon" viewBox="0 0 24 24">
+            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+          </svg>
+          <span>${profile.phone}</span>
+        </div>
+        ` : ''}
+      </div>
+      `
           : ''
       }
       ${
