@@ -487,6 +487,11 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       <h1 class="name">${profile.name}</h1>
       <p class="headline">${enhanced.headline}</p>
       ${
+        profile.email || profile.phone
+          ? `<p class="contact-info">${[profile.email, profile.phone].filter(Boolean).join('<span>•</span>')}</p>`
+          : ''
+      }
+      ${
         jobInfo?.role && jobInfo?.company
           ? `<span class="tailored-badge">Tailored for ${jobInfo.role} at ${jobInfo.company}</span>`
           : ''
