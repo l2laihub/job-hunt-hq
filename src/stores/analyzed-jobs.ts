@@ -92,6 +92,7 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
           phoneScreenPrep: partial.phoneScreenPrep,
           technicalInterviewPrep: partial.technicalInterviewPrep,
           applicationStrategy: partial.applicationStrategy,
+          screeningQuestions: partial.screeningQuestions,
           applicationId: partial.applicationId,
           isFavorite: partial.isFavorite || false,
           notes: partial.notes,

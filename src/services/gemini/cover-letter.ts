@@ -1,5 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
-import { coverLetterSchema } from './schemas';
+import { coverLetterSchema, coverLetterRefinementSchema } from './schemas';
 import type { UserProfile, Experience, JDAnalysis, CoverLetterStyle } from '@/src/types';
 
 /**
@@ -61,6 +61,12 @@ function formatCoverLetterContent(content: string, candidateName: string): strin
   return formatted.trim();
 }
 
+interface ScreeningQuestion {
+  question: string;
+  isRequired: boolean;
+  questionType: 'technical' | 'experience' | 'availability' | 'rate' | 'general';
+}
+
 interface GenerateCoverLetterParams {
   jobDescription: string;
   analysis: JDAnalysis;
@@ -69,12 +75,19 @@ interface GenerateCoverLetterParams {
   style: CoverLetterStyle;
   company?: string;
   role?: string;
+  screeningQuestions?: ScreeningQuestion[];
+}
+
+interface ScreeningAnswer {
+  question: string;
+  answer: string;
 }
 
 interface CoverLetterResult {
   content: string;
   keyPoints: string[];
   wordCount: number;
+  screeningAnswers?: ScreeningAnswer[];
 }
 
 /**
@@ -182,7 +195,7 @@ export async function generateCoverLetter(
   params: GenerateCoverLetterParams
 ): Promise<CoverLetterResult> {
   const ai = requireGemini();
-  const { jobDescription, analysis, profile, stories, style, company, role } = params;
+  const { jobDescription, analysis, profile, stories, style, company, role, screeningQuestions } = params;
 
   const profileContext = buildProfileContext(profile);
   const matchedSkills =
@@ -192,6 +205,19 @@ export async function generateCoverLetter(
 
   const storiesContext = buildStoriesContext(stories, matchedSkills);
   const styleInstructions = getStyleInstructions(style);
+
+  // Build screening questions section if present
+  const hasScreeningQuestions = screeningQuestions && screeningQuestions.length > 0;
+  const screeningQuestionsSection = hasScreeningQuestions
+    ? `
+## Screening Questions to Answer
+The job posting includes these screening questions that MUST be answered. Include answers to these at the END of the cover letter in a clearly marked section.
+
+${screeningQuestions.map((q, i) => `${i + 1}. [${q.questionType.toUpperCase()}${q.isRequired ? ' - REQUIRED' : ''}] ${q.question}`).join('\n')}
+
+IMPORTANT: After the main cover letter and sign-off, add a section titled "---\\n\\n**Screening Questions:**" and answer each question concisely but thoroughly (2-4 sentences each). Use the candidate's profile and experience to craft authentic, specific answers.
+`
+    : '';
 
   const prompt = `You are ghostwriting a cover letter AS the candidate (first person). Write in their authentic voice based on their profile.
 
@@ -215,7 +241,7 @@ ${analysis.analysisType === 'fulltime' || analysis.analysisType === 'contract' ?
 
 ## Style Instructions
 ${styleInstructions}
-
+${screeningQuestionsSection}
 ## CRITICAL: Sound Human, Not AI
 You MUST avoid these AI-sounding patterns:
 - NEVER use: "I am excited", "I am thrilled", "I am passionate about", "I believe", "I am confident"
@@ -303,11 +329,168 @@ The letter should sound like it was written by a real person with opinions and p
       content: formattedContent,
       keyPoints: result.keyPoints || [],
       wordCount: result.wordCount || formattedContent.split(/\s+/).length || 0,
+      screeningAnswers: result.screeningAnswers || undefined,
     };
   } catch (error) {
     console.error('Generate cover letter failed:', error);
     throw new Error(
       `Failed to generate cover letter: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+// Refinement mode types
+export type RefinementMode = 'improve' | 'shorten' | 'expand' | 'keywords' | 'tone';
+
+interface RefineCoverLetterParams {
+  existingLetter: string;
+  jobDescription: string;
+  analysis: JDAnalysis;
+  profile: UserProfile;
+  mode: RefinementMode;
+  targetWordCount?: number;
+  customInstructions?: string;
+}
+
+interface CoverLetterRefinementResult {
+  refinedContent: string;
+  changes: { type: string; description: string }[];
+  keywordsAdded: string[];
+  wordCount: number;
+  improvements: string[];
+}
+
+/**
+ * Refine an existing cover letter based on the job description and user preferences
+ */
+export async function refineCoverLetter(
+  params: RefineCoverLetterParams
+): Promise<CoverLetterRefinementResult> {
+  const ai = requireGemini();
+  const { existingLetter, jobDescription, analysis, profile, mode, targetWordCount, customInstructions } = params;
+
+  const matchedSkills =
+    analysis.analysisType === 'freelance'
+      ? analysis.matchedSkills
+      : analysis.matchedSkills;
+
+  const missingSkills =
+    'missingSkills' in analysis ? analysis.missingSkills : [];
+
+  const modeInstructions: Record<RefinementMode, string> = {
+    improve: `
+Improve this cover letter while maintaining its core message and voice:
+- Fix any awkward phrasing or unclear sentences
+- Strengthen weak statements with more specific details
+- Improve flow and transitions between paragraphs
+- Make the opening more compelling
+- Ensure the closing has a clear call to action
+- Add relevant keywords from the job description naturally`,
+
+    shorten: `
+Shorten this cover letter to be more concise (target: ${targetWordCount || 250} words):
+- Remove redundant phrases and filler words
+- Combine similar points
+- Keep only the strongest achievements/examples
+- Maintain the core message and personality
+- Ensure it still feels complete and professional`,
+
+    expand: `
+Expand this cover letter with more detail (target: ${targetWordCount || 400} words):
+- Add more specific examples or achievements
+- Elaborate on key points with metrics/numbers
+- Include additional relevant experience
+- Strengthen the connection to the company/role
+- Add more personality while staying professional`,
+
+    keywords: `
+Optimize this cover letter for ATS and keyword matching:
+- Add missing keywords from the job description naturally
+- Include technical terms and skills mentioned in the JD
+- Ensure key qualifications are explicitly mentioned
+- Keep the natural flow - don't stuff keywords awkwardly
+Keywords to incorporate: ${[...matchedSkills, ...missingSkills.slice(0, 5)].join(', ')}`,
+
+    tone: `
+Adjust the tone based on the role type and company:
+${analysis.analysisType === 'freelance' ?
+  '- Make it more conversational and direct (Upwork/freelance style)\n- Focus on solving the client\'s specific problem\n- Show enthusiasm without being desperate\n- Include a clear value proposition' :
+  '- Match the company culture implied in the JD\n- Balance confidence with humility\n- Sound authentic, not robotic\n- Remove any overly casual or overly formal phrases'
+}`,
+  };
+
+  const prompt = `You are refining an existing cover letter. Your goal is to improve it while preserving the candidate's authentic voice.
+
+## Original Cover Letter
+${existingLetter}
+
+## Target Position
+Job Description:
+${jobDescription.slice(0, 2000)}
+
+## Analysis Context
+Fit Score: ${analysis.fitScore}/10
+Matched Skills: ${matchedSkills.join(', ')}
+Missing Skills: ${missingSkills.join(', ') || 'None identified'}
+
+## Candidate Name: ${profile.name}
+
+## Refinement Mode: ${mode.toUpperCase()}
+${modeInstructions[mode]}
+
+${customInstructions ? `## Additional Instructions\n${customInstructions}` : ''}
+
+## CRITICAL: Preserve the Human Voice
+- Keep contractions and natural language patterns from the original
+- Don't add AI-sounding phrases like "I am excited", "I believe", "leverage", "utilize"
+- Maintain the same general tone and personality
+- If the original has specific examples/numbers, keep or enhance them
+- Don't make it sound generic - keep the specific details that make it personal
+
+## Your Task
+1. Refine the cover letter according to the mode instructions
+2. List the specific changes you made
+3. Note any keywords you added from the JD
+4. Highlight the key improvements
+
+Return the refined letter with proper paragraph formatting (blank lines between paragraphs).`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: DEFAULT_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: coverLetterRefinementSchema,
+        thinkingConfig: { thinkingBudget: DEFAULT_THINKING_BUDGET },
+      },
+    });
+
+    if (!response.text) {
+      throw new Error('Empty response from Gemini');
+    }
+
+    let jsonText = response.text;
+    if (jsonText.includes('```')) {
+      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const result = JSON.parse(jsonText);
+
+    // Format the content to ensure proper paragraph breaks
+    const formattedContent = formatCoverLetterContent(result.refinedContent || '', profile.name);
+
+    return {
+      refinedContent: formattedContent,
+      changes: result.changes || [],
+      keywordsAdded: result.keywordsAdded || [],
+      wordCount: result.wordCount || formattedContent.split(/\s+/).length || 0,
+      improvements: result.improvements || [],
+    };
+  } catch (error) {
+    console.error('Refine cover letter failed:', error);
+    throw new Error(
+      `Failed to refine cover letter: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }

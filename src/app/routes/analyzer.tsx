@@ -13,12 +13,14 @@ import {
   reanalyzeJD,
   extractJobInfo,
   generateCoverLetter,
+  refineCoverLetter,
   generatePhoneScreenPrep,
   generateTechnicalInterviewPrep,
   generateApplicationStrategy,
   generateSkillsRoadmap,
   generateApplicationAnswer,
   generateTopicDetails,
+  type RefinementMode,
 } from '@/src/services/gemini';
 import { TopicStudyCard } from '@/src/components/topic-study-card';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
@@ -79,6 +81,10 @@ import {
   Send,
   RotateCcw,
   Building,
+  Wand2,
+  ListChecks,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 type ViewType = 'analyze' | 'history' | 'detail';
@@ -136,6 +142,7 @@ export const AnalyzerPage: React.FC = () => {
     location?: string;
     salaryRange?: string;
     remote?: 'remote' | 'hybrid' | 'onsite' | 'unknown';
+    screeningQuestions?: { question: string; isRequired: boolean; questionType: string }[];
   }>({});
 
   // Generation states
@@ -153,6 +160,16 @@ export const AnalyzerPage: React.FC = () => {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [editedAnswerText, setEditedAnswerText] = useState('');
   const [coverLetterStyle, setCoverLetterStyle] = useState<CoverLetterStyle>('professional');
+
+  // Cover letter refinement state
+  const [isRefinementMode, setIsRefinementMode] = useState(false);
+  const [existingCoverLetter, setExistingCoverLetter] = useState('');
+  const [refinementMode, setRefinementMode] = useState<RefinementMode>('improve');
+  const [isRefiningCoverLetter, setIsRefiningCoverLetter] = useState(false);
+
+  // Screening questions bulk generation state
+  const [isGeneratingBulkAnswers, setIsGeneratingBulkAnswers] = useState(false);
+  const [selectedScreeningQuestions, setSelectedScreeningQuestions] = useState<Set<number>>(new Set());
 
   // History search
   const [historySearch, setHistorySearch] = useState('');
@@ -200,6 +217,7 @@ export const AnalyzerPage: React.FC = () => {
         location: jobInfo.location,
         salaryRange: jobInfo.salaryRange,
         remote: jobInfo.remote,
+        screeningQuestions: jobInfo.screeningQuestions,
       });
 
       // Auto-update job type if AI detected differently
@@ -228,6 +246,7 @@ export const AnalyzerPage: React.FC = () => {
       location: extractedInfo.location,
       salaryRange: extractedInfo.salaryRange,
       analysis: currentAnalysis,
+      screeningQuestions: extractedInfo.screeningQuestions as any,
     }, activeProfileId || undefined);
 
     toast.success('Analysis saved', 'You can access it from history');
@@ -270,6 +289,7 @@ export const AnalyzerPage: React.FC = () => {
         style: coverLetterStyle,
         company: selectedJob.company,
         role: selectedJob.role,
+        screeningQuestions: selectedJob.screeningQuestions,
       });
 
       addCoverLetter(selectedJob.id, {
@@ -280,13 +300,116 @@ export const AnalyzerPage: React.FC = () => {
         generatedAt: new Date().toISOString(),
       });
 
-      toast.success('Cover letter generated', `${result.wordCount} words`);
+      const hasScreening = selectedJob.screeningQuestions && selectedJob.screeningQuestions.length > 0;
+      toast.success(
+        'Cover letter generated',
+        `${result.wordCount} words${hasScreening ? ` + ${selectedJob.screeningQuestions!.length} screening answers` : ''}`
+      );
     } catch (error) {
       console.error('Cover letter generation failed:', error);
       toast.error('Generation failed', 'Please try again');
     } finally {
       setIsGeneratingCoverLetter(false);
     }
+  };
+
+  // Refine existing cover letter
+  const handleRefineCoverLetter = async () => {
+    if (!selectedJob || !existingCoverLetter.trim()) return;
+
+    setIsRefiningCoverLetter(true);
+    try {
+      const result = await refineCoverLetter({
+        existingLetter: existingCoverLetter,
+        jobDescription: selectedJob.jobDescription,
+        analysis: selectedJob.analysis,
+        profile,
+        mode: refinementMode,
+      });
+
+      addCoverLetter(selectedJob.id, {
+        style: 'professional', // Refined letters are marked as professional
+        content: result.refinedContent,
+        keyPoints: result.improvements,
+        wordCount: result.wordCount,
+        generatedAt: new Date().toISOString(),
+      });
+
+      toast.success('Cover letter refined', `${result.changes.length} improvements made`);
+      setExistingCoverLetter('');
+      setIsRefinementMode(false);
+    } catch (error) {
+      console.error('Cover letter refinement failed:', error);
+      toast.error('Refinement failed', 'Please try again');
+    } finally {
+      setIsRefiningCoverLetter(false);
+    }
+  };
+
+  // Generate answers for screening questions in bulk
+  const handleGenerateBulkAnswers = async () => {
+    if (!selectedJob || selectedScreeningQuestions.size === 0) return;
+
+    const questions = selectedJob.screeningQuestions?.filter((_, i) => selectedScreeningQuestions.has(i)) || [];
+    if (questions.length === 0) return;
+
+    setIsGeneratingBulkAnswers(true);
+    let successCount = 0;
+
+    try {
+      for (const sq of questions) {
+        const result = await generateApplicationAnswer({
+          question: sq.question,
+          jobDescription: selectedJob.jobDescription,
+          analysis: selectedJob.analysis,
+          profile,
+          stories,
+          company: selectedJob.company,
+          role: selectedJob.role,
+          maxLength: characterLimit,
+        });
+
+        addApplicationQuestion(selectedJob.id, {
+          question: sq.question,
+          questionType: result.questionType,
+          generatedAnswer: result.generatedAnswer,
+          sources: result.sources,
+          alternativeAnswers: result.alternativeAnswers,
+          keyPoints: result.keyPoints,
+          wordCount: result.wordCount,
+          characterCount: result.characterCount,
+        });
+
+        successCount++;
+      }
+
+      toast.success('Answers generated', `${successCount} screening question${successCount > 1 ? 's' : ''} answered`);
+      setSelectedScreeningQuestions(new Set());
+    } catch (error) {
+      console.error('Bulk answer generation failed:', error);
+      toast.error('Generation failed', `Generated ${successCount} answers before error`);
+    } finally {
+      setIsGeneratingBulkAnswers(false);
+    }
+  };
+
+  // Toggle screening question selection
+  const toggleScreeningQuestion = (index: number) => {
+    setSelectedScreeningQuestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all screening questions
+  const selectAllScreeningQuestions = () => {
+    const count = selectedJob?.screeningQuestions?.length || 0;
+    setSelectedScreeningQuestions(new Set(Array.from({ length: count }, (_, i) => i)));
   };
 
   // Generate phone screen prep
@@ -790,20 +913,29 @@ export const AnalyzerPage: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      {extractedInfo.remote && extractedInfo.remote !== 'unknown' && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge className={cn(
-                            'text-xs',
-                            extractedInfo.remote === 'remote' ? 'bg-green-900/30 text-green-400' :
-                            extractedInfo.remote === 'hybrid' ? 'bg-yellow-900/30 text-yellow-400' :
-                            'bg-gray-700 text-gray-400'
-                          )}>
-                            {extractedInfo.remote === 'remote' ? '🏠 Remote' :
-                             extractedInfo.remote === 'hybrid' ? '🏢 Hybrid' :
-                             '🏢 On-site'}
-                          </Badge>
+                      {(extractedInfo.remote && extractedInfo.remote !== 'unknown') ||
+                       (extractedInfo.screeningQuestions && extractedInfo.screeningQuestions.length > 0) ? (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          {extractedInfo.remote && extractedInfo.remote !== 'unknown' && (
+                            <Badge className={cn(
+                              'text-xs',
+                              extractedInfo.remote === 'remote' ? 'bg-green-900/30 text-green-400' :
+                              extractedInfo.remote === 'hybrid' ? 'bg-yellow-900/30 text-yellow-400' :
+                              'bg-gray-700 text-gray-400'
+                            )}>
+                              {extractedInfo.remote === 'remote' ? '🏠 Remote' :
+                               extractedInfo.remote === 'hybrid' ? '🏢 Hybrid' :
+                               '🏢 On-site'}
+                            </Badge>
+                          )}
+                          {extractedInfo.screeningQuestions && extractedInfo.screeningQuestions.length > 0 && (
+                            <Badge className="text-xs bg-purple-900/30 text-purple-400">
+                              <ListChecks className="w-3 h-3 mr-1 inline" />
+                              {extractedInfo.screeningQuestions.length} Screening Question{extractedInfo.screeningQuestions.length > 1 ? 's' : ''} Detected
+                            </Badge>
+                          )}
                         </div>
-                      )}
+                      ) : null}
                     </Card>
 
                     <AnalysisResultView analysis={currentAnalysis} />
@@ -1058,42 +1190,157 @@ export const AnalyzerPage: React.FC = () => {
             {/* Cover Letter Tab */}
             {resultTab === 'cover-letter' && (
               <div className="space-y-4">
-                {/* Generator */}
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-white">Generate Cover Letter</h4>
-                      <div className="flex items-center gap-3">
-                        <select
-                          value={coverLetterStyle}
-                          onChange={(e) => setCoverLetterStyle(e.target.value as CoverLetterStyle)}
-                          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
-                          title="Cover letter style"
-                          aria-label="Cover letter style"
-                        >
-                          {COVER_LETTER_STYLES.map((style) => (
-                            <option key={style.value} value={style.value}>
-                              {style.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={handleGenerateCoverLetter}
-                          disabled={isGeneratingCoverLetter}
-                          isLoading={isGeneratingCoverLetter}
-                          leftIcon={<Sparkles className="w-4 h-4" />}
-                        >
-                          Generate
-                        </Button>
+                {/* Mode Toggle */}
+                <div className="flex items-center gap-2 p-1 bg-gray-800 rounded-lg w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setIsRefinementMode(false)}
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                      !isRefinementMode
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-400 hover:text-gray-300"
+                    )}
+                  >
+                    <Sparkles className="w-4 h-4 inline mr-2" />
+                    Generate New
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRefinementMode(true)}
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                      isRefinementMode
+                        ? "bg-purple-600 text-white"
+                        : "text-gray-400 hover:text-gray-300"
+                    )}
+                  >
+                    <Wand2 className="w-4 h-4 inline mr-2" />
+                    Refine Existing
+                  </button>
+                </div>
+
+                {/* Generator Mode */}
+                {!isRefinementMode && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-white">Generate Cover Letter</h4>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={coverLetterStyle}
+                            onChange={(e) => setCoverLetterStyle(e.target.value as CoverLetterStyle)}
+                            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+                            title="Cover letter style"
+                            aria-label="Cover letter style"
+                          >
+                            {COVER_LETTER_STYLES.map((style) => (
+                              <option key={style.value} value={style.value}>
+                                {style.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleGenerateCoverLetter}
+                            disabled={isGeneratingCoverLetter}
+                            isLoading={isGeneratingCoverLetter}
+                            leftIcon={<Sparkles className="w-4 h-4" />}
+                          >
+                            Generate
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      {COVER_LETTER_STYLES.find((s) => s.value === coverLetterStyle)?.description}
-                    </p>
-                  </CardContent>
-                </Card>
+                      <p className="text-sm text-gray-400">
+                        {COVER_LETTER_STYLES.find((s) => s.value === coverLetterStyle)?.description}
+                      </p>
+                      {selectedJob.screeningQuestions && selectedJob.screeningQuestions.length > 0 && (
+                        <div className="mt-3 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                          <div className="flex items-center gap-2 text-purple-300">
+                            <ListChecks className="w-4 h-4" />
+                            <span className="text-sm font-medium">
+                              {selectedJob.screeningQuestions.length} screening question{selectedJob.screeningQuestions.length > 1 ? 's' : ''} will be answered
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Answers will be included at the end of the cover letter
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Refinement Mode */}
+                {isRefinementMode && (
+                  <Card className="border-purple-500/30">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-white flex items-center gap-2">
+                          <Wand2 className="w-5 h-5 text-purple-400" />
+                          Refine Existing Cover Letter
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={refinementMode}
+                            onChange={(e) => setRefinementMode(e.target.value as RefinementMode)}
+                            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300"
+                            title="Refinement mode"
+                            aria-label="Refinement mode"
+                          >
+                            <option value="improve">Improve Overall</option>
+                            <option value="shorten">Make Concise</option>
+                            <option value="expand">Add Detail</option>
+                            <option value="keywords">Add Keywords</option>
+                            <option value="tone">Adjust Tone</option>
+                          </select>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleRefineCoverLetter}
+                            disabled={!existingCoverLetter.trim() || isRefiningCoverLetter}
+                            isLoading={isRefiningCoverLetter}
+                            leftIcon={<Wand2 className="w-4 h-4" />}
+                          >
+                            Refine
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-3">
+                        {refinementMode === 'improve' && 'Fix awkward phrasing, strengthen statements, and add relevant keywords.'}
+                        {refinementMode === 'shorten' && 'Make the letter more concise while keeping the core message.'}
+                        {refinementMode === 'expand' && 'Add more specific examples and elaborate on key points.'}
+                        {refinementMode === 'keywords' && 'Optimize for ATS by incorporating keywords from the job description.'}
+                        {refinementMode === 'tone' && 'Adjust the tone to better match the role type and company culture.'}
+                      </p>
+                      <Textarea
+                        value={existingCoverLetter}
+                        onChange={(e) => setExistingCoverLetter(e.target.value)}
+                        placeholder="Paste your existing cover letter here to refine it based on the job description..."
+                        rows={10}
+                        className="font-mono text-sm"
+                      />
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-gray-500">
+                          {existingCoverLetter.split(/\s+/).filter(Boolean).length} words
+                        </span>
+                        {existingCoverLetter && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExistingCoverLetter('')}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Saved Cover Letters */}
                 {selectedJob.coverLetters.length > 0 ? (
@@ -1312,8 +1559,118 @@ export const AnalyzerPage: React.FC = () => {
                   </CardContent>
                 </Card>
 
+                {/* Detected Screening Questions from JD */}
+                {selectedJob.screeningQuestions && selectedJob.screeningQuestions.length > 0 && (
+                  <Card className="border-purple-500/30 bg-purple-900/10">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-white flex items-center gap-2">
+                          <ListChecks className="w-5 h-5 text-purple-400" />
+                          Detected Screening Questions ({selectedJob.screeningQuestions.length})
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={selectAllScreeningQuestions}
+                            disabled={selectedScreeningQuestions.size === selectedJob.screeningQuestions.length}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="sm"
+                            onClick={handleGenerateBulkAnswers}
+                            disabled={selectedScreeningQuestions.size === 0 || isGeneratingBulkAnswers}
+                            isLoading={isGeneratingBulkAnswers}
+                            leftIcon={<Sparkles className="w-4 h-4" />}
+                          >
+                            Generate {selectedScreeningQuestions.size > 0 ? `(${selectedScreeningQuestions.size})` : 'Selected'}
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-400 mb-3">
+                        These questions were detected from the job description. Select questions and generate answers in bulk.
+                      </p>
+                      <div className="space-y-2">
+                        {selectedJob.screeningQuestions.map((sq, index) => {
+                          const isSelected = selectedScreeningQuestions.has(index);
+                          const isAnswered = selectedJob.applicationQuestions?.some(
+                            aq => aq.question.toLowerCase() === sq.question.toLowerCase()
+                          );
+                          return (
+                            <div
+                              key={index}
+                              className={cn(
+                                "flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                                isAnswered
+                                  ? "bg-green-900/20 border-green-700/50"
+                                  : isSelected
+                                  ? "bg-purple-900/30 border-purple-500/50"
+                                  : "bg-gray-800/50 border-gray-700 hover:border-gray-600"
+                              )}
+                              onClick={() => !isAnswered && toggleScreeningQuestion(index)}
+                            >
+                              <div className="mt-0.5">
+                                {isAnswered ? (
+                                  <CheckCircle className="w-5 h-5 text-green-400" />
+                                ) : isSelected ? (
+                                  <CheckSquare className="w-5 h-5 text-purple-400" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-gray-500" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className={cn(
+                                  "text-sm",
+                                  isAnswered ? "text-green-300" : "text-gray-200"
+                                )}>
+                                  {sq.question}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge
+                                    variant={sq.questionType === 'technical' ? 'info' :
+                                            sq.questionType === 'experience' ? 'success' :
+                                            'default'}
+                                    size="sm"
+                                  >
+                                    {sq.questionType}
+                                  </Badge>
+                                  {sq.isRequired && (
+                                    <span className="text-xs text-red-400">Required</span>
+                                  )}
+                                  {isAnswered && (
+                                    <span className="text-xs text-green-400">✓ Answered</span>
+                                  )}
+                                </div>
+                              </div>
+                              {!isAnswered && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setQuestionInput(sq.question);
+                                  }}
+                                  title="Use this question"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Sample Questions Suggestions */}
-                {(!selectedJob.applicationQuestions || selectedJob.applicationQuestions.length === 0) && (
+                {(!selectedJob.applicationQuestions || selectedJob.applicationQuestions.length === 0) &&
+                 (!selectedJob.screeningQuestions || selectedJob.screeningQuestions.length === 0) && (
                   <Card className="bg-gray-900/50 border-dashed">
                     <CardContent className="p-4">
                       <h5 className="text-sm font-medium text-gray-400 mb-3">Common Application Questions</h5>

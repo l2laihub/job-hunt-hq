@@ -21,7 +21,8 @@
       "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm run build 2>&1 | tail -40\")",
       "Bash(wsl -e bash -c \"wc -l /home/l2laihub/Projects/job-hunt-hq/src/lib/utils.ts\":*)",
       "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm install react-markdown remark-gfm\")",
-      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm install @tailwindcss/typography\")"
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm install @tailwindcss/typography\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx tsc --noEmit 2>&1 | head -30\")"
     ]
   }
 }

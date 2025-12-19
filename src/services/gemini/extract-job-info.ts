@@ -2,6 +2,12 @@ import { requireGemini, DEFAULT_MODEL } from './client';
 import { jobInfoExtractionSchema } from './schemas';
 import type { AnalyzedJobType } from '@/src/types';
 
+export interface ScreeningQuestion {
+  question: string;
+  isRequired: boolean;
+  questionType: 'technical' | 'experience' | 'availability' | 'rate' | 'general';
+}
+
 export interface ExtractedJobInfo {
   company: string;
   role: string;
@@ -10,6 +16,7 @@ export interface ExtractedJobInfo {
   jobType: AnalyzedJobType;
   remote: 'remote' | 'hybrid' | 'onsite' | 'unknown';
   experienceLevel?: string;
+  screeningQuestions?: ScreeningQuestion[];
 }
 
 /**
@@ -55,6 +62,24 @@ ${jobDescription.slice(0, 4000)}
 
 7. **Experience Level**: Extract if mentioned (e.g., "5+ years", "Senior level", "Entry level")
 
+8. **Screening Questions**: Extract ALL screening/application questions that applicants must answer. Look for:
+   - "Screening Questions" sections (common in Upwork)
+   - "Application Questions" or "Questions for applicants"
+   - Numbered questions asking about experience, approach, or qualifications
+   - Questions marked as "Required" or "(Required)"
+   - Questions asking about availability, rates, or specific technical experience
+   - "Please answer all:" type sections
+
+   For each question found:
+   - Extract the EXACT question text
+   - Determine if it's marked as required (default to true if in a "Required" section)
+   - Categorize the question type:
+     - "technical" - questions about specific technologies, implementations, or technical approaches
+     - "experience" - questions about past projects, years of experience, or similar work
+     - "availability" - questions about start date, hours per week, timezone, etc.
+     - "rate" - questions about hourly rate, budget expectations, pricing
+     - "general" - other questions (NDA agreement, communication preferences, etc.)
+
 Return accurate information. If something is not clearly stated, use reasonable inference but prefer "unknown" over guessing.`;
 
   try {
@@ -81,6 +106,7 @@ Return accurate information. If something is not clearly stated, use reasonable 
       jobType: result.jobType || 'fulltime',
       remote: result.remote || 'unknown',
       experienceLevel: result.experienceLevel,
+      screeningQuestions: result.screeningQuestions || [],
     };
   } catch (error) {
     console.error('Job info extraction failed:', error);
@@ -90,6 +116,7 @@ Return accurate information. If something is not clearly stated, use reasonable 
       role: 'Unknown Role',
       jobType: 'fulltime',
       remote: 'unknown',
+      screeningQuestions: [],
     };
   }
 }

@@ -418,6 +418,13 @@ export interface TranscriptItem {
 // Cover Letter Types
 export type CoverLetterStyle = 'professional' | 'story-driven' | 'technical-focused' | 'startup-casual';
 
+// Screening Question Types (extracted from JD for Upwork/LinkedIn)
+export interface ScreeningQuestion {
+  question: string;
+  isRequired: boolean;
+  questionType: 'technical' | 'experience' | 'availability' | 'rate' | 'general';
+}
+
 export interface CoverLetter {
   id: string;
   style: CoverLetterStyle;
@@ -534,6 +541,9 @@ export interface AnalyzedJob {
 
   // Application questions & answers
   applicationQuestions?: ApplicationQuestionAnswer[];
+
+  // Screening questions extracted from JD (Upwork, LinkedIn, etc.)
+  screeningQuestions?: ScreeningQuestion[];
 
   // Linking
   applicationId?: string; // If saved as job application

@@ -511,7 +511,7 @@ export const companyResearchSchema: Schema = {
 export const coverLetterSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    content: { type: Type.STRING, description: 'The full cover letter text' },
+    content: { type: Type.STRING, description: 'The full cover letter text including screening question answers if provided' },
     keyPoints: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
@@ -523,6 +523,18 @@ export const coverLetterSchema: Schema = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description: 'Specific customizations made for this role',
+    },
+    screeningAnswers: {
+      type: Type.ARRAY,
+      description: 'Answers to screening questions if they were provided',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING, description: 'The original screening question' },
+          answer: { type: Type.STRING, description: 'The generated answer' },
+        },
+        required: ['question', 'answer'],
+      },
     },
   },
   required: ['content', 'keyPoints', 'wordCount'],
@@ -737,8 +749,62 @@ export const jobInfoExtractionSchema: Schema = {
     jobType: { type: Type.STRING, enum: ['fulltime', 'contract', 'freelance'] },
     remote: { type: Type.STRING, enum: ['remote', 'hybrid', 'onsite', 'unknown'] },
     experienceLevel: { type: Type.STRING },
+    screeningQuestions: {
+      type: Type.ARRAY,
+      description: 'Required screening questions that applicants must answer (common in Upwork, LinkedIn applications)',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING, description: 'The exact screening question text' },
+          isRequired: { type: Type.BOOLEAN, description: 'Whether this question is marked as required' },
+          questionType: {
+            type: Type.STRING,
+            enum: ['technical', 'experience', 'availability', 'rate', 'general'],
+            description: 'Category of the question',
+          },
+        },
+        required: ['question', 'isRequired', 'questionType'],
+      },
+    },
   },
   required: ['company', 'role', 'jobType'],
+};
+
+// Cover Letter Refinement schema
+export const coverLetterRefinementSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    refinedContent: {
+      type: Type.STRING,
+      description: 'The refined/improved cover letter',
+    },
+    changes: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          type: {
+            type: Type.STRING,
+            enum: ['improved', 'added', 'removed', 'restructured'],
+          },
+          description: { type: Type.STRING },
+        },
+      },
+      description: 'Summary of changes made',
+    },
+    keywordsAdded: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Keywords from JD that were added',
+    },
+    wordCount: { type: Type.NUMBER },
+    improvements: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Key improvements made to the letter',
+    },
+  },
+  required: ['refinedContent', 'changes', 'wordCount', 'improvements'],
 };
 
 // Resume Analysis schema
