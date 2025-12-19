@@ -78,6 +78,45 @@ function sortRolesByDate(roles: Role[]): Role[] {
   });
 }
 
+/**
+ * Normalize skills by splitting grouped skills into individual items
+ * Handles patterns like "Category: skill1, skill2" or "skill1, skill2, skill3"
+ */
+function normalizeSkills(skills: string[]): string[] {
+  const normalized: string[] = [];
+
+  for (const skill of skills) {
+    // Check if skill contains a category prefix (e.g., "AI/ML & Generative AI: skill1, skill2")
+    const colonIndex = skill.indexOf(':');
+    if (colonIndex > -1) {
+      // Extract everything after the colon and split by comma
+      const skillsPart = skill.substring(colonIndex + 1);
+      const individualSkills = skillsPart.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
+      normalized.push(...individualSkills);
+    } else if (skill.includes(',')) {
+      // Split comma-separated skills
+      const individualSkills = skill.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
+      normalized.push(...individualSkills);
+    } else {
+      // Single skill, add as-is
+      const trimmed = skill.trim();
+      if (trimmed.length > 0) {
+        normalized.push(trimmed);
+      }
+    }
+  }
+
+  // Remove duplicates while preserving order
+  return [...new Set(normalized)];
+}
+
+/**
+ * Check if skills array has grouped skills that need normalization
+ */
+function hasGroupedSkills(skills: string[]): boolean {
+  return skills.some(skill => skill.includes(':') || skill.includes(','));
+}
+
 const workStyleOptions = [
   { value: 'remote', label: 'Remote' },
   { value: 'hybrid', label: 'Hybrid' },
@@ -402,6 +441,33 @@ export const ProfilePage: React.FC = () => {
           onToggle={() => toggleSection('skills')}
         >
           <div className="space-y-6">
+            {/* Fix Grouped Skills Warning */}
+            {hasGroupedSkills(editedProfile.technicalSkills) && (
+              <div className="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-400 font-medium">Grouped skills detected</p>
+                    <p className="text-xs text-amber-400/70 mt-1">
+                      Some skills are grouped together (e.g., "Category: skill1, skill2"). Click "Fix Skills" to split them into individual items for better resume formatting.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-500 text-white border-amber-500"
+                    onClick={() => {
+                      const normalizedTechnical = normalizeSkills(editedProfile.technicalSkills);
+                      const normalizedSoft = normalizeSkills(editedProfile.softSkills);
+                      handleFieldChange('technicalSkills', normalizedTechnical);
+                      handleFieldChange('softSkills', normalizedSoft);
+                      toast.success('Skills fixed', `Split into ${normalizedTechnical.length} technical and ${normalizedSoft.length} soft skills`);
+                    }}
+                  >
+                    Fix Skills
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Technical Skills */}
             <div>
               <label className="text-sm text-gray-400 block mb-2">Technical Skills</label>

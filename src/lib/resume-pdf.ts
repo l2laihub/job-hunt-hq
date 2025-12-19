@@ -280,9 +280,15 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       flex-shrink: 0;
     }
 
-    .contact-link {
-      color: ${colors.accent};
-      text-decoration: none;
+    .contact-link,
+    .contact-link:link,
+    .contact-link:visited,
+    .contact-link:hover,
+    .contact-link:active {
+      color: ${colors.accent} !important;
+      text-decoration: none !important;
+      background: transparent !important;
+      border: none !important;
     }
 
     /* Score badges */
@@ -541,6 +547,15 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       html, body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+      }
+
+      /* Force link styling in print */
+      a, a:link, a:visited, a:hover, a:active,
+      .contact-link, .contact-link:link, .contact-link:visited {
+        color: ${colors.accent} !important;
+        text-decoration: none !important;
+        background: transparent !important;
+        -webkit-text-decoration: none !important;
       }
 
       .section {
@@ -837,9 +852,15 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       flex-shrink: 0;
     }
 
-    .contact-link {
-      color: ${colors.accent};
-      text-decoration: none;
+    .contact-link,
+    .contact-link:link,
+    .contact-link:visited,
+    .contact-link:hover,
+    .contact-link:active {
+      color: ${colors.accent} !important;
+      text-decoration: none !important;
+      background: transparent !important;
+      border: none !important;
     }
 
     /* Tailored Badge */
@@ -1053,6 +1074,15 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       html, body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+      }
+
+      /* Force link styling in print */
+      a, a:link, a:visited, a:hover, a:active,
+      .contact-link, .contact-link:link, .contact-link:visited {
+        color: ${colors.accent} !important;
+        text-decoration: none !important;
+        background: transparent !important;
+        -webkit-text-decoration: none !important;
       }
 
       .container {

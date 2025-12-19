@@ -112,7 +112,15 @@ Analyze this resume/profile and provide:
 - Remove weak or vague language
 - Optimize for ATS keyword matching
 - Keep bullets concise (1-2 lines max)
-- Focus on impact and results, not just responsibilities`;
+- Focus on impact and results, not just responsibilities
+
+## CRITICAL - Skill Formatting Rules:
+- technicalSkills must be an array of INDIVIDUAL skills, NOT grouped or categorized strings
+- Each skill should be a single technology, tool, framework, or concept
+- CORRECT: ["Python", "TypeScript", "React", "AWS", "Docker", "GraphRAG", "LLM Integration"]
+- WRONG: ["Programming: Python, TypeScript, React", "Cloud: AWS, Docker"]
+- WRONG: ["AI/ML & Generative AI: LLM Integration, GraphRAG, RAG Systems"]
+- Do not include category labels or prefixes in skill names`;
 }
 
 /**
@@ -188,7 +196,15 @@ Analyze and optimize this resume specifically for this job:
 - Reorder experiences to put most relevant first
 - Add missing keywords naturally (don't keyword stuff)
 - Highlight transferable skills for any gaps
-- Focus on what makes this candidate ideal for THIS specific role`;
+- Focus on what makes this candidate ideal for THIS specific role
+
+## CRITICAL - Skill Formatting Rules:
+- technicalSkills must be an array of INDIVIDUAL skills, NOT grouped or categorized strings
+- Each skill should be a single technology, tool, framework, or concept
+- CORRECT: ["Python", "TypeScript", "React", "AWS", "Docker", "GraphRAG", "LLM Integration"]
+- WRONG: ["Programming: Python, TypeScript, React", "Cloud: AWS, Docker"]
+- WRONG: ["AI/ML & Generative AI: LLM Integration, GraphRAG, RAG Systems"]
+- Do not include category labels or prefixes in skill names`;
 }
 
 /**

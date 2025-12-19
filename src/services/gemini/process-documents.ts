@@ -85,6 +85,15 @@ export async function processDocuments(files: File[]): Promise<UserProfile> {
    - Career goals and preferences
    - Any freelance/consulting experience
 
+## CRITICAL - Skill Extraction Rules:
+- technicalSkills must be an array of INDIVIDUAL skills, NOT grouped or categorized strings
+- Each skill should be a single technology, tool, framework, or concept
+- CORRECT: ["Python", "TypeScript", "React", "AWS", "Docker", "GraphRAG", "LLM Integration"]
+- WRONG: ["Programming: Python, TypeScript, React", "Cloud: AWS, Docker"]
+- WRONG: ["AI/ML & Generative AI: LLM Integration, GraphRAG, RAG Systems"]
+- Extract each skill separately even if they appear grouped in the source document
+- Do not include category labels or prefixes in skill names
+
 ## Important:
 - Be thorough - capture ALL skills mentioned, even if they seem minor
 - Infer reasonable values where explicit information is missing

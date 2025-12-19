@@ -110,6 +110,38 @@ function sortRolesByDate<T extends { duration: string }>(roles: T[]): T[] {
   });
 }
 
+/**
+ * Normalize skills by splitting grouped skills into individual items
+ * Handles patterns like "Category: skill1, skill2" or "skill1, skill2, skill3"
+ */
+function normalizeSkills(skills: string[]): string[] {
+  const normalized: string[] = [];
+
+  for (const skill of skills) {
+    // Check if skill contains a category prefix (e.g., "AI/ML & Generative AI: skill1, skill2")
+    const colonIndex = skill.indexOf(':');
+    if (colonIndex > -1) {
+      // Extract everything after the colon and split by comma
+      const skillsPart = skill.substring(colonIndex + 1);
+      const individualSkills = skillsPart.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
+      normalized.push(...individualSkills);
+    } else if (skill.includes(',')) {
+      // Split comma-separated skills
+      const individualSkills = skill.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
+      normalized.push(...individualSkills);
+    } else {
+      // Single skill, add as-is
+      const trimmed = skill.trim();
+      if (trimmed.length > 0) {
+        normalized.push(trimmed);
+      }
+    }
+  }
+
+  // Remove duplicates while preserving order
+  return [...new Set(normalized)];
+}
+
 // Generate resume content in different formats
 const generateResumeContent = (
   enhanced: EnhancedProfile,
@@ -1254,10 +1286,13 @@ export const EnhancePage: React.FC = () => {
     updateProfile({ headline: enhancement.enhancedProfile.headline });
 
     if (enhancement.enhancedProfile.technicalSkills.length > 0) {
-      updateProfile({ technicalSkills: enhancement.enhancedProfile.technicalSkills });
+      // Normalize skills to ensure they are individual items, not grouped
+      const normalizedTechnicalSkills = normalizeSkills(enhancement.enhancedProfile.technicalSkills);
+      updateProfile({ technicalSkills: normalizedTechnicalSkills });
     }
     if (enhancement.enhancedProfile.softSkills.length > 0) {
-      updateProfile({ softSkills: enhancement.enhancedProfile.softSkills });
+      const normalizedSoftSkills = normalizeSkills(enhancement.enhancedProfile.softSkills);
+      updateProfile({ softSkills: normalizedSoftSkills });
     }
 
     if (enhancement.enhancedProfile.recentRoles.length > 0) {
