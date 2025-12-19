@@ -452,6 +452,39 @@ export interface TechnicalInterviewPrep {
   studyResources: { topic: string; resource: string; priority: 'high' | 'medium' | 'low' }[];
   practiceProblems: string[];
   generatedAt: string;
+  // Enhanced topic details (Phase 1-3)
+  topicDetails?: Record<string, TopicDetails>;
+}
+
+// Topic Details for expandable study cards (Phase 1-3)
+export interface TopicQuestion {
+  question: string;
+  difficulty: 'basic' | 'intermediate' | 'advanced';
+  answer: string;
+  keyPoints: string[];
+  followUp?: string;
+}
+
+export interface TopicResource {
+  title: string;
+  url: string;
+  type: 'article' | 'video' | 'course' | 'documentation' | 'practice';
+  source: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface TopicDetails {
+  topic: string;
+  keyConcepts: string[];
+  questions: TopicQuestion[];
+  resources: TopicResource[];
+  practiceNotes?: string;
+  // Practice tracking
+  practiceCount: number;
+  lastPracticedAt?: string;
+  confidenceLevel?: 'low' | 'medium' | 'high';
+  generatedAt: string;
 }
 
 // Application Strategy Types

@@ -11,6 +11,7 @@ export { createLiveSession, generateInterviewFeedback } from './live-interview';
 export { generateTechnicalAnswer, generateFollowUps } from './technical-answers';
 export { generateCoverLetter } from './cover-letter';
 export { generatePhoneScreenPrep, generateTechnicalInterviewPrep, generateApplicationStrategy } from './interview-prep';
+export { generateTopicDetails } from './topic-details';
 export { enhanceResume, analyzeResumeQuick } from './resume-enhance';
 export { generateSkillsRoadmap } from './skills-roadmap';
 export { generateApplicationAnswer, generateBatchApplicationAnswers } from './application-questions';

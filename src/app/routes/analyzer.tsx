@@ -18,7 +18,9 @@ import {
   generateApplicationStrategy,
   generateSkillsRoadmap,
   generateApplicationAnswer,
+  generateTopicDetails,
 } from '@/src/services/gemini';
+import { TopicStudyCard } from '@/src/components/topic-study-card';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
 import { AnalysisResultView } from '@/components/AnalysisResultView';
@@ -35,6 +37,8 @@ import type {
   SkillsRoadmap,
   ApplicationStatus,
   ApplicationQuestionAnswer,
+  TopicDetails,
+  UserProfile,
 } from '@/src/types';
 import {
   Search,
@@ -1189,7 +1193,16 @@ export const AnalyzerPage: React.FC = () => {
                     </Button>
                   </Card>
                 ) : (
-                  <TechnicalInterviewPrepView prep={selectedJob.technicalInterviewPrep} stories={stories} />
+                  <TechnicalInterviewPrepView
+                    prep={selectedJob.technicalInterviewPrep}
+                    stories={stories}
+                    jobId={selectedJob.id}
+                    jobDescription={selectedJob.jobDescription}
+                    analysis={selectedJob.analysis}
+                    profile={profile}
+                    company={selectedJob.company}
+                    role={selectedJob.role}
+                  />
                 )}
               </div>
             )}
@@ -1601,7 +1614,59 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
 };
 
 // Technical Interview Prep View
-const TechnicalInterviewPrepView: React.FC<{ prep: TechnicalInterviewPrep; stories: any[] }> = ({ prep, stories }) => {
+interface TechnicalInterviewPrepViewProps {
+  prep: TechnicalInterviewPrep;
+  stories: any[];
+  jobId: string;
+  jobDescription: string;
+  analysis: JDAnalysis;
+  profile: UserProfile;
+  company?: string;
+  role?: string;
+}
+
+const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
+  prep,
+  stories,
+  jobId,
+  jobDescription,
+  analysis,
+  profile,
+  company,
+  role,
+}) => {
+  const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
+  const setTopicDetails = useAnalyzedJobsStore((s) => s.setTopicDetails);
+  const updateTopicPractice = useAnalyzedJobsStore((s) => s.updateTopicPractice);
+
+  const handleGenerateTopicDetails = async (topic: string, depth: 'basic' | 'intermediate' | 'deep', notes: string) => {
+    setGeneratingTopic(topic);
+    try {
+      const details = await generateTopicDetails({
+        topic,
+        depth,
+        notes,
+        jobDescription,
+        analysis,
+        profile,
+        company,
+        role,
+      });
+      setTopicDetails(jobId, topic, details);
+      toast.success('Study guide ready', `Generated for ${topic}`);
+    } catch (error) {
+      console.error('Failed to generate topic details:', error);
+      toast.error('Generation failed', 'Please try again');
+    } finally {
+      setGeneratingTopic(null);
+    }
+  };
+
+  const handlePractice = (topic: string, confidenceLevel: 'low' | 'medium' | 'high') => {
+    updateTopicPractice(jobId, topic, confidenceLevel);
+    toast.success('Progress saved', `${topic}: ${confidenceLevel} confidence`);
+  };
+
   return (
     <div className="space-y-4">
       {/* Focus Areas */}
@@ -1616,34 +1681,27 @@ const TechnicalInterviewPrepView: React.FC<{ prep: TechnicalInterviewPrep; stori
         </CardContent>
       </Card>
 
-      {/* Likely Topics */}
-      <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-yellow-400 mb-3">Topics to Study</h4>
-          <div className="space-y-2">
-            {prep.likelyTopics.map((topic, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                <span
-                  className={cn(
-                    'px-2 py-0.5 rounded text-xs font-bold uppercase',
-                    topic.depth === 'deep'
-                      ? 'bg-red-900/30 text-red-400'
-                      : topic.depth === 'intermediate'
-                        ? 'bg-yellow-900/30 text-yellow-400'
-                        : 'bg-gray-700 text-gray-400'
-                  )}
-                >
-                  {topic.depth}
-                </span>
-                <div className="flex-1">
-                  <p className="font-medium text-white">{topic.topic}</p>
-                  <p className="text-xs text-gray-400 mt-1">{topic.notes}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Topics to Study - Now with expandable cards */}
+      <div>
+        <h4 className="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2 px-1">
+          <GraduationCap className="w-4 h-4" />
+          Topics to Study ({prep.likelyTopics.length})
+        </h4>
+        <div className="space-y-3">
+          {prep.likelyTopics.map((topic, i) => (
+            <TopicStudyCard
+              key={i}
+              topic={topic.topic}
+              depth={topic.depth}
+              notes={topic.notes}
+              details={prep.topicDetails?.[topic.topic]}
+              isGenerating={generatingTopic === topic.topic}
+              onGenerate={() => handleGenerateTopicDetails(topic.topic, topic.depth, topic.notes)}
+              onPractice={(confidence) => handlePractice(topic.topic, confidence)}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* System Design Topics */}
       {prep.systemDesignTopics.length > 0 && (

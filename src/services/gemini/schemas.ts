@@ -980,6 +980,54 @@ export const skillsRoadmapSchema: Schema = {
   required: ['currentFitScore', 'targetFitScore', 'totalEstimatedTime', 'summary', 'skillGaps', 'quickWins', 'milestones'],
 };
 
+// Topic Details schema - for expandable study cards in Technical Interview Prep
+export const topicDetailsSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    keyConcepts: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '5-8 key concepts/principles to understand about this topic',
+    },
+    questions: {
+      type: Type.ARRAY,
+      description: '4-6 interview questions about this topic, ordered by difficulty',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING, description: 'The interview question' },
+          difficulty: { type: Type.STRING, enum: ['basic', 'intermediate', 'advanced'] },
+          answer: { type: Type.STRING, description: 'A well-structured answer (2-4 paragraphs) with markdown formatting for clarity. Use **bold** for key terms, bullet points for lists, and code blocks for examples.' },
+          keyPoints: { type: Type.ARRAY, items: { type: Type.STRING }, description: '3-4 key points the answer should cover' },
+          followUp: { type: Type.STRING, description: 'A likely follow-up question the interviewer might ask' },
+        },
+        required: ['question', 'difficulty', 'answer', 'keyPoints'],
+      },
+    },
+    resources: {
+      type: Type.ARRAY,
+      description: '3-5 curated learning resources for this topic',
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          url: { type: Type.STRING, description: 'URL to the resource' },
+          type: { type: Type.STRING, enum: ['article', 'video', 'course', 'documentation', 'practice'] },
+          source: { type: Type.STRING, description: 'Source website or platform (e.g., MDN, YouTube, LeetCode)' },
+          description: { type: Type.STRING, description: 'Brief description of what this resource covers' },
+          priority: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+        },
+        required: ['title', 'url', 'type', 'source', 'description', 'priority'],
+      },
+    },
+    practiceNotes: {
+      type: Type.STRING,
+      description: 'Tips for how to practice this topic effectively',
+    },
+  },
+  required: ['keyConcepts', 'questions', 'resources'],
+};
+
 // Full Resume Enhancement Response schema (combines analysis + suggestions + preview)
 export const resumeEnhancementSchema: Schema = {
   type: Type.OBJECT,

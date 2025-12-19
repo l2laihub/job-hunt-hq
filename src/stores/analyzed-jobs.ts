@@ -9,6 +9,7 @@ import type {
   ApplicationStrategy,
   SkillsRoadmap,
   ApplicationQuestionAnswer,
+  TopicDetails,
 } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
@@ -33,6 +34,10 @@ interface AnalyzedJobsState {
   setTechnicalInterviewPrep: (jobId: string, prep: TechnicalInterviewPrep) => void;
   setApplicationStrategy: (jobId: string, strategy: ApplicationStrategy) => void;
   setSkillsRoadmap: (jobId: string, roadmap: SkillsRoadmap) => void;
+
+  // Topic Details (for expanded study cards)
+  setTopicDetails: (jobId: string, topic: string, details: TopicDetails) => void;
+  updateTopicPractice: (jobId: string, topic: string, confidenceLevel?: 'low' | 'medium' | 'high') => void;
 
   // Application Questions
   addApplicationQuestion: (jobId: string, question: Omit<ApplicationQuestionAnswer, 'id' | 'createdAt' | 'copyCount'>) => void;
@@ -207,6 +212,51 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
               ? { ...job, skillsRoadmap: roadmap, updatedAt: new Date().toISOString() }
               : job
           ),
+        }));
+      },
+
+      setTopicDetails: (jobId, topic, details) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) => {
+            if (job.id !== jobId || !job.technicalInterviewPrep) return job;
+            const currentDetails = job.technicalInterviewPrep.topicDetails || {};
+            return {
+              ...job,
+              technicalInterviewPrep: {
+                ...job.technicalInterviewPrep,
+                topicDetails: {
+                  ...currentDetails,
+                  [topic]: details,
+                },
+              },
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        }));
+      },
+
+      updateTopicPractice: (jobId, topic, confidenceLevel) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) => {
+            if (job.id !== jobId || !job.technicalInterviewPrep?.topicDetails?.[topic]) return job;
+            const existingDetails = job.technicalInterviewPrep.topicDetails[topic];
+            return {
+              ...job,
+              technicalInterviewPrep: {
+                ...job.technicalInterviewPrep,
+                topicDetails: {
+                  ...job.technicalInterviewPrep.topicDetails,
+                  [topic]: {
+                    ...existingDetails,
+                    practiceCount: existingDetails.practiceCount + 1,
+                    lastPracticedAt: new Date().toISOString(),
+                    confidenceLevel: confidenceLevel || existingDetails.confidenceLevel,
+                  },
+                },
+              },
+              updatedAt: new Date().toISOString(),
+            };
+          }),
         }));
       },
 
