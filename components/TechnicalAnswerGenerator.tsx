@@ -260,7 +260,7 @@ export const TechnicalAnswerGenerator: React.FC<TechnicalAnswerGeneratorProps> =
     setIsPracticing(false);
 
     if (practiceAnswerId) {
-      recordPractice(practiceAnswerId, { duration: practiceTime });
+      recordPractice(practiceAnswerId, { durationSeconds: practiceTime });
     }
 
     setView('list');
