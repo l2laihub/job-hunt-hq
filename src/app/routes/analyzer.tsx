@@ -1,13 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import {
   useUIStore,
-  useApplicationStore,
   useCurrentProfile,
   useActiveProfileId,
-  useStoriesStore,
-  useAnalyzedJobsStore,
   toast,
 } from '@/src/stores';
+import { useApplications, useStories, useAnalyzedJobs } from '@/src/hooks/useAppData';
 import {
   analyzeJobDescription,
   reanalyzeJD,
@@ -93,38 +91,49 @@ type ResultTab = 'overview' | 'cover-letter' | 'phone-prep' | 'tech-prep' | 'str
 export const AnalyzerPage: React.FC = () => {
   const profile = useCurrentProfile();
   const activeProfileId = useActiveProfileId();
-  const allStories = useStoriesStore((s) => s.stories);
+
+  // Use unified hooks that switch between Supabase and localStorage
+  const { stories: allStories } = useStories();
+  const { applications: allApplications, addApplication } = useApplications();
+
   // Filter stories by active profile
   const stories = useMemo(() => {
     if (!activeProfileId) return allStories;
     return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
   }, [allStories, activeProfileId]);
+
+  // Filter applications by active profile
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
+
   const openModal = useUIStore((s) => s.openModal);
 
-  // Analyzed Jobs Store
-  const allAnalyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+  // Analyzed Jobs - unified hook that switches between Supabase and localStorage
+  const {
+    jobs: allAnalyzedJobs,
+    addJob: addAnalyzedJob,
+    updateJob: updateAnalyzedJob,
+    deleteJob: deleteAnalyzedJob,
+    addCoverLetter,
+    setPhoneScreenPrep,
+    setTechnicalInterviewPrep,
+    setApplicationStrategy,
+    setSkillsRoadmap,
+    addApplicationQuestion,
+    updateApplicationQuestion,
+    deleteApplicationQuestion,
+    incrementQuestionCopyCount,
+    toggleFavorite,
+    setTopicDetails,
+  } = useAnalyzedJobs();
+
   // Filter analyzed jobs by active profile
   const analyzedJobs = useMemo(() => {
     if (!activeProfileId) return allAnalyzedJobs;
     return allAnalyzedJobs.filter((j) => !j.profileId || j.profileId === activeProfileId);
   }, [allAnalyzedJobs, activeProfileId]);
-  const addAnalyzedJob = useAnalyzedJobsStore((s) => s.addJob);
-  const updateAnalyzedJob = useAnalyzedJobsStore((s) => s.updateJob);
-  const deleteAnalyzedJob = useAnalyzedJobsStore((s) => s.deleteJob);
-  const addCoverLetter = useAnalyzedJobsStore((s) => s.addCoverLetter);
-  const setPhoneScreenPrep = useAnalyzedJobsStore((s) => s.setPhoneScreenPrep);
-  const setTechnicalInterviewPrep = useAnalyzedJobsStore((s) => s.setTechnicalInterviewPrep);
-  const setApplicationStrategy = useAnalyzedJobsStore((s) => s.setApplicationStrategy);
-  const setSkillsRoadmap = useAnalyzedJobsStore((s) => s.setSkillsRoadmap);
-  const addApplicationQuestion = useAnalyzedJobsStore((s) => s.addApplicationQuestion);
-  const updateApplicationQuestion = useAnalyzedJobsStore((s) => s.updateApplicationQuestion);
-  const deleteApplicationQuestion = useAnalyzedJobsStore((s) => s.deleteApplicationQuestion);
-  const incrementQuestionCopyCount = useAnalyzedJobsStore((s) => s.incrementQuestionCopyCount);
-  const toggleFavorite = useAnalyzedJobsStore((s) => s.toggleFavorite);
-
-  // Applications Store
-  const addApplication = useApplicationStore((s) => s.addApplication);
-  const applications = useApplicationStore((s) => s.applications);
 
   // View state
   const [view, setView] = useState<ViewType>('analyze');
@@ -1993,8 +2002,7 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
   role,
 }) => {
   const [generatingTopic, setGeneratingTopic] = useState<string | null>(null);
-  const setTopicDetails = useAnalyzedJobsStore((s) => s.setTopicDetails);
-  const updateTopicPractice = useAnalyzedJobsStore((s) => s.updateTopicPractice);
+  const { setTopicDetails, updateTopicPractice } = useAnalyzedJobs();
 
   const handleGenerateTopicDetails = async (topic: string, depth: 'basic' | 'intermediate' | 'deep', notes: string) => {
     setGeneratingTopic(topic);

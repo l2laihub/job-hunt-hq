@@ -23,6 +23,7 @@ interface EnhancementsState {
   deleteEnhancement: (id: string) => void;
   getEnhancement: (id: string) => ResumeEnhancement | undefined;
   getEnhancementsByJob: (jobId: string) => ResumeEnhancement[];
+  importEnhancements: (enhancements: ResumeEnhancement[]) => void;
   clearAll: () => void;
 }
 
@@ -76,6 +77,17 @@ export const useEnhancementsStore = create<EnhancementsState>()(
 
       getEnhancementsByJob: (jobId) => {
         return get().enhancements.filter((e) => e.jobId === jobId);
+      },
+
+      importEnhancements: (newEnhancements) => {
+        set((state) => {
+          // Merge new enhancements, avoiding duplicates by id
+          const existingIds = new Set(state.enhancements.map((e) => e.id));
+          const toAdd = newEnhancements.filter((e) => !existingIds.has(e.id));
+          return {
+            enhancements: [...toAdd, ...state.enhancements],
+          };
+        });
       },
 
       clearAll: () => {

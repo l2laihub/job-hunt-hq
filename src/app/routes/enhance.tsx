@@ -1,12 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  useProfileStore,
-  useCurrentProfile,
   useActiveProfileId,
-  useAnalyzedJobsStore,
-  useEnhancementsStore,
   toast,
 } from '@/src/stores';
+import { useProfile, useAnalyzedJobs, useEnhancements } from '@/src/hooks/useAppData';
 import { enhanceResume, processDocuments } from '@/src/services/gemini';
 import { downloadResumePDF, previewResumeHTML } from '@/src/lib/resume-pdf';
 import { Button, Card, CardHeader, CardContent, Badge, Abbr, EditableText, EditableList } from '@/src/components/ui';
@@ -1059,18 +1056,18 @@ const HistoryItem: React.FC<{
 
 // Main component
 export const EnhancePage: React.FC = () => {
-  const profile = useCurrentProfile();
+  const { profile, updateProfile } = useProfile();
   const activeProfileId = useActiveProfileId();
-  const updateProfile = useProfileStore((s) => s.updateProfile);
-  const allAnalyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
+
+  // Use unified hooks that switch between Supabase and localStorage
+  const { jobs: allAnalyzedJobs } = useAnalyzedJobs();
+  const { enhancements, addEnhancement, deleteEnhancement } = useEnhancements();
+
   // Filter analyzed jobs by active profile
   const analyzedJobs = useMemo(() => {
     if (!activeProfileId) return allAnalyzedJobs;
     return allAnalyzedJobs.filter((j) => !j.profileId || j.profileId === activeProfileId);
   }, [allAnalyzedJobs, activeProfileId]);
-  const enhancements = useEnhancementsStore((s) => s.enhancements);
-  const addEnhancement = useEnhancementsStore((s) => s.addEnhancement);
-  const deleteEnhancement = useEnhancementsStore((s) => s.deleteEnhancement);
 
   const [mode, setMode] = useState<EnhancementMode>('professional');
   const [selectedJobId, setSelectedJobId] = useState<string>('');

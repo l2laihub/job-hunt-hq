@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useProfileStore, useActiveProfile, useCurrentProfile, toast } from '@/src/stores';
+import { toast } from '@/src/stores';
+import { useProfileData } from '@/src/hooks/useProfileData';
 import { processDocuments } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select, EditableText, EditableList } from '@/src/components/ui';
 import { ProfileEmptyState } from '@/src/components/shared';
@@ -27,6 +28,9 @@ import {
   ArrowDown,
   ArrowUpDown,
   GripVertical,
+  Cloud,
+  CloudOff,
+  Loader2,
 } from 'lucide-react';
 
 /**
@@ -125,9 +129,8 @@ const workStyleOptions = [
 ];
 
 export const ProfilePage: React.FC = () => {
-  const activeProfileWithMeta = useActiveProfile();
-  const profile = useCurrentProfile();
-  const updateProfile = useProfileStore((s) => s.updateProfile);
+  const { profile, activeProfile: activeProfileWithMeta, isLoading, isAuthenticated, actions, error } = useProfileData();
+  const { updateProfile } = actions;
 
   // Compute profile completeness locally
   const isProfileComplete = () => {
@@ -174,10 +177,19 @@ export const ProfilePage: React.FC = () => {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    updateProfile(editedProfile);
-    setHasChanges(false);
-    toast.success('Profile saved', 'Your changes have been saved');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await updateProfile(editedProfile);
+      setHasChanges(false);
+      toast.success('Profile saved', isAuthenticated ? 'Synced to cloud' : 'Saved locally');
+    } catch (err) {
+      toast.error('Save failed', err instanceof Error ? err.message : 'Please try again');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleImportResume = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -289,6 +301,18 @@ export const ProfilePage: React.FC = () => {
     handleNestedChange('freelanceProfile', 'preferredProjectTypes', editedProfile.freelanceProfile.preferredProjectTypes.filter((t) => t !== type));
   };
 
+  // Show loading state for authenticated users while data is being fetched
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -309,9 +333,20 @@ export const ProfilePage: React.FC = () => {
                   {activeProfileWithMeta.metadata.name}
                 </span>
               )}
+              {/* Sync status indicator */}
+              {isAuthenticated ? (
+                <span className="flex items-center gap-1 text-xs text-green-400" title="Synced to cloud">
+                  <Cloud className="w-3 h-3" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-gray-500" title="Local storage only">
+                  <CloudOff className="w-3 h-3" />
+                </span>
+              )}
             </h2>
             <p className="text-gray-400 text-sm mt-1">
               Your profile powers AI analysis and interview prep
+              {!isAuthenticated && ' (sign in to sync across devices)'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -336,10 +371,10 @@ export const ProfilePage: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleSave}
-              disabled={!hasChanges}
-              leftIcon={<Save className="w-4 h-4" />}
+              disabled={!hasChanges || isSaving}
+              leftIcon={isSaving ? <Sparkles className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             >
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

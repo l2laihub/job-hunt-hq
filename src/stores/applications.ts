@@ -177,8 +177,14 @@ export const useApplicationStore = create<ApplicationsState>()(
 
       importApplications: (apps) => {
         set((state) => {
+          // Deduplicate by ID first
           const existingIds = new Set(state.applications.map((a) => a.id));
-          const newApps = apps.filter((a) => !existingIds.has(a.id));
+          // Then deduplicate by company + role combination to prevent duplicate entries
+          const existingKeys = new Set(state.applications.map((a) => `${a.company.toLowerCase()}|${a.role.toLowerCase()}`));
+          const newApps = apps.filter((a) =>
+            !existingIds.has(a.id) &&
+            !existingKeys.has(`${a.company.toLowerCase()}|${a.role.toLowerCase()}`)
+          );
           return {
             applications: [...newApps, ...state.applications],
           };

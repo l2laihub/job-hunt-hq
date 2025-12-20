@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './app/layout';
 import { initializeStores } from './stores';
 import { ErrorBoundary } from './components/shared';
+import { AuthProvider } from './lib/supabase';
 import './index.css';
 
 // Lazy load route components
@@ -126,6 +127,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );

@@ -144,8 +144,14 @@ export const useStoriesStore = create<StoriesState>()(
 
       importStories: (stories) => {
         set((state) => {
+          // Deduplicate by ID first
           const existingIds = new Set(state.stories.map((s) => s.id));
-          const newStories = stories.filter((s) => !existingIds.has(s.id));
+          // Then deduplicate by title to prevent duplicate entries
+          const existingTitles = new Set(state.stories.map((s) => s.title.toLowerCase()));
+          const newStories = stories.filter((s) =>
+            !existingIds.has(s.id) &&
+            !existingTitles.has(s.title.toLowerCase())
+          );
           return {
             stories: [...newStories, ...state.stories],
           };

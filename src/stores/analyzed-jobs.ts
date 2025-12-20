@@ -417,8 +417,14 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
 
       importJobs: (jobs) => {
         set((state) => {
+          // Deduplicate by ID first
           const existingIds = new Set(state.jobs.map((j) => j.id));
-          const newJobs = jobs.filter((j) => !existingIds.has(j.id));
+          // Then deduplicate by company + role combination to prevent duplicate entries
+          const existingKeys = new Set(state.jobs.map((j) => `${(j.company || '').toLowerCase()}|${(j.role || '').toLowerCase()}`));
+          const newJobs = jobs.filter((j) =>
+            !existingIds.has(j.id) &&
+            !existingKeys.has(`${(j.company || '').toLowerCase()}|${(j.role || '').toLowerCase()}`)
+          );
           return {
             jobs: [...newJobs, ...state.jobs],
           };

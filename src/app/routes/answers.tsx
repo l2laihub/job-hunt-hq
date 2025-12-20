@@ -413,7 +413,7 @@ export const AnswersPage: React.FC = () => {
     }
 
     recordPractice(practiceAnswerId, {
-      duration: practiceTime,
+      durationSeconds: practiceTime,
       selfRating,
       notes: practiceNotes || undefined,
       audioBlob: audioBase64,
@@ -1463,7 +1463,7 @@ export const AnswersPage: React.FC = () => {
                   <Card key={session.id} className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-4">
-                        <span className="text-lg font-mono text-white">{formatTime(session.duration)}</span>
+                        <span className="text-lg font-mono text-white">{formatTime(session.durationSeconds || 0)}</span>
                         {session.selfRating && renderStarRating(session.selfRating)}
                       </div>
                       <div className="flex items-center gap-2">

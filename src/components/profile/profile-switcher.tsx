@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '@/src/lib/utils';
-import { useProfileStore, useAllProfiles, useActiveProfile } from '@/src/stores';
+import { useProfileData } from '@/src/hooks';
 import { ChevronDown, Plus, Check, Star } from 'lucide-react';
 
 interface ProfileSwitcherProps {
@@ -18,9 +18,9 @@ export const ProfileSwitcher: React.FC<ProfileSwitcherProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const profiles = useAllProfiles();
-  const activeProfile = useActiveProfile();
-  const { switchProfile, createProfile } = useProfileStore();
+  // Use unified profile data hook that switches between localStorage and Supabase
+  const { profiles, activeProfile, actions } = useProfileData();
+  const { switchProfile, createProfile } = actions;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,13 +43,17 @@ export const ProfileSwitcher: React.FC<ProfileSwitcherProps> = ({
     }
   }, [showNewProfile]);
 
-  const handleCreateProfile = () => {
+  const handleCreateProfile = async () => {
     if (newProfileName.trim()) {
-      const newId = createProfile(newProfileName.trim());
-      switchProfile(newId);
-      setNewProfileName('');
-      setShowNewProfile(false);
-      setIsOpen(false);
+      try {
+        const newId = await createProfile(newProfileName.trim());
+        switchProfile(newId);
+        setNewProfileName('');
+        setShowNewProfile(false);
+        setIsOpen(false);
+      } catch (error) {
+        console.error('Failed to create profile:', error);
+      }
     }
   };
 

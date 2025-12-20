@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useApplicationStore, useCompanyResearchStore, useActiveProfileId, toast } from '@/src/stores';
+import { useApplicationStore, useActiveProfileId, toast } from '@/src/stores';
+import { useCompanyResearch } from '@/src/hooks/useAppData';
 import { researchCompany } from '@/src/services/gemini';
 import { Button, Input, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
 import { ResearchEmptyState } from '@/src/components/shared';
@@ -37,11 +38,13 @@ export const ResearchPage: React.FC = () => {
   }, [allApplications, activeProfileId]);
   const setAppResearch = useApplicationStore((s) => s.setResearch);
 
-  // Company research store
-  const researches = useCompanyResearchStore((s) => s.researches);
-  const addResearch = useCompanyResearchStore((s) => s.addResearch);
-  const deleteResearch = useCompanyResearchStore((s) => s.deleteResearch);
-  const getResearchByCompany = useCompanyResearchStore((s) => s.getResearchByCompany);
+  // Company research - unified hook (Supabase or localStorage)
+  const {
+    researches,
+    addResearch,
+    deleteResearch,
+    getResearchByCompany,
+  } = useCompanyResearch();
 
   const [companyName, setCompanyName] = useState('');
   const [roleContext, setRoleContext] = useState('');

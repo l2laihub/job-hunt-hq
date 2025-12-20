@@ -199,8 +199,14 @@ export const useTechnicalAnswersStore = create<TechnicalAnswersState>()(
 
       importAnswers: (answers) => {
         set((state) => {
+          // Deduplicate by ID first
           const existingIds = new Set(state.answers.map((a) => a.id));
-          const newAnswers = answers.filter((a) => !existingIds.has(a.id));
+          // Then deduplicate by question text to prevent duplicate entries
+          const existingQuestions = new Set(state.answers.map((a) => a.question.toLowerCase()));
+          const newAnswers = answers.filter((a) =>
+            !existingIds.has(a.id) &&
+            !existingQuestions.has(a.question.toLowerCase())
+          );
           return {
             answers: [...newAnswers, ...state.answers],
           };

@@ -357,12 +357,13 @@ export interface TechnicalAnswer {
 export interface PracticeSession {
   id: string;
   answerId: string;
-  duration: number;
+  durationSeconds?: number;
   transcript?: string;
   audioBlob?: string; // Base64 encoded audio data
   audioMimeType?: string; // e.g., 'audio/webm', 'audio/mp4'
   selfRating?: number;
   notes?: string;
+  areasToImprove?: string[];
   createdAt: string;
 }
 
@@ -768,7 +769,7 @@ export interface UserProfileWithMeta extends UserProfile {
 export function createProfileMetadata(name: string, isDefault = false): ProfileMetadata {
   const now = new Date().toISOString();
   return {
-    id: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: crypto.randomUUID(),
     name,
     createdAt: now,
     updatedAt: now,

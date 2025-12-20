@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { cn } from '@/src/lib/utils';
-import { useProfileStore, useAllProfiles, useActiveProfile, toast } from '@/src/stores';
+import { useProfileData } from '@/src/hooks';
+import { useProfileStore, toast } from '@/src/stores';
+import { useSupabaseProfileStore } from '@/src/stores/supabase';
 import { PROFILE_COLORS } from '@/src/types';
 import { Button, Input, Card, CardContent } from '@/src/components/ui';
 import {
@@ -16,18 +18,29 @@ import {
 } from 'lucide-react';
 
 export const ProfileManagement: React.FC = () => {
-  const profiles = useAllProfiles();
-  const activeProfile = useActiveProfile();
+  const { profiles, activeProfile, isAuthenticated, actions } = useProfileData();
+
+  // Get additional methods that aren't in the unified hook
+  const localDuplicateProfile = useProfileStore((s) => s.duplicateProfile);
+  const localSetProfileColor = useProfileStore((s) => s.setProfileColor);
+  const localSetProfileDescription = useProfileStore((s) => s.setProfileDescription);
+
+  const supabaseDuplicateProfile = useSupabaseProfileStore((s) => s.duplicateProfile);
+  const supabaseSetProfileColor = useSupabaseProfileStore((s) => s.setProfileColor);
+  const supabaseSetProfileDescription = useSupabaseProfileStore((s) => s.setProfileDescription);
+
+  // Use the appropriate store based on auth status
+  const duplicateProfile = isAuthenticated ? supabaseDuplicateProfile : localDuplicateProfile;
+  const setProfileColor = isAuthenticated ? supabaseSetProfileColor : localSetProfileColor;
+  const setProfileDescription = isAuthenticated ? supabaseSetProfileDescription : localSetProfileDescription;
+
   const {
     createProfile,
-    duplicateProfile,
     deleteProfile,
     switchProfile,
     setDefaultProfile,
     renameProfile,
-    setProfileColor,
-    setProfileDescription,
-  } = useProfileStore();
+  } = actions;
 
   const [isCreating, setIsCreating] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
@@ -36,31 +49,43 @@ export const ProfileManagement: React.FC = () => {
   const [editDescription, setEditDescription] = useState('');
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (newProfileName.trim()) {
-      const newId = createProfile(newProfileName.trim());
-      switchProfile(newId);
-      setNewProfileName('');
-      setIsCreating(false);
-      toast.success('Profile created', `"${newProfileName}" has been created`);
+      try {
+        const newId = await createProfile(newProfileName.trim());
+        switchProfile(newId);
+        setNewProfileName('');
+        setIsCreating(false);
+        toast.success('Profile created', `"${newProfileName}" has been created`);
+      } catch (error) {
+        toast.error('Failed to create profile', error instanceof Error ? error.message : 'Unknown error');
+      }
     }
   };
 
-  const handleDuplicate = (profileId: string, profileName: string) => {
-    const newId = duplicateProfile(profileId, `${profileName} (Copy)`);
-    if (newId) {
-      toast.success('Profile duplicated', `Created copy of "${profileName}"`);
+  const handleDuplicate = async (profileId: string, profileName: string) => {
+    try {
+      const newId = await duplicateProfile(profileId, `${profileName} (Copy)`);
+      if (newId) {
+        toast.success('Profile duplicated', `Created copy of "${profileName}"`);
+      }
+    } catch (error) {
+      toast.error('Failed to duplicate profile', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
-  const handleDelete = (profileId: string, profileName: string) => {
+  const handleDelete = async (profileId: string, profileName: string) => {
     if (profiles.length <= 1) {
       toast.error('Cannot delete', 'You must have at least one profile');
       return;
     }
     if (confirm(`Are you sure you want to delete "${profileName}"? This cannot be undone.`)) {
-      deleteProfile(profileId);
-      toast.success('Profile deleted', `"${profileName}" has been removed`);
+      try {
+        await deleteProfile(profileId);
+        toast.success('Profile deleted', `"${profileName}" has been removed`);
+      } catch (error) {
+        toast.error('Failed to delete profile', error instanceof Error ? error.message : 'Unknown error');
+      }
     }
   };
 
@@ -70,25 +95,37 @@ export const ProfileManagement: React.FC = () => {
     setEditDescription(profile.metadata.description || '');
   };
 
-  const handleSaveEdit = (profileId: string) => {
+  const handleSaveEdit = async (profileId: string) => {
     if (editName.trim()) {
-      renameProfile(profileId, editName.trim());
-      if (editDescription !== undefined) {
-        setProfileDescription(profileId, editDescription);
+      try {
+        await renameProfile(profileId, editName.trim());
+        if (editDescription !== undefined) {
+          await setProfileDescription(profileId, editDescription);
+        }
+        setEditingId(null);
+        toast.success('Profile updated', 'Changes have been saved');
+      } catch (error) {
+        toast.error('Failed to update profile', error instanceof Error ? error.message : 'Unknown error');
       }
-      setEditingId(null);
-      toast.success('Profile updated', 'Changes have been saved');
     }
   };
 
-  const handleSetColor = (profileId: string, color: string) => {
-    setProfileColor(profileId, color);
-    setShowColorPicker(null);
+  const handleSetColor = async (profileId: string, color: string) => {
+    try {
+      await setProfileColor(profileId, color);
+      setShowColorPicker(null);
+    } catch (error) {
+      toast.error('Failed to update color', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
-  const handleSetDefault = (profileId: string, profileName: string) => {
-    setDefaultProfile(profileId);
-    toast.success('Default profile set', `"${profileName}" is now the default`);
+  const handleSetDefault = async (profileId: string, profileName: string) => {
+    try {
+      await setDefaultProfile(profileId);
+      toast.success('Default profile set', `"${profileName}" is now the default`);
+    } catch (error) {
+      toast.error('Failed to set default', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   return (

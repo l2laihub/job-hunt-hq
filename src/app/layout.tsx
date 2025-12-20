@@ -22,6 +22,7 @@ import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
 import { ApplicationModal } from '@/src/components/applications';
 import { ProfileSwitcher } from '@/src/components/profile';
+import { UserMenu } from '@/src/components/auth';
 import { useDataExport } from '@/src/hooks';
 
 const navItems = [
@@ -78,7 +79,7 @@ export const AppLayout: React.FC = () => {
         </button>
 
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-gray-800 shrink-0">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           <NavLink to="/" className="flex items-center gap-3 text-blue-500 overflow-hidden">
             <Layout className="w-6 h-6 shrink-0" />
             <span
@@ -90,6 +91,7 @@ export const AppLayout: React.FC = () => {
               Job Hunt HQ
             </span>
           </NavLink>
+          {sidebarExpanded && <UserMenu />}
         </div>
 
         {/* Profile Switcher */}
@@ -181,12 +183,15 @@ export const AppLayout: React.FC = () => {
           <Layout className="w-5 h-5" />
           <span className="font-bold text-lg text-white">Job Hunt HQ</span>
         </NavLink>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <UserMenu />
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu Overlay */}
