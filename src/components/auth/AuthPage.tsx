@@ -2,15 +2,115 @@
  * Authentication Page Component
  * Handles login, signup, and password reset
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/src/lib/supabase';
 import { cn } from '@/src/lib/utils';
-import { Briefcase, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Briefcase, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 type AuthMode = 'login' | 'signup' | 'forgot-password';
 
 interface AuthPageProps {
   onSuccess?: () => void;
+}
+
+interface ValidationState {
+  email: { valid: boolean; message: string };
+  password: { valid: boolean; message: string; strength: number };
+  name: { valid: boolean; message: string };
+}
+
+function validateEmail(email: string): { valid: boolean; message: string } {
+  if (!email) return { valid: false, message: '' };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, message: 'Please enter a valid email address' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validatePassword(password: string): { valid: boolean; message: string; strength: number } {
+  if (!password) return { valid: false, message: '', strength: 0 };
+
+  let strength = 0;
+  const checks = {
+    length: password.length >= 8,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  };
+
+  if (checks.length) strength += 20;
+  if (checks.lowercase) strength += 20;
+  if (checks.uppercase) strength += 20;
+  if (checks.number) strength += 20;
+  if (checks.special) strength += 20;
+
+  if (password.length < 6) {
+    return { valid: false, message: 'Password must be at least 6 characters', strength };
+  }
+
+  return { valid: true, message: '', strength };
+}
+
+function validateName(name: string): { valid: boolean; message: string } {
+  if (!name) return { valid: false, message: '' };
+  if (name.trim().length < 2) {
+    return { valid: false, message: 'Name must be at least 2 characters' };
+  }
+  return { valid: true, message: '' };
+}
+
+function getReadableErrorMessage(message: string): string {
+  const errorMap: Record<string, string> = {
+    'Invalid login credentials': 'Invalid email or password. Please check your credentials and try again.',
+    'Email not confirmed': 'Please verify your email address before signing in. Check your inbox for the confirmation link.',
+    'User already registered': 'An account with this email already exists. Try signing in instead.',
+    'Password should be at least 6 characters': 'Password must be at least 6 characters long.',
+    'Unable to validate email address: invalid format': 'Please enter a valid email address.',
+    'Signup requires a valid password': 'Please enter a valid password.',
+    'Email rate limit exceeded': 'Too many attempts. Please wait a few minutes before trying again.',
+    'For security purposes, you can only request this once every 60 seconds': 'Please wait 60 seconds before requesting another password reset.',
+  };
+  return errorMap[message] || message;
+}
+
+function PasswordStrengthBar({ strength }: { strength: number }) {
+  const getColor = () => {
+    if (strength < 40) return 'bg-red-500';
+    if (strength < 60) return 'bg-yellow-500';
+    if (strength < 80) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getLabel = () => {
+    if (strength < 40) return 'Weak';
+    if (strength < 60) return 'Fair';
+    if (strength < 80) return 'Good';
+    return 'Strong';
+  };
+
+  if (strength === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs text-gray-400">Password strength</span>
+        <span className={cn(
+          'text-xs font-medium',
+          strength < 40 ? 'text-red-400' :
+          strength < 60 ? 'text-yellow-400' :
+          strength < 80 ? 'text-blue-400' : 'text-green-400'
+        )}>{getLabel()}</span>
+      </div>
+      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full transition-all duration-300', getColor())}
+          style={{ width: `${strength}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function AuthPage({ onSuccess }: AuthPageProps) {
@@ -22,6 +122,32 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ email: false, password: false, name: false });
+
+  // Real-time validation
+  const validation: ValidationState = useMemo(() => ({
+    email: validateEmail(email),
+    password: validatePassword(password),
+    name: validateName(name),
+  }), [email, password, name]);
+
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    if (mode === 'forgot-password') {
+      return validation.email.valid;
+    }
+    if (mode === 'signup') {
+      return validation.email.valid && validation.password.valid && validation.name.valid;
+    }
+    return validation.email.valid && password.length >= 6;
+  };
+
+  const handleModeChange = (newMode: AuthMode) => {
+    setMode(newMode);
+    setError(null);
+    setSuccess(null);
+    setTouched({ email: false, password: false, name: false });
+  };
 
   if (!isConfigured) {
     return (
@@ -58,33 +184,44 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    // Mark all fields as touched
+    setTouched({ email: true, password: true, name: true });
+
+    // Validate before submitting
+    if (!isFormValid()) {
+      setError('Please fix the validation errors before submitting');
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (mode === 'login') {
-        const { error } = await signIn(email, password);
-        if (error) {
-          setError(error.message);
+        const { error: authError } = await signIn(email, password);
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
+          setSuccess('Welcome back! Signing you in...');
           onSuccess?.();
         }
       } else if (mode === 'signup') {
-        const { error } = await signUp(email, password, { full_name: name });
-        if (error) {
-          setError(error.message);
+        const { error: authError } = await signUp(email, password, { full_name: name });
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
-          setSuccess('Check your email for a confirmation link!');
+          setSuccess('Account created! Please check your email to verify your account before signing in.');
         }
       } else if (mode === 'forgot-password') {
-        const { error } = await resetPassword(email);
-        if (error) {
-          setError(error.message);
+        const { error: authError } = await resetPassword(email);
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
-          setSuccess('Check your email for a password reset link!');
+          setSuccess('Password reset email sent! Check your inbox for instructions.');
         }
       }
     } catch {
-      setError('An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -92,14 +229,15 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setSuccess(null);
     setLoading(true);
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        setError(error.message);
+      const { error: authError } = await signInWithGoogle();
+      if (authError) {
+        setError(getReadableErrorMessage(authError.message));
       }
     } catch {
-      setError('An unexpected error occurred');
+      setError('Failed to connect to Google. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -123,7 +261,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
             <div className="flex border-b border-gray-800">
               <button
                 type="button"
-                onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+                onClick={() => handleModeChange('login')}
                 className={cn(
                   'flex-1 py-3 text-sm font-medium transition-colors',
                   mode === 'login'
@@ -135,7 +273,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
               </button>
               <button
                 type="button"
-                onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+                onClick={() => handleModeChange('signup')}
                 className={cn(
                   'flex-1 py-3 text-sm font-medium transition-colors',
                   mode === 'signup'
@@ -186,11 +324,23 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                       placeholder="John Doe"
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(
+                        'w-full bg-gray-800 border rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent',
+                        touched.name && !validation.name.valid && name
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:ring-blue-500'
+                      )}
                       required
                     />
                   </div>
+                  {touched.name && validation.name.message && (
+                    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {validation.name.message}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -205,11 +355,23 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     placeholder="you@example.com"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className={cn(
+                      'w-full bg-gray-800 border rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent',
+                      touched.email && !validation.email.valid && email
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-700 focus:ring-blue-500'
+                    )}
                     required
                   />
                 </div>
+                {touched.email && validation.email.message && (
+                  <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {validation.email.message}
+                  </p>
+                )}
               </div>
 
               {mode !== 'forgot-password' && (
@@ -224,12 +386,25 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                       placeholder="••••••••"
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={cn(
+                        'w-full bg-gray-800 border rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent',
+                        touched.password && !validation.password.valid && password
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-700 focus:ring-blue-500'
+                      )}
                       required
                       minLength={6}
                     />
                   </div>
+                  {touched.password && validation.password.message && (
+                    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {validation.password.message}
+                    </p>
+                  )}
+                  {mode === 'signup' && <PasswordStrengthBar strength={validation.password.strength} />}
                 </div>
               )}
 
@@ -237,7 +412,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    onClick={() => { setMode('forgot-password'); setError(null); setSuccess(null); }}
+                    onClick={() => handleModeChange('forgot-password')}
                     className="text-sm text-blue-400 hover:text-blue-300"
                   >
                     Forgot password?
@@ -247,10 +422,10 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (touched.email && !isFormValid())}
                 className={cn(
                   'w-full py-2.5 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors',
-                  loading
+                  loading || (touched.email && !isFormValid())
                     ? 'bg-blue-600/50 text-blue-300 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 )}
@@ -271,7 +446,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key`}
             {mode === 'forgot-password' && (
               <button
                 type="button"
-                onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+                onClick={() => handleModeChange('login')}
                 className="w-full mt-4 text-sm text-gray-400 hover:text-gray-300"
               >
                 Back to Sign In

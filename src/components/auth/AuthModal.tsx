@@ -3,11 +3,10 @@
  * Modal for sign in/sign up
  * Uses Portal to render at document root
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/src/lib/supabase';
 import { Button, Input } from '@/src/components/ui';
-import { toast } from '@/src/stores';
 import {
   useSupabaseProfileStore,
   useSupabaseApplicationStore,
@@ -21,7 +20,11 @@ import {
   X,
   Loader2,
   Cloud,
+  AlertCircle,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
+import { cn } from '@/src/lib/utils';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -29,6 +32,108 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+}
+
+interface ValidationState {
+  email: { valid: boolean; message: string };
+  password: { valid: boolean; message: string; strength: number };
+  name: { valid: boolean; message: string };
+}
+
+function validateEmail(email: string): { valid: boolean; message: string } {
+  if (!email) return { valid: false, message: '' };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, message: 'Please enter a valid email address' };
+  }
+  return { valid: true, message: '' };
+}
+
+function validatePassword(password: string): { valid: boolean; message: string; strength: number } {
+  if (!password) return { valid: false, message: '', strength: 0 };
+
+  let strength = 0;
+  const checks = {
+    length: password.length >= 8,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+    special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  };
+
+  if (checks.length) strength += 20;
+  if (checks.lowercase) strength += 20;
+  if (checks.uppercase) strength += 20;
+  if (checks.number) strength += 20;
+  if (checks.special) strength += 20;
+
+  if (password.length < 6) {
+    return { valid: false, message: 'Password must be at least 6 characters', strength };
+  }
+
+  return { valid: true, message: '', strength };
+}
+
+function validateName(name: string): { valid: boolean; message: string } {
+  if (!name) return { valid: false, message: '' };
+  if (name.trim().length < 2) {
+    return { valid: false, message: 'Name must be at least 2 characters' };
+  }
+  return { valid: true, message: '' };
+}
+
+function getReadableErrorMessage(message: string): string {
+  // Map Supabase error messages to user-friendly versions
+  const errorMap: Record<string, string> = {
+    'Invalid login credentials': 'Invalid email or password. Please check your credentials and try again.',
+    'Email not confirmed': 'Please verify your email address before signing in. Check your inbox for the confirmation link.',
+    'User already registered': 'An account with this email already exists. Try signing in instead.',
+    'Password should be at least 6 characters': 'Password must be at least 6 characters long.',
+    'Unable to validate email address: invalid format': 'Please enter a valid email address.',
+    'Signup requires a valid password': 'Please enter a valid password.',
+    'Email rate limit exceeded': 'Too many attempts. Please wait a few minutes before trying again.',
+    'For security purposes, you can only request this once every 60 seconds': 'Please wait 60 seconds before requesting another password reset.',
+  };
+
+  return errorMap[message] || message;
+}
+
+function PasswordStrengthBar({ strength }: { strength: number }) {
+  const getColor = () => {
+    if (strength < 40) return 'bg-red-500';
+    if (strength < 60) return 'bg-yellow-500';
+    if (strength < 80) return 'bg-blue-500';
+    return 'bg-green-500';
+  };
+
+  const getLabel = () => {
+    if (strength < 40) return 'Weak';
+    if (strength < 60) return 'Fair';
+    if (strength < 80) return 'Good';
+    return 'Strong';
+  };
+
+  if (strength === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs text-gray-400">Password strength</span>
+        <span className={cn(
+          'text-xs font-medium',
+          strength < 40 ? 'text-red-400' :
+          strength < 60 ? 'text-yellow-400' :
+          strength < 80 ? 'text-blue-400' : 'text-green-400'
+        )}>{getLabel()}</span>
+      </div>
+      <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className={cn('h-full transition-all duration-300', getColor())}
+          style={{ width: `${strength}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
@@ -39,10 +144,20 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCompletedAuth, setHasCompletedAuth] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [touched, setTouched] = useState({ email: false, password: false, name: false });
 
   const fetchProfiles = useSupabaseProfileStore((s) => s.fetchProfiles);
   const fetchApplications = useSupabaseApplicationStore((s) => s.fetchApplications);
   const fetchStories = useSupabaseStoriesStore((s) => s.fetchStories);
+
+  // Real-time validation
+  const validation: ValidationState = useMemo(() => ({
+    email: validateEmail(email),
+    password: validatePassword(password),
+    name: validateName(name),
+  }), [email, password, name]);
 
   // Complete the auth flow after user signs in
   useEffect(() => {
@@ -79,49 +194,78 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
   if (!isOpen) return null;
 
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    if (mode === 'forgot') {
+      return validation.email.valid;
+    }
+    if (mode === 'signup') {
+      return validation.email.valid && validation.password.valid && validation.name.valid;
+    }
+    return validation.email.valid && password.length >= 6;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    // Mark all fields as touched
+    setTouched({ email: true, password: true, name: true });
+
+    // Validate before submitting
+    if (!isFormValid()) {
+      setError('Please fix the validation errors before submitting');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       if (mode === 'login') {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast.error('Login failed', error.message);
+        const { error: authError } = await signIn(email, password);
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
-          toast.success('Welcome back!', 'You have been signed in');
+          setSuccess('Welcome back! Signing you in...');
           // useEffect will handle completing the auth flow
         }
       } else if (mode === 'signup') {
-        const { error } = await signUp(email, password, { full_name: name });
-        if (error) {
-          toast.error('Signup failed', error.message);
+        const { error: authError } = await signUp(email, password, { full_name: name });
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
-          toast.success('Account created', 'Please check your email to verify your account');
+          setSuccess('Account created! Please check your email to verify your account.');
           setMode('login');
         }
       } else if (mode === 'forgot') {
-        const { error } = await resetPassword(email);
-        if (error) {
-          toast.error('Reset failed', error.message);
+        const { error: authError } = await resetPassword(email);
+        if (authError) {
+          setError(getReadableErrorMessage(authError.message));
         } else {
-          toast.success('Email sent', 'Check your email for password reset instructions');
+          setSuccess('Password reset email sent! Check your inbox for instructions.');
           setMode('login');
         }
       }
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    setError(null);
+    setSuccess(null);
     setIsSubmitting(true);
     try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        toast.error('Google sign-in failed', error.message);
+      const { error: authError } = await signInWithGoogle();
+      if (authError) {
+        setError(getReadableErrorMessage(authError.message));
       }
       // Don't close - Google OAuth redirects the page
+    } catch {
+      setError('Failed to connect to Google. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -132,6 +276,16 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setPassword('');
     setName('');
     setMode('login');
+    setError(null);
+    setSuccess(null);
+    setTouched({ email: false, password: false, name: false });
+  };
+
+  const handleModeChange = (newMode: AuthMode) => {
+    setMode(newMode);
+    setError(null);
+    setSuccess(null);
+    setTouched({ email: false, password: false, name: false });
   };
 
   const handleClose = () => {
@@ -191,47 +345,99 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
         {/* Form */}
         <div className="px-6 pb-6">
+          {/* Status Messages */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-400">{success}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
-              <Input
-                label="Full Name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-                leftIcon={<User className="w-4 h-4" />}
-                required
-              />
+              <div>
+                <Input
+                  label="Full Name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                  placeholder="John Doe"
+                  leftIcon={<User className="w-4 h-4" />}
+                  required
+                  className={cn(
+                    touched.name && !validation.name.valid && name && 'border-red-500 focus:ring-red-500'
+                  )}
+                />
+                {touched.name && validation.name.message && (
+                  <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {validation.name.message}
+                  </p>
+                )}
+              </div>
             )}
 
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              leftIcon={<Mail className="w-4 h-4" />}
-              required
-            />
+            <div>
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                placeholder="you@example.com"
+                leftIcon={<Mail className="w-4 h-4" />}
+                required
+                className={cn(
+                  touched.email && !validation.email.valid && email && 'border-red-500 focus:ring-red-500'
+                )}
+              />
+              {touched.email && validation.email.message && (
+                <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {validation.email.message}
+                </p>
+              )}
+            </div>
 
             {mode !== 'forgot' && (
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                leftIcon={<Lock className="w-4 h-4" />}
-                required
-                minLength={6}
-              />
+              <div>
+                <Input
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                  placeholder="••••••••"
+                  leftIcon={<Lock className="w-4 h-4" />}
+                  required
+                  minLength={6}
+                  className={cn(
+                    touched.password && !validation.password.valid && password && 'border-red-500 focus:ring-red-500'
+                  )}
+                />
+                {touched.password && validation.password.message && (
+                  <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {validation.password.message}
+                  </p>
+                )}
+                {mode === 'signup' && <PasswordStrengthBar strength={validation.password.strength} />}
+              </div>
             )}
 
             <Button
               type="submit"
               variant="primary"
               className="w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (touched.email && !isFormValid())}
               leftIcon={isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
             >
               {isSubmitting ? 'Please wait...' : (
@@ -287,7 +493,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               <>
                 <button
                   type="button"
-                  onClick={() => setMode('forgot')}
+                  onClick={() => handleModeChange('forgot')}
                   className="text-blue-400 hover:text-blue-300"
                 >
                   Forgot password?
@@ -295,7 +501,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                 <span className="text-gray-500 mx-2">•</span>
                 <button
                   type="button"
-                  onClick={() => setMode('signup')}
+                  onClick={() => handleModeChange('signup')}
                   className="text-blue-400 hover:text-blue-300"
                 >
                   Create account
@@ -305,7 +511,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             {mode === 'signup' && (
               <button
                 type="button"
-                onClick={() => setMode('login')}
+                onClick={() => handleModeChange('login')}
                 className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1 mx-auto"
               >
                 <ArrowLeft className="w-4 h-4" /> Already have an account?
@@ -314,7 +520,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             {mode === 'forgot' && (
               <button
                 type="button"
-                onClick={() => setMode('login')}
+                onClick={() => handleModeChange('login')}
                 className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1 mx-auto"
               >
                 <ArrowLeft className="w-4 h-4" /> Back to sign in
