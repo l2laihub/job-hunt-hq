@@ -13,6 +13,7 @@ import {
   useSupabaseCompanyResearchStore,
   useSupabaseAnalyzedJobsStore,
   useSupabaseEnhancementsStore,
+  useSupabaseTechnicalAnswersStore,
   hasLocalStorageData,
   isMigrationComplete,
 } from '@/src/stores/supabase';
@@ -34,6 +35,7 @@ export function AppWrapper({ children }: AppWrapperProps) {
   const fetchResearches = useSupabaseCompanyResearchStore((state) => state.fetchResearches);
   const fetchAnalyzedJobs = useSupabaseAnalyzedJobsStore((state) => state.fetchJobs);
   const fetchEnhancements = useSupabaseEnhancementsStore((state) => state.fetchEnhancements);
+  const fetchAnswers = useSupabaseTechnicalAnswersStore((state) => state.fetchAnswers);
 
   const subscribeProfiles = useSupabaseProfileStore((state) => state.subscribeToChanges);
   const subscribeApplications = useSupabaseApplicationStore((state) => state.subscribeToChanges);
@@ -41,6 +43,7 @@ export function AppWrapper({ children }: AppWrapperProps) {
   const subscribeResearches = useSupabaseCompanyResearchStore((state) => state.subscribeToChanges);
   const subscribeAnalyzedJobs = useSupabaseAnalyzedJobsStore((state) => state.subscribeToChanges);
   const subscribeEnhancements = useSupabaseEnhancementsStore((state) => state.subscribeToChanges);
+  const subscribeAnswers = useSupabaseTechnicalAnswersStore((state) => state.subscribeToChanges);
 
   // Initialize data after authentication
   const initializeData = useCallback(async () => {
@@ -53,6 +56,7 @@ export function AppWrapper({ children }: AppWrapperProps) {
         fetchResearches(),
         fetchAnalyzedJobs(),
         fetchEnhancements(),
+        fetchAnswers(),
       ]);
       setAppState('ready');
     } catch (error) {
@@ -60,7 +64,7 @@ export function AppWrapper({ children }: AppWrapperProps) {
       // Still proceed to ready state - stores will show empty data
       setAppState('ready');
     }
-  }, [fetchProfiles, fetchApplications, fetchStories, fetchResearches, fetchAnalyzedJobs, fetchEnhancements]);
+  }, [fetchProfiles, fetchApplications, fetchStories, fetchResearches, fetchAnalyzedJobs, fetchEnhancements, fetchAnswers]);
 
   // Handle auth state changes
   useEffect(() => {
@@ -99,12 +103,13 @@ export function AppWrapper({ children }: AppWrapperProps) {
       subscribeResearches(),
       subscribeAnalyzedJobs(),
       subscribeEnhancements(),
+      subscribeAnswers(),
     ];
 
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [appState, user, subscribeProfiles, subscribeApplications, subscribeStories, subscribeResearches, subscribeAnalyzedJobs, subscribeEnhancements]);
+  }, [appState, user, subscribeProfiles, subscribeApplications, subscribeStories, subscribeResearches, subscribeAnalyzedJobs, subscribeEnhancements, subscribeAnswers]);
 
   // Handle migration completion
   const handleMigrationComplete = useCallback(() => {

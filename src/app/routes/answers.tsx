@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useTechnicalAnswersStore, useStoriesStore, useApplicationStore, useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
+import { useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
+import { useTechnicalAnswers, useStories, useApplications } from '@/src/hooks/useAppData';
 import { generateTechnicalAnswer, generateFollowUps } from '@/src/services/gemini';
 import { COMMON_TECHNICAL_QUESTIONS, DIFFICULTY_LEVELS, TECHNICAL_QUESTION_TYPES } from '@/src/lib/constants';
 import { formatTime, cn, parseMarkdown } from '@/src/lib/utils';
@@ -58,15 +59,18 @@ const LIKELIHOOD_COLORS: Record<string, string> = {
 export const AnswersPage: React.FC = () => {
   const [view, setView] = useState<ViewType>('list');
 
-  // Stores
+  // Use unified hooks that switch between Supabase and localStorage
   const activeProfileId = useActiveProfileId();
-  const allAnswers = useTechnicalAnswersStore((s) => s.answers);
-  const practiceSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
-  const addAnswer = useTechnicalAnswersStore((s) => s.addAnswer);
-  const deleteAnswer = useTechnicalAnswersStore((s) => s.deleteAnswer);
-  const searchAnswers = useTechnicalAnswersStore((s) => s.searchAnswers);
-  const recordPractice = useTechnicalAnswersStore((s) => s.recordPractice);
-  const getPracticeSessions = useTechnicalAnswersStore((s) => s.getPracticeSessions);
+  const {
+    answers: allAnswers,
+    addAnswer,
+    deleteAnswer,
+    searchAnswers,
+    recordPractice,
+    getPracticeSessions,
+  } = useTechnicalAnswers();
+  const { stories: allStories } = useStories();
+  const { applications: allApplications } = useApplications();
 
   // Filter answers by active profile
   const answers = useMemo(() => {
@@ -75,14 +79,12 @@ export const AnswersPage: React.FC = () => {
   }, [allAnswers, activeProfileId]);
 
   const profile = useCurrentProfile();
-  const allStories = useStoriesStore((s) => s.stories);
   // Filter stories by active profile
   const stories = useMemo(() => {
     if (!activeProfileId) return allStories;
     return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
   }, [allStories, activeProfileId]);
 
-  const allApplications = useApplicationStore((s) => s.applications);
   // Filter applications by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;

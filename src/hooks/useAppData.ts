@@ -10,6 +10,7 @@ import {
   useSupabaseCompanyResearchStore,
   useSupabaseAnalyzedJobsStore,
   useSupabaseEnhancementsStore,
+  useSupabaseTechnicalAnswersStore,
   useSupabaseActiveProfile,
   useSupabaseCurrentProfile,
 } from '@/src/stores/supabase';
@@ -22,6 +23,7 @@ import { useStoriesStore } from '@/src/stores/stories';
 import { useCompanyResearchStore } from '@/src/stores/company-research';
 import { useAnalyzedJobsStore } from '@/src/stores/analyzed-jobs';
 import { useEnhancementsStore } from '@/src/stores/enhancements';
+import { useTechnicalAnswersStore } from '@/src/stores/technical-answers';
 
 /**
  * Hook to get the appropriate data based on Supabase configuration
@@ -261,6 +263,49 @@ export function useEnhancements() {
     supabaseEnhancements,
     supabaseStore,
     legacyEnhancements,
+    legacyStore,
+  ]);
+}
+
+/**
+ * Hook for technical answers data and actions
+ * Automatically switches between Supabase and localStorage based on auth state
+ */
+export function useTechnicalAnswers() {
+  const { user } = useAuth();
+  const configured = isSupabaseConfigured();
+  const useSupabase = configured && !!user;
+
+  // Supabase store
+  const supabaseAnswers = useSupabaseTechnicalAnswersStore((s) => s.answers);
+  const supabasePracticeSessions = useSupabaseTechnicalAnswersStore((s) => s.practiceSessions);
+  const supabaseStore = useSupabaseTechnicalAnswersStore();
+
+  // Legacy localStorage store
+  const legacyAnswers = useTechnicalAnswersStore((s) => s.answers);
+  const legacyPracticeSessions = useTechnicalAnswersStore((s) => s.practiceSessions);
+  const legacyStore = useTechnicalAnswersStore();
+
+  return useMemo(() => ({
+    answers: useSupabase ? supabaseAnswers : legacyAnswers,
+    practiceSessions: useSupabase ? supabasePracticeSessions : legacyPracticeSessions,
+    addAnswer: useSupabase ? supabaseStore.addAnswer : legacyStore.addAnswer,
+    updateAnswer: useSupabase ? supabaseStore.updateAnswer : legacyStore.updateAnswer,
+    deleteAnswer: useSupabase ? supabaseStore.deleteAnswer : legacyStore.deleteAnswer,
+    incrementUsage: useSupabase ? supabaseStore.incrementUsage : legacyStore.incrementUsage,
+    recordUsedInInterview: useSupabase ? supabaseStore.recordUsedInInterview : legacyStore.recordUsedInInterview,
+    recordPractice: useSupabase ? supabaseStore.recordPractice : legacyStore.recordPractice,
+    getPracticeSessions: useSupabase ? supabaseStore.getPracticeSessions : legacyStore.getPracticeSessions,
+    searchAnswers: useSupabase ? supabaseStore.searchAnswers : legacyStore.searchAnswers,
+    getAnswersByType: useSupabase ? supabaseStore.getAnswersByType : legacyStore.getAnswersByType,
+    isUsingSupabase: useSupabase,
+  }), [
+    useSupabase,
+    supabaseAnswers,
+    supabasePracticeSessions,
+    supabaseStore,
+    legacyAnswers,
+    legacyPracticeSessions,
     legacyStore,
   ]);
 }

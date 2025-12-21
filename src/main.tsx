@@ -6,6 +6,7 @@ import { AppLayout } from './app/layout';
 import { initializeStores } from './stores';
 import { ErrorBoundary } from './components/shared';
 import { AuthProvider } from './lib/supabase';
+import { AppWrapper } from './components/auth';
 import './index.css';
 
 // Lazy load route components
@@ -128,7 +129,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <AppWrapper>
+        <App />
+      </AppWrapper>
     </AuthProvider>
   </React.StrictMode>
 );

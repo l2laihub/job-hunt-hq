@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useStoriesStore, useActiveProfileId, toast } from '@/src/stores';
+import { useActiveProfileId, toast } from '@/src/stores';
+import { useStories } from '@/src/hooks/useAppData';
 import { formatExperienceToSTAR } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Dialog, Abbr } from '@/src/components/ui';
 import { StoriesEmptyState } from '@/src/components/shared';
@@ -22,18 +23,14 @@ import {
 
 export const StoriesPage: React.FC = () => {
   const activeProfileId = useActiveProfileId();
-  const allStories = useStoriesStore((s) => s.stories);
-  const getStoriesByProfile = useStoriesStore((s) => s.getStoriesByProfile);
+  // Use unified hook that switches between Supabase and localStorage
+  const { stories: allStories, addStory, updateStory, deleteStory } = useStories();
 
   // Filter stories by active profile - include stories with no profileId (legacy) or matching profileId
   const stories = useMemo(() => {
     if (!activeProfileId) return allStories;
     return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
   }, [allStories, activeProfileId]);
-
-  const addStory = useStoriesStore((s) => s.addStory);
-  const updateStory = useStoriesStore((s) => s.updateStory);
-  const deleteStory = useStoriesStore((s) => s.deleteStory);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStory, setEditingStory] = useState<Experience | null>(null);

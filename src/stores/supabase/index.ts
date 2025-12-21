@@ -27,6 +27,9 @@ export { useSupabaseAnalyzedJobsStore } from './analyzed-jobs';
 // Enhancements store
 export { useSupabaseEnhancementsStore } from './enhancements';
 
+// Technical Answers store
+export { useSupabaseTechnicalAnswersStore } from './technical-answers';
+
 // Re-export database services for direct access
 export { db } from '@/src/services/database';
 
