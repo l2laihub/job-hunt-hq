@@ -136,13 +136,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: { message: 'Supabase not configured' } as AuthError };
     }
 
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
 
-    if (error) {
-      setState((prev) => ({ ...prev, error }));
+    // Always clear local state, even if server returns an error
+    // This handles cases where the session was already invalidated server-side
+    // (e.g., session_not_found, expired session, signed out from another device)
+    setState((prev) => ({
+      ...prev,
+      user: null,
+      session: null,
+      error: null, // Don't persist sign-out errors - user is effectively signed out
+    }));
+
+    // Clear the auth storage key manually to ensure complete cleanup
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('jhq:auth');
+      } catch {
+        // Ignore localStorage errors
+      }
     }
 
-    return { error };
+    // Return null error since the user is effectively signed out
+    // regardless of whether the server acknowledged it
+    return { error: null };
   }, [isConfigured]);
 
   const resetPassword = useCallback(

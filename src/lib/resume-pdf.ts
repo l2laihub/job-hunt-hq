@@ -151,41 +151,163 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
   }
 
   // Group technical skills by category for better organization
+  // Uses dynamic categorization based on actual skill content
   const categorizeSkills = (skills: string[]): Record<string, string[]> => {
-    const categories: Record<string, string[]> = {
-      'Languages & Frameworks': [],
-      'Cloud & Infrastructure': [],
-      'AI & ML': [],
-      'Databases': [],
-      'Tools & Practices': [],
-      'Other': [],
+    // Define patterns for various professional domains
+    const allPatterns: Record<string, { pattern: RegExp; priority: number }> = {
+      // Software Engineering / Tech
+      'Languages & Frameworks': {
+        pattern: /^(react|angular|vue|next\.?js|node\.?js|python|typescript|javascript|java|c#|c\+\+|go|golang|rust|ruby|php|swift|kotlin|flutter|\.net|express|fastapi|flask|django|spring|laravel|rails|svelte|nuxt)$/i,
+        priority: 1
+      },
+      'Cloud & Infrastructure': {
+        pattern: /aws|azure|gcp|google cloud|docker|kubernetes|k8s|terraform|jenkins|ci\/cd|github actions|vercel|netlify|heroku|microservices|api gateway|serverless|devops|linux|unix/i,
+        priority: 2
+      },
+      'AI & Machine Learning': {
+        pattern: /\b(ai|ml|machine learning|deep learning|llm|gpt|gemini|claude|langchain|tensorflow|pytorch|openai|anthropic|rag|graphrag|nlp|computer vision|mediapipe|neural network|data science)\b/i,
+        priority: 2
+      },
+      'Databases': {
+        pattern: /\b(sql|postgres|mysql|mongodb|redis|dynamodb|cosmos|supabase|firebase|elasticsearch|neo4j|graphql|oracle|sqlite|mariadb|cassandra)\b/i,
+        priority: 2
+      },
+
+      // Property Management / Real Estate
+      'Property Management': {
+        pattern: /property|tenant|lease|landlord|hoa|maintenance|housing|apartment|residential|commercial property|real estate|occupancy|eviction|rent collection|move-in|move-out/i,
+        priority: 1
+      },
+      'Compliance & Regulations': {
+        pattern: /compliance|hud|fair housing|regulatory|ada|osha|building code|inspection|audit|certification|licensing|legal|policy|standards|guidelines/i,
+        priority: 2
+      },
+      'Property Software': {
+        pattern: /appfolio|yardi|buildium|propertyware|rentmanager|mri software|realpage|costar|zillow|redfin/i,
+        priority: 1
+      },
+
+      // Administrative / Office
+      'Office Administration': {
+        pattern: /administrative|office management|clerical|receptionist|front desk|scheduling|calendar|correspondence|filing|data entry|typing|transcription/i,
+        priority: 2
+      },
+      'Document Management': {
+        pattern: /document|records management|file management|archiving|documentation|paperwork|forms|templates|digital filing|scanning/i,
+        priority: 2
+      },
+
+      // Finance / Accounting
+      'Financial Management': {
+        pattern: /budget|accounting|financial|bookkeeping|payroll|invoicing|billing|accounts payable|accounts receivable|fiscal|revenue|expenses|forecasting|p&l/i,
+        priority: 2
+      },
+
+      // Healthcare
+      'Healthcare & Medical': {
+        pattern: /healthcare|medical|clinical|patient|hipaa|ehr|emr|nursing|pharmacy|diagnosis|treatment|hospital|clinic/i,
+        priority: 1
+      },
+
+      // Sales / Marketing
+      'Sales & Marketing': {
+        pattern: /sales|marketing|crm|lead generation|pipeline|prospecting|cold calling|negotiation|closing|b2b|b2c|advertising|branding|seo|sem|social media marketing/i,
+        priority: 2
+      },
+
+      // Project Management
+      'Project Management': {
+        pattern: /project management|agile|scrum|kanban|waterfall|pmp|prince2|stakeholder|milestone|deliverable|sprint|backlog|jira|asana|trello|monday\.com/i,
+        priority: 2
+      },
+
+      // Communication & Leadership
+      'Communication': {
+        pattern: /communication|presentation|public speaking|writing|negotiation|conflict resolution|interpersonal|collaboration|teamwork/i,
+        priority: 3
+      },
+      'Leadership & Management': {
+        pattern: /leadership|management|supervision|team lead|mentoring|coaching|performance review|hiring|training|delegation|strategic planning/i,
+        priority: 3
+      },
+
+      // Software Tools (General)
+      'Software & Tools': {
+        pattern: /microsoft office|excel|word|powerpoint|outlook|google workspace|google docs|google sheets|slack|zoom|teams|salesforce|hubspot|quickbooks|sap|erp/i,
+        priority: 3
+      },
+
+      // Operations
+      'Operations': {
+        pattern: /operations|logistics|supply chain|inventory|procurement|vendor|workflow|process improvement|efficiency|quality control|kpi|metrics/i,
+        priority: 2
+      },
+
+      // Customer Service
+      'Customer Service': {
+        pattern: /customer service|client relations|support|help desk|satisfaction|retention|complaint|resolution|service delivery/i,
+        priority: 2
+      },
     };
 
-    const patterns: Record<string, RegExp> = {
-      'Languages & Frameworks': /react|angular|vue|next|node|python|typescript|javascript|java|c#|c\+\+|go|rust|ruby|php|swift|kotlin|flutter|\.net|express|fastapi|flask|django|spring/i,
-      'Cloud & Infrastructure': /aws|azure|gcp|google cloud|docker|kubernetes|k8s|terraform|jenkins|ci\/cd|github actions|vercel|netlify|heroku|microservices|api gateway|serverless/i,
-      'AI & ML': /ai|ml|machine learning|deep learning|llm|gpt|gemini|claude|langchain|tensorflow|pytorch|openai|anthropic|rag|graphrag|nlp|computer vision|mediapipe/i,
-      'Databases': /sql|postgres|mysql|mongodb|redis|dynamodb|cosmos|supabase|firebase|elasticsearch|neo4j|graphql/i,
-    };
+    // First pass: categorize skills and track which categories are used
+    const skillAssignments: { skill: string; category: string; priority: number }[] = [];
+    const uncategorized: string[] = [];
 
     skills.forEach(skill => {
-      let placed = false;
-      for (const [category, pattern] of Object.entries(patterns)) {
+      let bestMatch: { category: string; priority: number } | null = null;
+
+      for (const [category, { pattern, priority }] of Object.entries(allPatterns)) {
         if (pattern.test(skill)) {
-          categories[category].push(skill);
-          placed = true;
-          break;
+          if (!bestMatch || priority < bestMatch.priority) {
+            bestMatch = { category, priority };
+          }
         }
       }
-      if (!placed) {
-        categories['Tools & Practices'].push(skill);
+
+      if (bestMatch) {
+        skillAssignments.push({ skill, category: bestMatch.category, priority: bestMatch.priority });
+      } else {
+        uncategorized.push(skill);
       }
     });
 
-    // Remove empty categories
-    return Object.fromEntries(
-      Object.entries(categories).filter(([_, skills]) => skills.length > 0)
-    );
+    // Build the result with only categories that have skills
+    const result: Record<string, string[]> = {};
+
+    // Group assigned skills by category
+    skillAssignments.forEach(({ skill, category }) => {
+      if (!result[category]) {
+        result[category] = [];
+      }
+      result[category].push(skill);
+    });
+
+    // Handle uncategorized skills
+    if (uncategorized.length > 0) {
+      // If we have very few categorized skills, just use "Core Skills" for everything
+      const totalCategorized = Object.values(result).flat().length;
+      if (totalCategorized < 3 && uncategorized.length > totalCategorized) {
+        // Most skills are uncategorized - use a simple flat structure
+        result['Core Competencies'] = [...Object.values(result).flat(), ...uncategorized];
+        // Clear other categories
+        for (const key of Object.keys(result)) {
+          if (key !== 'Core Competencies') {
+            delete result[key];
+          }
+        }
+      } else {
+        // Add uncategorized to "Additional Skills" or similar
+        result['Additional Skills'] = uncategorized;
+      }
+    }
+
+    // Sort categories by number of skills (descending) for better visual presentation
+    const sortedEntries = Object.entries(result)
+      .filter(([_, categorySkills]) => categorySkills.length > 0)
+      .sort((a, b) => b[1].length - a[1].length);
+
+    return Object.fromEntries(sortedEntries);
   };
 
   const technicalCategories = categorizeSkills(enhanced.technicalSkills);
