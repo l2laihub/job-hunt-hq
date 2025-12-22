@@ -827,3 +827,6 @@ export const PROFILE_COLORS = [
   '#06B6D4', // cyan
   '#84CC16', // lime
 ] as const;
+
+// Re-export interview prep types
+export * from './interview-prep';

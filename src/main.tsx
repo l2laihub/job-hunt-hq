@@ -15,6 +15,7 @@ const AnalyzerPage = React.lazy(() => import('./app/routes/analyzer'));
 const ResearchPage = React.lazy(() => import('./app/routes/research'));
 const StoriesPage = React.lazy(() => import('./app/routes/stories'));
 const InterviewPage = React.lazy(() => import('./app/routes/interview'));
+const InterviewPrepPage = React.lazy(() => import('./app/routes/interview-prep'));
 const AnswersPage = React.lazy(() => import('./app/routes/answers'));
 const EnhancePage = React.lazy(() => import('./app/routes/enhance'));
 const ProfilePage = React.lazy(() => import('./app/routes/profile'));
@@ -84,6 +85,14 @@ const App: React.FC = () => {
                 element={
                   <React.Suspense fallback={<PageLoader />}>
                     <InterviewPage />
+                  </React.Suspense>
+                }
+              />
+              <Route
+                path="interview-prep"
+                element={
+                  <React.Suspense fallback={<PageLoader />}>
+                    <InterviewPrepPage />
                   </React.Suspense>
                 }
               />

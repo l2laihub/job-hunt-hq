@@ -11,6 +11,7 @@ export interface DialogProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
+  className?: string;
 }
 
 const sizeStyles = {
@@ -29,6 +30,7 @@ export const Dialog: React.FC<DialogProps> = ({
   children,
   size = 'md',
   showCloseButton = true,
+  className,
 }) => {
   // Handle escape key
   const handleEscape = useCallback(
@@ -73,7 +75,8 @@ export const Dialog: React.FC<DialogProps> = ({
           'relative w-full bg-gray-900 border border-gray-800 rounded-xl shadow-2xl',
           'flex flex-col max-h-[90vh]',
           'animate-slide-up',
-          sizeStyles[size]
+          sizeStyles[size],
+          className
         )}
       >
         {/* Header */}

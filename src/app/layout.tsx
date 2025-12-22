@@ -17,6 +17,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Target,
 } from 'lucide-react';
 import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
@@ -34,7 +35,8 @@ const navItems = [
   // Job Search
   { to: '/analyzer', label: 'Job Prep', icon: Search },
   { to: '/research', label: 'Research', icon: Globe },
-  // Interview Prep
+  // Interview Prep Hub - NEW
+  { to: '/interview-prep', label: 'Interview Prep', icon: Target },
   { to: '/answers', label: 'Answer Prep', icon: Zap },
   { to: '/interview', label: 'Mock Interview', icon: Mic },
   // Tools
@@ -88,7 +90,7 @@ export const AppLayout: React.FC = () => {
                 sidebarExpanded ? 'opacity-100' : 'opacity-0'
               )}
             >
-              Job Hunt HQ
+              Prepprly
             </span>
           </NavLink>
           {sidebarExpanded && <UserMenu />}
@@ -181,7 +183,7 @@ export const AppLayout: React.FC = () => {
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 z-30 flex items-center justify-between px-4">
         <NavLink to="/" className="flex items-center gap-2 text-blue-500">
           <Layout className="w-5 h-5" />
-          <span className="font-bold text-lg text-white">Job Hunt HQ</span>
+          <span className="font-bold text-lg text-white">Prepprly</span>
         </NavLink>
         <div className="flex items-center gap-2">
           <UserMenu />

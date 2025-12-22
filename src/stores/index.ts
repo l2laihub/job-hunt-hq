@@ -25,6 +25,7 @@ export { useTechnicalAnswersStore } from './technical-answers';
 export { useAnalyzedJobsStore } from './analyzed-jobs';
 export { useEnhancementsStore } from './enhancements';
 export { useCompanyResearchStore } from './company-research';
+export { useInterviewPrepStore, hasSessionForApplication } from './interview-prep';
 export { useUIStore, toast, type ModalType, type Toast } from './ui';
 
 // Initialize all stores and run migrations

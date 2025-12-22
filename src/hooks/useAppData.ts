@@ -13,6 +13,7 @@ import {
   useSupabaseTechnicalAnswersStore,
   useSupabaseActiveProfile,
   useSupabaseCurrentProfile,
+  useSupabaseActiveProfileId,
 } from '@/src/stores/supabase';
 import { useAuth, isSupabaseConfigured } from '@/src/lib/supabase';
 
@@ -141,6 +142,24 @@ export function useStories() {
     searchStories: storiesStore.searchStories,
     isUsingSupabase,
   };
+}
+
+/**
+ * Hook for unified active profile ID
+ * Automatically switches between Supabase and localStorage based on auth state
+ */
+export function useUnifiedActiveProfileId(): string | null {
+  const { user } = useAuth();
+  const configured = isSupabaseConfigured();
+  const useSupabase = configured && !!user;
+
+  // Supabase active profile ID
+  const supabaseActiveProfileId = useSupabaseActiveProfileId();
+
+  // Legacy localStorage active profile ID
+  const legacyActiveProfileId = useProfileStore((s) => s.activeProfileId);
+
+  return useSupabase ? supabaseActiveProfileId : legacyActiveProfileId;
 }
 
 /**
