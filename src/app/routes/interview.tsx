@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useApplicationStore, useStoriesStore, useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
+import { useApplicationStore, useStoriesStore, useCurrentProfile, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { Button, Card, CardHeader, CardContent, Select, Badge, Abbr } from '@/src/components/ui';
 import { InterviewEmptyState } from '@/src/components/shared';
 import { cn } from '@/src/lib/utils';
@@ -42,7 +43,7 @@ const durations = [
 ];
 
 export const InterviewPage: React.FC = () => {
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   const allApplications = useApplicationStore((s) => s.applications);
   // Filter applications by active profile
   const applications = useMemo(() => {

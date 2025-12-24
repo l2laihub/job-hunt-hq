@@ -189,13 +189,16 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
         throw new Error('Story was not created properly - no ID returned');
       }
 
-      toast.success('Story created!', 'Answer saved to My Stories and linked to question');
+      // Link the story to the question FIRST (this is synchronous Zustand update)
+      console.log('GenerateAnswerModal: Calling onStoryCreated with id:', newStory.id);
       onStoryCreated(newStory.id);
+
+      toast.success('Story saved & linked!', 'Your answer is ready for practice');
+      setIsSaving(false);
       onClose();
     } catch (err) {
       console.error('Failed to save story:', err);
       toast.error('Save failed', 'Could not save story. Please try again.');
-    } finally {
       setIsSaving(false);
     }
   }, [editedAnswer, question.question, activeProfileId, addStory, onStoryCreated, onClose, isUsingSupabase]);

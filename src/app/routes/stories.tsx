@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useActiveProfileId, toast } from '@/src/stores';
-import { useStories } from '@/src/hooks/useAppData';
+import { toast } from '@/src/stores';
+import { useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { formatExperienceToSTAR } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Dialog, Abbr } from '@/src/components/ui';
 import { StoriesEmptyState } from '@/src/components/shared';
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const StoriesPage: React.FC = () => {
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   // Use unified hook that switches between Supabase and localStorage
   const { stories: allStories, addStory, updateStory, deleteStory } = useStories();
 

@@ -246,6 +246,30 @@ export const useInterviewPrepStore = create<InterviewPrepState>()(
       },
 
       markQuestionPrepared: (sessionId, questionId, storyId, answerId) => {
+        console.log('=== markQuestionPrepared STORE START ===');
+        console.log('sessionId:', sessionId);
+        console.log('questionId:', questionId);
+        console.log('storyId:', storyId);
+        console.log('answerId:', answerId);
+
+        const currentSessions = get().sessions;
+        console.log('Current sessions count:', currentSessions.length);
+
+        const targetSession = currentSessions.find((s) => s.id === sessionId);
+        if (!targetSession) {
+          console.error('ERROR: Session not found!', sessionId);
+          console.log('Available session IDs:', currentSessions.map((s) => s.id));
+        } else {
+          console.log('Found session:', targetSession.id);
+          const targetQuestion = targetSession.predictedQuestions.find((q) => q.id === questionId);
+          if (!targetQuestion) {
+            console.error('ERROR: Question not found!', questionId);
+            console.log('Available question IDs:', targetSession.predictedQuestions.map((q) => q.id));
+          } else {
+            console.log('Found question:', targetQuestion.id, targetQuestion.question.substring(0, 50));
+          }
+        }
+
         set((state) => ({
           sessions: state.sessions.map((s) => {
             if (s.id !== sessionId) return s;
@@ -267,6 +291,16 @@ export const useInterviewPrepStore = create<InterviewPrepState>()(
             };
           }),
         }));
+
+        console.log('State updated');
+
+        // Verify the update happened
+        const updatedSessions = get().sessions;
+        const updatedSession = updatedSessions.find((s) => s.id === sessionId);
+        const updatedQuestion = updatedSession?.predictedQuestions.find((q) => q.id === questionId);
+        console.log('Verification - Updated question matchedStoryId:', updatedQuestion?.matchedStoryId);
+        console.log('Verification - Updated question isPrepared:', updatedQuestion?.isPrepared);
+        console.log('=== markQuestionPrepared STORE END ===');
 
         // Recalculate readiness
         const readiness = get().calculateReadiness(sessionId);

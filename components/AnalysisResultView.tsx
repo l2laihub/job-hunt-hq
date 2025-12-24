@@ -503,8 +503,8 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
             <CheckCircle className="w-4 h-4" /> You Have
           </h3>
           <div className="flex flex-wrap gap-2">
-            {data.matchedSkills?.map(skill => (
-              <span key={skill} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">{skill}</span>
+            {data.matchedSkills?.map((skill, index) => (
+              <span key={`matched-${index}-${skill}`} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">{skill}</span>
             ))}
           </div>
         </div>
@@ -513,8 +513,8 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
             <AlertTriangle className="w-4 h-4" /> Missing / Gaps
           </h3>
           <div className="flex flex-wrap gap-2">
-            {data.missingSkills?.map(skill => (
-              <span key={skill} className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs border border-red-800">{skill}</span>
+            {data.missingSkills?.map((skill, index) => (
+              <span key={`missing-${index}-${skill}`} className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs border border-red-800">{skill}</span>
             ))}
           </div>
         </div>

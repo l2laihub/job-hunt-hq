@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
-  useActiveProfileId,
   toast,
 } from '@/src/stores';
+import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useProfile, useAnalyzedJobs, useEnhancements } from '@/src/hooks/useAppData';
 import { enhanceResume, processDocuments } from '@/src/services/gemini';
 import { downloadResumePDF, previewResumeHTML } from '@/src/lib/resume-pdf';
@@ -1057,7 +1057,7 @@ const HistoryItem: React.FC<{
 // Main component
 export const EnhancePage: React.FC = () => {
   const { profile, updateProfile } = useProfile();
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
 
   // Use unified hooks that switch between Supabase and localStorage
   const { jobs: allAnalyzedJobs } = useAnalyzedJobs();

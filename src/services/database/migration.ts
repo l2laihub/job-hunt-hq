@@ -56,10 +56,22 @@ function buildProfileIdMapping(profiles: UserProfileWithMeta[]): IdMapping {
 
 /**
  * Apply profile ID mapping to a record's profileId field
+ * If the profileId is not in the mapping and is not a valid UUID, generate a new UUID
  */
 function mapProfileId(profileId: string | undefined, profileMapping: IdMapping): string | undefined {
   if (!profileId) return undefined;
-  return profileMapping.get(profileId) || profileId;
+
+  // First check if we have a mapping for this ID
+  const mappedId = profileMapping.get(profileId);
+  if (mappedId) return mappedId;
+
+  // If no mapping exists but it's already a valid UUID, use it
+  if (isValidUUID(profileId)) return profileId;
+
+  // Otherwise, generate a new UUID for this orphaned reference
+  // This handles cases where profile data was lost or never existed
+  console.warn(`No mapping found for profileId "${profileId}", generating new UUID`);
+  return ensureUUID(profileId);
 }
 
 /**
@@ -134,6 +146,24 @@ function convertAnswer(answer: TechnicalAnswer, answerMapping: IdMapping, profil
 }
 
 /**
+ * Map an application ID with proper UUID conversion
+ */
+function mapApplicationId(applicationId: string | undefined, appMapping: IdMapping): string | undefined {
+  if (!applicationId) return undefined;
+
+  // First check if we have a mapping for this ID
+  const mappedId = appMapping.get(applicationId);
+  if (mappedId) return mappedId;
+
+  // If no mapping exists but it's already a valid UUID, use it
+  if (isValidUUID(applicationId)) return applicationId;
+
+  // Otherwise, generate a new UUID for this orphaned reference
+  console.warn(`No mapping found for applicationId "${applicationId}", generating new UUID`);
+  return ensureUUID(applicationId);
+}
+
+/**
  * Convert analyzed job with new UUIDs
  */
 function convertAnalyzedJob(
@@ -149,7 +179,7 @@ function convertAnalyzedJob(
     ...job,
     id: newId,
     profileId: mapProfileId(job.profileId, profileMapping),
-    applicationId: job.applicationId ? (appMapping.get(job.applicationId) || job.applicationId) : undefined,
+    applicationId: mapApplicationId(job.applicationId, appMapping),
   };
 }
 

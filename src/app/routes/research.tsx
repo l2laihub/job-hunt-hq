@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useApplicationStore, useActiveProfileId, toast } from '@/src/stores';
+import { useApplicationStore, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useCompanyResearch } from '@/src/hooks/useAppData';
 import { researchCompany } from '@/src/services/gemini';
 import { Button, Input, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
@@ -29,7 +30,7 @@ import {
 
 export const ResearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   const allApplications = useApplicationStore((s) => s.applications);
   // Filter applications by active profile
   const applications = useMemo(() => {

@@ -691,9 +691,28 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   // Handle story created from generate modal
   const handleStoryCreated = (storyId: string) => {
-    console.log('handleStoryCreated called with storyId:', storyId);
-    console.log('sessionId:', sessionId, 'questionId:', question.id);
+    console.log('=== handleStoryCreated START ===');
+    console.log('storyId:', storyId);
+    console.log('sessionId:', sessionId);
+    console.log('questionId:', question.id);
+
+    if (!sessionId) {
+      console.error('ERROR: sessionId is missing!');
+      toast.error('Link failed', 'Session ID is missing');
+      return;
+    }
+
+    if (!question.id) {
+      console.error('ERROR: question.id is missing!');
+      toast.error('Link failed', 'Question ID is missing');
+      return;
+    }
+
+    console.log('Calling markQuestionPrepared...');
     markQuestionPrepared(sessionId, question.id, storyId, undefined);
+    console.log('markQuestionPrepared called successfully');
+    console.log('=== handleStoryCreated END ===');
+
     toast.success('Answer linked', 'Your generated answer has been saved and linked');
   };
 

@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useInterviewPrepStore,
-  useActiveProfileId,
   useCurrentProfile,
   toast,
 } from '@/src/stores';
-import { useApplications, useStories } from '@/src/hooks/useAppData';
+import { useApplications, useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import {
   predictInterviewQuestions,
   generateQuickRefFromSession,
@@ -413,12 +412,13 @@ const EmptyState: React.FC<{
 
 // Main page component
 export const InterviewPrepPage: React.FC = () => {
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   const profile = useCurrentProfile();
   const { applications: allApplications } = useApplications();
   const { stories: allStories } = useStories();
 
   const {
+    sessions,
     createSession,
     getSession,
     updateSession,
@@ -462,7 +462,19 @@ export const InterviewPrepPage: React.FC = () => {
 
   // Get current session and application
   const selectedApp = applications.find((a) => a.id === selectedAppId);
-  const session = selectedAppId ? getSession(selectedAppId) : undefined;
+  // Use useMemo with sessions dependency to ensure re-render when session updates
+  const session = useMemo(() => {
+    console.log('=== SESSION MEMO RECALCULATING ===');
+    console.log('selectedAppId:', selectedAppId);
+    console.log('sessions length:', sessions.length);
+    if (!selectedAppId) return undefined;
+    const found = sessions.find((s) => s.applicationId === selectedAppId);
+    if (found) {
+      const preparedCount = found.predictedQuestions.filter(q => q.isPrepared).length;
+      console.log('Found session, prepared questions:', preparedCount);
+    }
+    return found;
+  }, [selectedAppId, sessions]);
 
   // Create new session
   const handleCreateSession = useCallback(

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useCurrentProfile, useActiveProfileId, toast } from '@/src/stores';
+import { useCurrentProfile, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useTechnicalAnswers, useStories, useApplications } from '@/src/hooks/useAppData';
 import { generateTechnicalAnswer, generateFollowUps } from '@/src/services/gemini';
 import { COMMON_TECHNICAL_QUESTIONS, DIFFICULTY_LEVELS, TECHNICAL_QUESTION_TYPES } from '@/src/lib/constants';
@@ -60,7 +61,7 @@ export const AnswersPage: React.FC = () => {
   const [view, setView] = useState<ViewType>('list');
 
   // Use unified hooks that switch between Supabase and localStorage
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   const {
     answers: allAnswers,
     addAnswer,

@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
   useUIStore,
-  useCurrentProfile,
-  useActiveProfileId,
   toast,
 } from '@/src/stores';
+import { useProfileData } from '@/src/hooks/useProfileData';
 import { useApplications, useStories, useAnalyzedJobs } from '@/src/hooks/useAppData';
 import {
   analyzeJobDescription,
@@ -89,8 +88,8 @@ type ViewType = 'analyze' | 'history' | 'detail';
 type ResultTab = 'overview' | 'cover-letter' | 'phone-prep' | 'tech-prep' | 'strategy' | 'roadmap' | 'questions';
 
 export const AnalyzerPage: React.FC = () => {
-  const profile = useCurrentProfile();
-  const activeProfileId = useActiveProfileId();
+  // Use unified profile hook that switches between Supabase and localStorage based on auth
+  const { profile, activeProfileId } = useProfileData();
 
   // Use unified hooks that switch between Supabase and localStorage
   const { stories: allStories } = useStories();

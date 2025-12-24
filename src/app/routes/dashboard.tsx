@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { useUIStore, useActiveProfileId, toast } from '@/src/stores';
+import { useUIStore, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useApplications } from '@/src/hooks/useAppData';
 import { cn } from '@/src/lib/utils';
 import { APPLICATION_STATUSES } from '@/src/lib/constants';
@@ -32,7 +33,7 @@ const statusIcons: Record<ApplicationStatus, React.ReactNode> = {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const activeProfileId = useActiveProfileId();
+  const activeProfileId = useUnifiedActiveProfileId();
   // Use unified hook that switches between Supabase and localStorage
   const { applications: allApplications, moveApplication, deleteApplication } = useApplications();
   // Filter applications by active profile
