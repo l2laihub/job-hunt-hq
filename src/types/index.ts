@@ -17,13 +17,110 @@ export interface Role {
   highlights: string[];
 }
 
+// ============================================
+// PROJECT DOCUMENTATION TYPES
+// ============================================
+
+// Media asset (screenshot, diagram, etc.)
+export interface MediaAsset {
+  id: string;
+  type: 'screenshot' | 'architecture' | 'flowchart' | 'other';
+  url: string;                    // Supabase storage URL
+  filename: string;
+  caption: string;
+  annotations?: ImageAnnotation[];
+  uploadedAt: string;
+}
+
+// Annotation on an image (callout, label)
+export interface ImageAnnotation {
+  id: string;
+  x: number;                      // Percentage position (0-100)
+  y: number;                      // Percentage position (0-100)
+  label: string;
+  description?: string;
+  color?: string;                 // Annotation color
+}
+
+// Technical decision made during project
+export interface TechnicalDecision {
+  id: string;
+  decision: string;               // What you decided
+  context: string;                // Why it was needed
+  alternatives: string[];         // Other options considered
+  rationale: string;              // Why you chose this
+  outcome: string;                // Result/impact
+  tags: string[];                 // e.g., ['scalability', 'performance']
+}
+
+// Challenge solved during project
+export interface ProjectChallenge {
+  id: string;
+  challenge: string;              // The problem
+  approach: string;               // How you solved it
+  technicalDetails: string;       // Deep dive
+  lessonsLearned: string;
+  relatedStoryIds?: string[];     // Links to Experience Bank STAR stories
+}
+
+// Quantifiable metric from project
+export interface ProjectMetric {
+  id: string;
+  metric: string;                 // e.g., "Response time"
+  before?: string;                // e.g., "2.5s"
+  after: string;                  // e.g., "200ms"
+  improvement?: string;           // e.g., "92% faster"
+  context: string;
+}
+
+// Full project documentation
+export interface ProjectDocumentation {
+  // Visual assets
+  screenshots: MediaAsset[];
+  architectureDiagrams: MediaAsset[];
+
+  // Technical narrative
+  technicalDecisions: TechnicalDecision[];
+  challenges: ProjectChallenge[];
+  metrics: ProjectMetric[];
+
+  // System context
+  systemContext: string;          // Role in larger ecosystem
+  integrations: string[];         // External APIs/services
+  teamSize?: number;
+  duration?: string;              // e.g., "6 months"
+  myRole: string;                 // Your specific contribution
+
+  // AI-generated content (cached)
+  aiSummary?: string;
+  talkingPoints?: string[];
+  interviewQuestions?: string[];  // Likely questions about this project
+}
+
+// Default empty documentation
+export const DEFAULT_PROJECT_DOCUMENTATION: ProjectDocumentation = {
+  screenshots: [],
+  architectureDiagrams: [],
+  technicalDecisions: [],
+  challenges: [],
+  metrics: [],
+  systemContext: '',
+  integrations: [],
+  myRole: '',
+};
+
 // Side project
 export interface Project {
+  id?: string;                    // Unique identifier
   name: string;
   description: string;
   techStack: string[];
   status: 'active' | 'launched' | 'paused';
   traction?: string;
+
+  // Documentation (may be stored separately or inline)
+  documentation?: ProjectDocumentation;
+  hasDocumentation?: boolean;     // Flag if docs exist in separate table
 }
 
 // User Profile

@@ -517,7 +517,7 @@ export const AnswersPage: React.FC = () => {
   // Markdown content component
   const MarkdownContent: React.FC<{ content: string; className?: string }> = ({ content, className }) => (
     <div
-      className={cn('text-gray-300 text-sm leading-relaxed prose-invert', className)}
+      className={cn('text-gray-300 text-[15px] leading-[1.8] tracking-wide prose-invert', className)}
       dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
     />
   );
@@ -532,10 +532,10 @@ export const AnswersPage: React.FC = () => {
       );
     }
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         {sections.map((section, i) => (
-          <div key={i} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
-            <span className="text-xs font-bold text-blue-400 uppercase block mb-2">{section.label}</span>
+          <div key={i} className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+            <span className="text-sm font-bold text-blue-400 uppercase block mb-3">{section.label}</span>
             <MarkdownContent content={section.content} />
           </div>
         ))}

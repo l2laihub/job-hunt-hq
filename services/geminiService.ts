@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema, LiveServerMessage, Modality } from "@google/genai";
-import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem } from "../types";
+import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation } from "../types";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -656,7 +656,7 @@ export const generateInterviewFeedback = async (transcript: TranscriptItem[]): P
 
   const prompt = `
     Analyze this interview transcript and provide constructive feedback for the candidate.
-    
+
     ## Transcript
     ${transcript.map(t => `${t.role.toUpperCase()}: ${t.text}`).join('\n')}
 
@@ -682,13 +682,227 @@ export const generateInterviewFeedback = async (transcript: TranscriptItem[]): P
     });
 
     if (!response.text) throw new Error("No response from Gemini");
-    
+
     let jsonText = response.text || "{}";
     if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-    
+
     return JSON.parse(jsonText);
   } catch (error) {
     console.error("Feedback Generation Failed:", error);
+    throw error;
+  }
+};
+
+// ============================================
+// PROJECT DOCUMENTATION AI FUNCTIONS
+// ============================================
+
+const projectInsightsSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    summary: {
+      type: Type.STRING,
+      description: "A 2-3 sentence compelling summary of the project that highlights impact and technical complexity"
+    },
+    talkingPoints: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "5-7 key talking points for discussing this project in interviews"
+    },
+    interviewQuestions: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "5-7 likely interview questions an interviewer might ask about this project"
+    }
+  },
+  required: ['summary', 'talkingPoints', 'interviewQuestions']
+};
+
+/**
+ * Generate AI insights for project documentation
+ * Creates talking points, summary, and likely interview questions
+ */
+export const generateProjectInsights = async (
+  project: Project,
+  documentation: ProjectDocumentation
+): Promise<{
+  summary: string;
+  talkingPoints: string[];
+  interviewQuestions: string[];
+}> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const techStackStr = project.techStack.join(', ');
+  const decisionsStr = documentation.technicalDecisions
+    .map(d => `- ${d.decision}: ${d.rationale} (Result: ${d.outcome})`)
+    .join('\n');
+  const challengesStr = documentation.challenges
+    .map(c => `- ${c.challenge}: ${c.approach}`)
+    .join('\n');
+  const metricsStr = documentation.metrics
+    .map(m => `- ${m.metric}: ${m.before ? `${m.before} → ` : ''}${m.after}${m.improvement ? ` (${m.improvement})` : ''}`)
+    .join('\n');
+
+  const prompt = `
+    Analyze this project and generate interview preparation insights.
+
+    ## Project Overview
+    Name: ${project.name}
+    Description: ${project.description}
+    Status: ${project.status}
+    Tech Stack: ${techStackStr}
+    ${project.traction ? `Traction: ${project.traction}` : ''}
+
+    ## My Role
+    ${documentation.myRole || 'Not specified'}
+    ${documentation.teamSize ? `Team Size: ${documentation.teamSize}` : ''}
+    ${documentation.duration ? `Duration: ${documentation.duration}` : ''}
+
+    ## System Context
+    ${documentation.systemContext || 'Not provided'}
+
+    ## Integrations
+    ${documentation.integrations.length > 0 ? documentation.integrations.join(', ') : 'None specified'}
+
+    ## Technical Decisions Made
+    ${decisionsStr || 'None documented'}
+
+    ## Challenges Overcome
+    ${challengesStr || 'None documented'}
+
+    ## Metrics & Outcomes
+    ${metricsStr || 'None documented'}
+
+    ## Task
+    Based on this project documentation, generate:
+    1. A compelling 2-3 sentence summary that highlights the technical complexity and business impact
+    2. 5-7 key talking points for discussing this project in interviews (focus on technical depth and quantifiable outcomes)
+    3. 5-7 likely interview questions that an interviewer might ask about this project
+
+    Make the talking points specific and actionable - they should help the candidate articulate their contribution clearly.
+    The interview questions should range from overview questions to deep technical follow-ups.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: projectInsightsSchema,
+        thinkingConfig: { thinkingBudget: 2048 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    return JSON.parse(jsonText);
+  } catch (error) {
+    console.error("Project Insights Generation Failed:", error);
+    throw error;
+  }
+};
+
+const projectMatchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    bestProjectId: { type: Type.STRING },
+    relevanceScore: { type: Type.NUMBER },
+    relevantDetails: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Specific details from the project that are relevant to the question"
+    },
+    suggestedResponse: {
+      type: Type.STRING,
+      description: "A suggested response structure using details from the best matching project"
+    },
+    otherRelevantProjects: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          projectId: { type: Type.STRING },
+          reason: { type: Type.STRING }
+        }
+      }
+    }
+  },
+  required: ['bestProjectId', 'relevanceScore', 'relevantDetails', 'suggestedResponse']
+};
+
+/**
+ * Match interview question to best project from documentation
+ */
+export const matchProjectToQuestion = async (
+  question: string,
+  projects: { project: Project; documentation: ProjectDocumentation }[]
+): Promise<{
+  bestProjectId: string;
+  relevanceScore: number;
+  relevantDetails: string[];
+  suggestedResponse: string;
+  otherRelevantProjects: { projectId: string; reason: string }[];
+}> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const projectsContext = projects.map(({ project, documentation }) => {
+    const id = project.id || project.name;
+    return `
+## Project: ${project.name} (ID: ${id})
+Description: ${project.description}
+Tech Stack: ${project.techStack.join(', ')}
+My Role: ${documentation.myRole || 'Not specified'}
+
+Technical Decisions:
+${documentation.technicalDecisions.map(d => `- ${d.decision}: ${d.rationale}`).join('\n') || 'None'}
+
+Challenges:
+${documentation.challenges.map(c => `- ${c.challenge}: ${c.approach}`).join('\n') || 'None'}
+
+Metrics:
+${documentation.metrics.map(m => `- ${m.metric}: ${m.after}`).join('\n') || 'None'}
+`;
+  }).join('\n---\n');
+
+  const prompt = `
+    Find the best matching project to answer this interview question.
+
+    ## Interview Question
+    "${question}"
+
+    ## Available Projects
+    ${projectsContext}
+
+    ## Task
+    1. Identify which project is most relevant to answer this question
+    2. Extract specific details from that project that can be used in the answer
+    3. Suggest a response structure using STAR format if applicable
+    4. Note any other projects that might also be relevant
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: projectMatchSchema,
+        thinkingConfig: { thinkingBudget: 2048 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    return JSON.parse(jsonText);
+  } catch (error) {
+    console.error("Project Matching Failed:", error);
     throw error;
   }
 };

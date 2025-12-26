@@ -24,6 +24,11 @@
   ::selection {
     @apply bg-blue-500/30;
   }
+
+  /* Improved base typography for readability */
+  p {
+    @apply leading-relaxed;
+  }
 }
 
 /* Custom components */
@@ -64,6 +69,24 @@
 
 /* Custom utilities */
 @layer utilities {
+  /* Readable content blocks - use for long-form text */
+  .readable-content {
+    @apply text-base leading-[1.75] tracking-wide text-gray-200;
+  }
+
+  .readable-content-sm {
+    @apply text-sm leading-[1.7] tracking-wide text-gray-300;
+  }
+
+  /* Q&A formatting */
+  .qa-question {
+    @apply text-base font-semibold text-white leading-relaxed mb-3;
+  }
+
+  .qa-answer {
+    @apply text-[15px] leading-[1.8] text-gray-300 tracking-wide;
+  }
+
   /* Gradient text */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400;

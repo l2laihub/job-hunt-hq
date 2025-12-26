@@ -301,7 +301,7 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               ) : (
-                <p className="text-sm text-gray-300">{editedAnswer.star[section]}</p>
+                <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide">{editedAnswer.star[section]}</p>
               )}
             </div>
           ))}
@@ -345,9 +345,9 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
             <MessageSquare className="w-4 h-4" />
             Key Talking Points
           </h4>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {editedAnswer.keyTalkingPoints.map((point, i) => (
-              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+              <li key={i} className="text-[15px] text-gray-300 leading-[1.7] tracking-wide flex items-start gap-2">
                 <span className="text-purple-400 mt-0.5">•</span>
                 {point}
               </li>
@@ -361,7 +361,7 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
             <Lightbulb className="w-4 h-4" />
             Coaching Notes
           </h4>
-          <p className="text-sm text-gray-300">{editedAnswer.coachingNotes}</p>
+          <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide">{editedAnswer.coachingNotes}</p>
         </Card>
 
         {/* Delivery Tips */}
@@ -370,9 +370,9 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
             <BookOpen className="w-4 h-4" />
             Delivery Tips
           </h4>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {editedAnswer.deliveryTips.map((tip, i) => (
-              <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+              <li key={i} className="text-[15px] text-gray-300 leading-[1.7] tracking-wide flex items-start gap-2">
                 <span className="text-cyan-400 mt-0.5">{i + 1}.</span>
                 {tip}
               </li>
@@ -386,9 +386,9 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
             <MessageSquare className="w-4 h-4" />
             Likely Follow-up Questions
           </h4>
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {editedAnswer.followUpQuestions.map((q, i) => (
-              <li key={i} className="text-sm text-gray-300 italic">
+              <li key={i} className="text-[15px] text-gray-300 leading-[1.7] tracking-wide italic">
                 "{q}"
               </li>
             ))}

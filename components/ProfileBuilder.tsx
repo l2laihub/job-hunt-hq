@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { processDocuments } from '../services/geminiService';
 import { Upload, FileText, Loader2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { ProjectsSection } from '../src/components/portfolio';
 
 interface ProfileBuilderProps {
   profile: UserProfile;
   onSave: (profile: UserProfile) => void;
+  userId?: string;
+  profileId?: string;
 }
 
-export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave }) => {
+export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave, userId, profileId }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localProfile, setLocalProfile] = useState<UserProfile>(profile);
@@ -287,27 +290,12 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave 
           )}
 
           {activeSection === 'projects' && (
-             <div className="space-y-4">
-                {localProfile.activeProjects.map((proj, i) => (
-                  <div key={i} className="p-4 bg-gray-950 rounded-lg border border-gray-800">
-                     <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-bold text-white">{proj.name}</h4>
-                          <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded border ${
-                            proj.status === 'active' ? 'border-green-800 text-green-400 bg-green-900/20' : 'border-gray-700 text-gray-400'
-                          }`}>
-                            {proj.status}
-                          </span>
-                        </div>
-                        {proj.traction && <span className="text-xs font-mono text-purple-400">{proj.traction}</span>}
-                     </div>
-                     <p className="text-sm text-gray-400 mb-2">{proj.description}</p>
-                     <div className="flex flex-wrap gap-1">
-                       {proj.techStack.map(t => <span key={t} className="text-[10px] px-1.5 bg-gray-800 rounded text-gray-400">{t}</span>)}
-                     </div>
-                  </div>
-                ))}
-             </div>
+            <ProjectsSection
+              projects={localProfile.activeProjects}
+              onUpdateProjects={(projects) => setLocalProfile({...localProfile, activeProjects: projects})}
+              userId={userId}
+              profileId={profileId}
+            />
           )}
 
           {activeSection === 'preferences' && (

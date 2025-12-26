@@ -31,7 +31,10 @@ import {
   Cloud,
   CloudOff,
   Loader2,
+  FolderKanban,
 } from 'lucide-react';
+import { ProjectsSection } from '@/src/components/portfolio';
+import { useAuth } from '@/src/lib/supabase';
 
 /**
  * Parse a duration string and extract the end date for sorting
@@ -131,6 +134,7 @@ const workStyleOptions = [
 export const ProfilePage: React.FC = () => {
   const { profile, activeProfile: activeProfileWithMeta, isLoading, isAuthenticated, actions, error } = useProfileData();
   const { updateProfile } = actions;
+  const { user } = useAuth();
 
   // Compute profile completeness locally
   const isProfileComplete = () => {
@@ -711,6 +715,21 @@ export const ProfilePage: React.FC = () => {
               Add Role
             </Button>
           </div>
+        </ProfileSection>
+
+        {/* Projects */}
+        <ProfileSection
+          title="Projects & Portfolio"
+          icon={<FolderKanban className="w-4 h-4" />}
+          isOpen={activeSection === 'projects'}
+          onToggle={() => toggleSection('projects')}
+        >
+          <ProjectsSection
+            projects={editedProfile.projects || []}
+            onUpdateProjects={(projects) => handleFieldChange('projects', projects)}
+            userId={user?.id}
+            profileId={activeProfileWithMeta?.metadata.id}
+          />
         </ProfileSection>
 
         {/* Preferences */}

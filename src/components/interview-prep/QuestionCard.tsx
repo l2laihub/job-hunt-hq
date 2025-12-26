@@ -499,11 +499,11 @@ const ViewStoryModal: React.FC<{
               )}
 
               {narrativeText ? (
-                <div className="text-sm md:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">
+                <div className="text-[15px] text-gray-200 leading-[1.8] tracking-wide whitespace-pre-wrap">
                   {narrativeText}
                 </div>
               ) : (
-                <div className="space-y-4 text-sm md:text-base text-gray-200 leading-relaxed">
+                <div className="space-y-5 text-[15px] text-gray-200 leading-[1.8] tracking-wide">
                   <p>{story.star.situation}</p>
                   <p>{story.star.task}</p>
                   <p>{story.star.action}</p>
@@ -545,7 +545,7 @@ const ViewStoryModal: React.FC<{
                   <Lightbulb className="w-4 h-4" />
                   Coaching Tips
                 </h4>
-                <p className="text-sm text-gray-300 leading-relaxed">{story.coachingNotes}</p>
+                <p className="text-sm text-gray-300 leading-[1.7] tracking-wide">{story.coachingNotes}</p>
               </Card>
             )}
           </div>
@@ -579,7 +579,7 @@ const ViewStoryModal: React.FC<{
                     )}>
                       {section}
                     </label>
-                    <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
+                    <p className="text-sm text-gray-300 leading-[1.7] tracking-wide">
                       {story.star[section]}
                     </p>
                   </div>

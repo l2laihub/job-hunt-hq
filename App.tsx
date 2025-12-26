@@ -9,6 +9,7 @@ import { ExperienceBank } from './components/ExperienceBank';
 import { MockInterview } from './components/MockInterview';
 import { TechnicalAnswerGenerator } from './components/TechnicalAnswerGenerator';
 import { EnhancePage } from './src/app/routes/enhance';
+import { useAuth } from './src/lib/supabase';
 import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic, Zap, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -31,6 +32,9 @@ const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; co
 ];
 
 export default function App() {
+  // Get authenticated user
+  const { user } = useAuth();
+
   // State with Lazy Initialization from LocalStorage to prevent overwriting on mount
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview' | 'answers' | 'enhance'>('dashboard');
   
@@ -399,7 +403,7 @@ export default function App() {
         )}
 
         {activeTab === 'profile' && (
-          <ProfileBuilder profile={profile} onSave={handleSaveProfile} />
+          <ProfileBuilder profile={profile} onSave={handleSaveProfile} userId={user?.id} />
         )}
 
       </main>

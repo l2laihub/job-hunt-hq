@@ -259,19 +259,19 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, onEdit, onDelete }) => {
 
             {/* Coaching Notes */}
             {story.coachingNotes && (
-              <div className="p-3 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-                <span className="text-xs text-blue-400 uppercase font-semibold">AI Coaching</span>
-                <p className="text-sm text-gray-300 mt-1">{story.coachingNotes}</p>
+              <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+                <span className="text-sm text-blue-400 uppercase font-semibold">AI Coaching</span>
+                <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide mt-2">{story.coachingNotes}</p>
               </div>
             )}
 
             {/* Follow-up Questions */}
             {story.followUpQuestions.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-xs text-gray-500 uppercase font-semibold">
+              <div className="space-y-2">
+                <span className="text-sm text-gray-500 uppercase font-semibold">
                   Prepare for Follow-ups
                 </span>
-                <ul className="text-sm text-gray-400 space-y-1 list-disc list-inside">
+                <ul className="text-[15px] text-gray-400 space-y-2 list-disc list-inside leading-[1.7]">
                   {story.followUpQuestions.map((q, i) => (
                     <li key={i}>{q}</li>
                   ))}
@@ -325,7 +325,7 @@ const STARSection: React.FC<{ label: string; content: string }> = ({ label, cont
   <div>
     <span
       className={cn(
-        'text-xs uppercase font-bold',
+        'text-sm uppercase font-bold',
         label === 'Situation' && 'text-purple-400',
         label === 'Task' && 'text-blue-400',
         label === 'Action' && 'text-green-400',
@@ -334,7 +334,7 @@ const STARSection: React.FC<{ label: string; content: string }> = ({ label, cont
     >
       {label}
     </span>
-    <p className="text-sm text-gray-300 mt-1">{content}</p>
+    <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide mt-2">{content}</p>
   </div>
 );
 

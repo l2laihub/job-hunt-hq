@@ -1899,12 +1899,12 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Elevator Pitch */}
       <Card>
-        <CardContent className="p-4 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
-          <h4 className="text-sm font-semibold text-blue-300 mb-2">Your Elevator Pitch</h4>
-          <p className="text-sm text-white">{prep.elevatorPitch}</p>
+        <CardContent className="p-6 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
+          <h4 className="text-base font-semibold text-blue-300 mb-4">Your Elevator Pitch</h4>
+          <p className="readable-content">{prep.elevatorPitch}</p>
         </CardContent>
       </Card>
 
@@ -1912,25 +1912,25 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
       <Card>
         <button
           onClick={() => toggleSection('questions')}
-          className="w-full p-4 flex items-center justify-between text-left"
+          className="w-full p-5 flex items-center justify-between text-left"
         >
-          <h4 className="font-semibold text-white flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-yellow-400" />
+          <h4 className="text-base font-semibold text-white flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-yellow-400" />
             Likely Questions ({prep.likelyQuestions.length})
           </h4>
           {expandedSections.has('questions') ? (
-            <ChevronUp className="w-4 h-4 text-gray-400" />
+            <ChevronUp className="w-5 h-5 text-gray-400" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <ChevronDown className="w-5 h-5 text-gray-400" />
           )}
         </button>
         {expandedSections.has('questions') && (
-          <CardContent className="pt-0 px-4 pb-4">
-            <div className="space-y-3">
+          <CardContent className="pt-0 px-5 pb-5">
+            <div className="space-y-5">
               {prep.likelyQuestions.map((q, i) => (
-                <div key={i} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                  <p className="text-sm font-medium text-white mb-2">Q: {q.question}</p>
-                  <p className="text-sm text-gray-400">A: {q.suggestedAnswer}</p>
+                <div key={i} className="bg-gray-800/50 p-5 rounded-lg border border-gray-700/50">
+                  <p className="qa-question">Q: {q.question}</p>
+                  <p className="qa-answer">A: {q.suggestedAnswer}</p>
                 </div>
               ))}
             </div>
@@ -1940,13 +1940,13 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
 
       {/* Talking Points */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-green-400 mb-3">Key Talking Points</h4>
-          <ul className="space-y-2">
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-green-400 mb-4">Key Talking Points</h4>
+          <ul className="space-y-3">
             {prep.talkingPoints.map((point, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                {point}
+              <li key={i} className="flex items-start gap-3 readable-content-sm">
+                <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                <span>{point}</span>
               </li>
             ))}
           </ul>
@@ -1955,11 +1955,11 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
 
       {/* Questions to Ask */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-blue-400 mb-3">Questions to Ask</h4>
-          <ul className="space-y-2">
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-blue-400 mb-4">Questions to Ask</h4>
+          <ul className="space-y-3">
             {prep.questionsToAsk.map((q, i) => (
-              <li key={i} className="text-sm text-gray-300 p-2 bg-gray-800/50 rounded">
+              <li key={i} className="readable-content-sm p-4 bg-gray-800/50 rounded-lg border border-gray-700/30">
                 {q}
               </li>
             ))}
@@ -1969,9 +1969,9 @@ const PhoneScreenPrepView: React.FC<{ prep: PhoneScreenPrep }> = ({ prep }) => {
 
       {/* Closing Statement */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-purple-400 mb-2">Closing Statement</h4>
-          <p className="text-sm text-gray-300 italic">"{prep.closingStatement}"</p>
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-purple-400 mb-4">Closing Statement</h4>
+          <p className="readable-content italic text-gray-200">"{prep.closingStatement}"</p>
         </CardContent>
       </Card>
     </div>
@@ -2032,14 +2032,14 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Focus Areas */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-blue-400 mb-3">Focus Areas</h4>
-          <div className="flex flex-wrap gap-2">
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-blue-400 mb-4">Focus Areas</h4>
+          <div className="flex flex-wrap gap-3">
             {prep.focusAreas.map((area, i) => (
-              <Badge key={i} variant="info" size="sm">{area}</Badge>
+              <Badge key={i} variant="info" size="sm" className="text-sm px-3 py-1.5">{area}</Badge>
             ))}
           </div>
         </CardContent>
@@ -2047,11 +2047,11 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
 
       {/* Topics to Study - Now with expandable cards */}
       <div>
-        <h4 className="text-sm font-semibold text-yellow-400 mb-3 flex items-center gap-2 px-1">
-          <GraduationCap className="w-4 h-4" />
+        <h4 className="text-base font-semibold text-yellow-400 mb-4 flex items-center gap-2 px-1">
+          <GraduationCap className="w-5 h-5" />
           Topics to Study ({prep.likelyTopics.length})
         </h4>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {prep.likelyTopics.map((topic, i) => (
             <TopicStudyCard
               key={i}
@@ -2070,11 +2070,14 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
       {/* System Design Topics */}
       {prep.systemDesignTopics.length > 0 && (
         <Card>
-          <CardContent className="p-4">
-            <h4 className="text-sm font-semibold text-purple-400 mb-3">System Design Topics</h4>
-            <ul className="space-y-1">
+          <CardContent className="p-6">
+            <h4 className="text-base font-semibold text-purple-400 mb-4">System Design Topics</h4>
+            <ul className="space-y-3">
               {prep.systemDesignTopics.map((topic, i) => (
-                <li key={i} className="text-sm text-gray-300">• {topic}</li>
+                <li key={i} className="readable-content-sm flex items-start gap-2">
+                  <span className="text-purple-400">•</span>
+                  <span>{topic}</span>
+                </li>
               ))}
             </ul>
           </CardContent>
@@ -2084,11 +2087,11 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
       {/* Coding Patterns */}
       {prep.codingPatterns.length > 0 && (
         <Card>
-          <CardContent className="p-4">
-            <h4 className="text-sm font-semibold text-green-400 mb-3">Coding Patterns to Review</h4>
-            <div className="flex flex-wrap gap-2">
+          <CardContent className="p-6">
+            <h4 className="text-base font-semibold text-green-400 mb-4">Coding Patterns to Review</h4>
+            <div className="flex flex-wrap gap-3">
               {prep.codingPatterns.map((pattern, i) => (
-                <span key={i} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">
+                <span key={i} className="px-3 py-1.5 bg-green-900/30 text-green-300 rounded-lg text-sm border border-green-800/50">
                   {pattern}
                 </span>
               ))}
@@ -2100,14 +2103,14 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
       {/* Study Resources */}
       {prep.studyResources.length > 0 && (
         <Card>
-          <CardContent className="p-4">
-            <h4 className="text-sm font-semibold text-orange-400 mb-3">Study Resources</h4>
-            <div className="space-y-2">
+          <CardContent className="p-6">
+            <h4 className="text-base font-semibold text-orange-400 mb-4">Study Resources</h4>
+            <div className="space-y-3">
               {prep.studyResources.map((resource, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
+                <div key={i} className="flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg">
                   <span
                     className={cn(
-                      'px-1.5 py-0.5 rounded text-xs',
+                      'px-2 py-1 rounded text-xs font-medium',
                       resource.priority === 'high'
                         ? 'bg-red-900/30 text-red-400'
                         : resource.priority === 'medium'
@@ -2117,7 +2120,7 @@ const TechnicalInterviewPrepView: React.FC<TechnicalInterviewPrepViewProps> = ({
                   >
                     {resource.priority}
                   </span>
-                  <span className="text-gray-300">{resource.topic}:</span>
+                  <span className="text-gray-200 font-medium">{resource.topic}:</span>
                   <span className="text-blue-400">{resource.resource}</span>
                 </div>
               ))}
@@ -2138,50 +2141,50 @@ const ApplicationStrategyView: React.FC<{ strategy: ApplicationStrategy }> = ({ 
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Fit Assessment */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-start gap-4">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-5">
             <div
               className={cn(
-                'px-4 py-3 rounded-xl border text-center min-w-[80px]',
+                'px-5 py-4 rounded-xl border text-center min-w-[90px]',
                 getCompetitivenessColor(strategy.fitAssessment.competitiveness)
               )}
             >
-              <span className="text-2xl font-bold">{strategy.fitAssessment.score}</span>
-              <span className="text-xs block uppercase">{strategy.fitAssessment.competitiveness}</span>
+              <span className="text-3xl font-bold">{strategy.fitAssessment.score}</span>
+              <span className="text-xs block uppercase mt-1">{strategy.fitAssessment.competitiveness}</span>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-300">{strategy.fitAssessment.summary}</p>
+              <p className="readable-content">{strategy.fitAssessment.summary}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Strengths & Gaps */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-5">
         <Card>
-          <CardContent className="p-4">
-            <h4 className="text-sm font-semibold text-green-400 mb-3">Strengths</h4>
-            <ul className="space-y-1">
+          <CardContent className="p-6">
+            <h4 className="text-base font-semibold text-green-400 mb-4">Strengths</h4>
+            <ul className="space-y-3">
               {strategy.fitAssessment.strengths.map((s, i) => (
-                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                  <CheckCircle className="w-3 h-3 text-green-400 mt-1 flex-shrink-0" />
-                  {s}
+                <li key={i} className="readable-content-sm flex items-start gap-3">
+                  <CheckCircle className="w-4 h-4 text-green-400 mt-1 flex-shrink-0" />
+                  <span>{s}</span>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <h4 className="text-sm font-semibold text-yellow-400 mb-3">Gaps to Address</h4>
-            <ul className="space-y-1">
+          <CardContent className="p-6">
+            <h4 className="text-base font-semibold text-yellow-400 mb-4">Gaps to Address</h4>
+            <ul className="space-y-3">
               {strategy.fitAssessment.gaps.map((g, i) => (
-                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                  <AlertTriangle className="w-3 h-3 text-yellow-400 mt-1 flex-shrink-0" />
-                  {g}
+                <li key={i} className="readable-content-sm flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400 mt-1 flex-shrink-0" />
+                  <span>{g}</span>
                 </li>
               ))}
             </ul>
@@ -2191,19 +2194,19 @@ const ApplicationStrategyView: React.FC<{ strategy: ApplicationStrategy }> = ({ 
 
       {/* Application Timing */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-blue-400 mb-2">Application Timing</h4>
-          <p className="text-sm text-gray-300">{strategy.applicationTiming}</p>
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-blue-400 mb-4">Application Timing</h4>
+          <p className="readable-content">{strategy.applicationTiming}</p>
         </CardContent>
       </Card>
 
       {/* Customization Tips */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-purple-400 mb-3">Customization Tips</h4>
-          <ul className="space-y-2">
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-purple-400 mb-4">Customization Tips</h4>
+          <ul className="space-y-3">
             {strategy.customizationTips.map((tip, i) => (
-              <li key={i} className="text-sm text-gray-300 p-2 bg-gray-800/50 rounded">
+              <li key={i} className="readable-content-sm p-4 bg-gray-800/50 rounded-lg border border-gray-700/30">
                 {tip}
               </li>
             ))}
@@ -2213,14 +2216,14 @@ const ApplicationStrategyView: React.FC<{ strategy: ApplicationStrategy }> = ({ 
 
       {/* Application Checklist */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-green-400 mb-3">Application Checklist</h4>
-          <div className="space-y-2">
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-green-400 mb-4">Application Checklist</h4>
+          <div className="space-y-3">
             {strategy.applicationChecklist.map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} className="flex items-center gap-4 p-3 bg-gray-800/30 rounded-lg">
                 <span
                   className={cn(
-                    'px-2 py-0.5 rounded text-xs',
+                    'px-2.5 py-1 rounded text-xs font-medium',
                     item.priority === 'required'
                       ? 'bg-red-900/30 text-red-400'
                       : item.priority === 'recommended'
@@ -2230,7 +2233,7 @@ const ApplicationStrategyView: React.FC<{ strategy: ApplicationStrategy }> = ({ 
                 >
                   {item.priority}
                 </span>
-                <span className="text-sm text-gray-300">{item.item}</span>
+                <span className="readable-content-sm">{item.item}</span>
               </div>
             ))}
           </div>
@@ -2239,9 +2242,9 @@ const ApplicationStrategyView: React.FC<{ strategy: ApplicationStrategy }> = ({ 
 
       {/* Follow-up Strategy */}
       <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold text-orange-400 mb-2">Follow-up Strategy</h4>
-          <p className="text-sm text-gray-300">{strategy.followUpStrategy}</p>
+        <CardContent className="p-6">
+          <h4 className="text-base font-semibold text-orange-400 mb-4">Follow-up Strategy</h4>
+          <p className="readable-content">{strategy.followUpStrategy}</p>
         </CardContent>
       </Card>
     </div>
@@ -2285,29 +2288,29 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
     <div className="space-y-6">
       {/* Summary Header */}
       <Card>
-        <CardContent className="p-4 bg-gradient-to-br from-yellow-900/20 to-orange-900/20">
-          <div className="flex items-start justify-between mb-4">
+        <CardContent className="p-6 bg-gradient-to-br from-yellow-900/20 to-orange-900/20">
+          <div className="flex items-start justify-between mb-5">
             <div>
-              <h3 className="font-semibold text-white flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Rocket className="w-5 h-5 text-yellow-400" />
                 Your Learning Path
               </h3>
-              <p className="text-sm text-gray-300 mt-1">{roadmap.summary}</p>
+              <p className="readable-content mt-3">{roadmap.summary}</p>
             </div>
             <div className="text-right">
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-base">
                 <span className="text-gray-400">Current Fit:</span>
                 <span className={cn(
-                  'font-bold',
+                  'font-bold text-lg',
                   roadmap.currentFitScore >= 7 ? 'text-green-400' : roadmap.currentFitScore >= 5 ? 'text-yellow-400' : 'text-red-400'
                 )}>
                   {roadmap.currentFitScore}/10
                 </span>
-                <TrendingUp className="w-4 h-4 text-gray-500" />
-                <span className="font-bold text-green-400">{roadmap.targetFitScore}/10</span>
+                <TrendingUp className="w-5 h-5 text-gray-500" />
+                <span className="font-bold text-lg text-green-400">{roadmap.targetFitScore}/10</span>
               </div>
-              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 justify-end">
-                <Clock className="w-3 h-3" />
+              <div className="text-sm text-gray-500 mt-2 flex items-center gap-1 justify-end">
+                <Clock className="w-4 h-4" />
                 Est. time: {roadmap.totalEstimatedTime}
               </div>
             </div>
@@ -2315,15 +2318,15 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
 
           {/* Quick Wins */}
           {roadmap.quickWins.length > 0 && (
-            <div className="mt-4 p-3 bg-green-900/20 rounded-lg border border-green-800/50">
-              <h4 className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Quick Wins - Do This Week
+            <div className="mt-5 p-4 bg-green-900/20 rounded-lg border border-green-800/50">
+              <h4 className="text-sm font-bold text-green-400 uppercase mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" /> Quick Wins - Do This Week
               </h4>
-              <ul className="space-y-1">
+              <ul className="space-y-3">
                 {roadmap.quickWins.map((win, i) => (
-                  <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    {win}
+                  <li key={i} className="readable-content-sm flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                    <span>{win}</span>
                   </li>
                 ))}
               </ul>
@@ -2335,69 +2338,69 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
       {/* Skill Gaps */}
       <Card>
         <CardHeader>
-          <h3 className="font-semibold text-white flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-blue-400" />
             Skills to Develop ({roadmap.skillGaps.length})
           </h3>
         </CardHeader>
-        <CardContent className="p-4 space-y-3">
+        <CardContent className="p-5 space-y-4">
           {roadmap.skillGaps.map((gap, i) => (
             <div
               key={i}
-              className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden"
+              className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden"
             >
               <button
                 onClick={() => toggleSkill(gap.skill)}
-                className="w-full p-3 flex items-center justify-between text-left hover:bg-gray-800/70 transition-colors"
+                className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-800/70 transition-colors"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <span
                     className={cn(
-                      'px-2 py-0.5 rounded text-xs font-medium border',
+                      'px-2.5 py-1 rounded text-xs font-medium border',
                       getPriorityColor(gap.priority)
                     )}
                   >
                     {gap.priority}
                   </span>
-                  <span className="font-medium text-white">{gap.skill}</span>
+                  <span className="font-medium text-white text-base">{gap.skill}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-xs">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm">
                     <span className={getLevelColor(gap.currentLevel)}>{gap.currentLevel}</span>
-                    <span className="text-gray-500 mx-1">→</span>
+                    <span className="text-gray-500 mx-2">→</span>
                     <span className={getLevelColor(gap.targetLevel)}>{gap.targetLevel}</span>
                   </div>
                   <Badge variant="default" size="sm">{gap.estimatedTime}</Badge>
                   {expandedSkills.has(gap.skill) ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                    <ChevronUp className="w-5 h-5 text-gray-400" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
                   )}
                 </div>
               </button>
 
               {expandedSkills.has(gap.skill) && (
-                <div className="px-3 pb-3 border-t border-gray-700 pt-3">
+                <div className="px-5 pb-5 border-t border-gray-700 pt-4">
                   {/* Learning Resources */}
                   {gap.learningResources && gap.learningResources.length > 0 && (
-                    <div className="mb-3">
-                      <h5 className="text-xs font-bold text-gray-400 uppercase mb-2">Learning Resources</h5>
-                      <div className="space-y-2">
+                    <div className="mb-4">
+                      <h5 className="text-sm font-bold text-gray-400 uppercase mb-3">Learning Resources</h5>
+                      <div className="space-y-3">
                         {gap.learningResources.map((resource, j) => (
                           <div
                             key={j}
-                            className="flex items-center justify-between p-2 bg-gray-900/50 rounded text-sm"
+                            className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg"
                           >
-                            <div className="flex items-center gap-2">
-                              <span className={cn('px-1.5 py-0.5 rounded text-xs', getCostBadge(resource.cost))}>
+                            <div className="flex items-center gap-3">
+                              <span className={cn('px-2 py-1 rounded text-xs', getCostBadge(resource.cost))}>
                                 {resource.cost}
                               </span>
-                              <span className="text-gray-300">{resource.name}</span>
-                              <span className="text-gray-500 text-xs">({resource.provider})</span>
+                              <span className="text-gray-200">{resource.name}</span>
+                              <span className="text-gray-500 text-sm">({resource.provider})</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               {resource.estimatedHours && (
-                                <span className="text-xs text-gray-500">{resource.estimatedHours}h</span>
+                                <span className="text-sm text-gray-500">{resource.estimatedHours}h</span>
                               )}
                               {resource.url && (
                                 <a
@@ -2406,7 +2409,7 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
                                   rel="noopener noreferrer"
                                   className="text-blue-400 hover:text-blue-300"
                                 >
-                                  <ExternalLink className="w-3 h-3" />
+                                  <ExternalLink className="w-4 h-4" />
                                 </a>
                               )}
                             </div>
@@ -2419,12 +2422,12 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
                   {/* Practice Projects */}
                   {gap.practiceProjects && gap.practiceProjects.length > 0 && (
                     <div>
-                      <h5 className="text-xs font-bold text-gray-400 uppercase mb-2">Practice Projects</h5>
-                      <ul className="space-y-1">
+                      <h5 className="text-sm font-bold text-gray-400 uppercase mb-3">Practice Projects</h5>
+                      <ul className="space-y-3">
                         {gap.practiceProjects.map((project, j) => (
-                          <li key={j} className="text-sm text-gray-300 flex items-start gap-2">
-                            <Code className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                            {project}
+                          <li key={j} className="readable-content-sm flex items-start gap-3">
+                            <Code className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                            <span>{project}</span>
                           </li>
                         ))}
                       </ul>
@@ -2441,27 +2444,27 @@ const SkillsRoadmapView: React.FC<{ roadmap: SkillsRoadmap }> = ({ roadmap }) =>
       {roadmap.steppingStoneRoles && roadmap.steppingStoneRoles.length > 0 && (
         <Card>
           <CardHeader>
-            <h3 className="font-semibold text-white flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
               <MapPin className="w-5 h-5 text-purple-400" />
               Stepping Stone Roles
             </h3>
           </CardHeader>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-5 space-y-4">
             {roadmap.steppingStoneRoles.map((role, i) => (
-              <div key={i} className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium text-white">{role.roleTitle}</h4>
+              <div key={i} className="p-5 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                <div className="flex items-start justify-between mb-3">
+                  <h4 className="font-medium text-white text-base">{role.roleTitle}</h4>
                   <span className={cn(
-                    'px-2 py-0.5 rounded text-xs font-bold',
+                    'px-2.5 py-1 rounded text-xs font-bold',
                     role.fitScore >= 7 ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
                   )}>
                     {role.fitScore}/10 fit
                   </span>
                 </div>
-                <p className="text-sm text-gray-400 mb-2">{role.whyItHelps}</p>
-                <div className="flex flex-wrap gap-1">
+                <p className="readable-content-sm mb-3">{role.whyItHelps}</p>
+                <div className="flex flex-wrap gap-2">
                   {role.skillsYoullGain.map((skill, j) => (
-                    <span key={j} className="px-2 py-0.5 bg-purple-900/30 text-purple-300 rounded text-xs">
+                    <span key={j} className="px-2.5 py-1 bg-purple-900/30 text-purple-300 rounded text-sm">
                       +{skill}
                     </span>
                   ))}

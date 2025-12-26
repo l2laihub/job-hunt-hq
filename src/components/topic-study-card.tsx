@@ -220,9 +220,9 @@ export const TopicStudyCard: React.FC<TopicStudyCardProps> = ({
 
               {/* Practice Notes */}
               {details.practiceNotes && (
-                <div className="p-3 bg-purple-900/20 rounded-lg border border-purple-800/50">
-                  <h5 className="text-sm font-semibold text-purple-400 mb-2">Practice Tips</h5>
-                  <p className="text-sm text-gray-300">{details.practiceNotes}</p>
+                <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-800/50">
+                  <h5 className="text-sm font-semibold text-purple-400 mb-3">Practice Tips</h5>
+                  <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide">{details.practiceNotes}</p>
                 </div>
               )}
 
@@ -307,13 +307,13 @@ const QuestionCard: React.FC<{
       </button>
 
       {showAnswer && (
-        <div className="px-3 pb-3 border-t border-gray-700 pt-3 ml-9">
+        <div className="px-4 pb-4 border-t border-gray-700 pt-4 ml-9">
           {/* Key Points */}
-          <div className="mb-3">
-            <span className="text-xs font-bold text-gray-500 uppercase">Key Points</span>
-            <ul className="mt-1 space-y-1">
+          <div className="mb-4">
+            <span className="text-sm font-bold text-gray-500 uppercase">Key Points</span>
+            <ul className="mt-2 space-y-2">
               {question.keyPoints.map((point, i) => (
-                <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                <li key={i} className="text-sm text-gray-300 leading-[1.7] tracking-wide flex items-start gap-2">
                   <span className="text-blue-400 mt-0.5">•</span>
                   {point}
                 </li>
@@ -322,18 +322,18 @@ const QuestionCard: React.FC<{
           </div>
 
           {/* Full Answer */}
-          <div className="mb-3">
-            <span className="text-xs font-bold text-gray-500 uppercase">Answer</span>
-            <div className="mt-1 p-3 bg-gray-900/50 rounded-lg">
+          <div className="mb-4">
+            <span className="text-sm font-bold text-gray-500 uppercase">Answer</span>
+            <div className="mt-2 p-4 bg-gray-900/50 rounded-lg">
               <MarkdownRenderer content={question.answer} variant="compact" />
             </div>
           </div>
 
           {/* Follow-up */}
           {question.followUp && (
-            <div className="p-2 bg-yellow-900/10 rounded border border-yellow-800/30">
-              <span className="text-xs font-bold text-yellow-500">Likely Follow-up:</span>
-              <p className="text-xs text-gray-300 mt-1">{question.followUp}</p>
+            <div className="p-3 bg-yellow-900/10 rounded border border-yellow-800/30">
+              <span className="text-sm font-bold text-yellow-500">Likely Follow-up:</span>
+              <p className="text-sm text-gray-300 leading-[1.7] tracking-wide mt-2">{question.followUp}</p>
             </div>
           )}
         </div>
