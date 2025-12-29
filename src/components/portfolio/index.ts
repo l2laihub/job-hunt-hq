@@ -5,5 +5,6 @@
 
 export { ImageUploader, CompactImageUploader } from './ImageUploader';
 export { ImageAnnotator, AnnotatedImageViewer } from './ImageAnnotator';
+export { DocumentFileUploader } from './DocumentFileUploader';
 export { ProjectDocModal } from './ProjectDocModal';
 export { ProjectsSection } from './ProjectsSection';

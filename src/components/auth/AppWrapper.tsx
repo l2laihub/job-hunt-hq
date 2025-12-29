@@ -28,6 +28,8 @@ type AppState = 'loading' | 'unauthenticated' | 'migrating' | 'initializing' | '
 export function AppWrapper({ children }: AppWrapperProps) {
   const { user, loading: authLoading, isConfigured } = useAuth();
   const [appState, setAppState] = useState<AppState>('loading');
+  // Track if we've already checked migration to prevent re-showing on tab focus
+  const [migrationChecked, setMigrationChecked] = useState(false);
 
   const fetchProfiles = useSupabaseProfileStore((state) => state.fetchProfiles);
   const fetchApplications = useSupabaseApplicationStore((state) => state.fetchApplications);
@@ -76,21 +78,31 @@ export function AppWrapper({ children }: AppWrapperProps) {
     if (!isConfigured) {
       // Supabase not configured - proceed without auth
       setAppState('ready');
+      setMigrationChecked(true);
       return;
     }
 
     if (!user) {
       setAppState('unauthenticated');
+      // Reset migration check when user logs out
+      setMigrationChecked(false);
       return;
     }
 
-    // User is authenticated - check for migration
-    if (hasLocalStorageData() && !isMigrationComplete()) {
+    // Skip if we've already checked migration and are past the initial load
+    // This prevents re-showing migration prompt on tab focus
+    if (migrationChecked && (appState === 'ready' || appState === 'initializing')) {
+      return;
+    }
+
+    // User is authenticated - check for migration (only once per session)
+    if (!migrationChecked && hasLocalStorageData() && !isMigrationComplete()) {
       setAppState('migrating');
     } else {
+      setMigrationChecked(true);
       initializeData();
     }
-  }, [user, authLoading, isConfigured, initializeData]);
+  }, [user, authLoading, isConfigured, initializeData, migrationChecked, appState]);
 
   // Set up real-time subscriptions when ready
   useEffect(() => {
@@ -113,10 +125,12 @@ export function AppWrapper({ children }: AppWrapperProps) {
 
   // Handle migration completion
   const handleMigrationComplete = useCallback(() => {
+    setMigrationChecked(true);
     initializeData();
   }, [initializeData]);
 
   const handleMigrationSkip = useCallback(() => {
+    setMigrationChecked(true);
     initializeData();
   }, [initializeData]);
 

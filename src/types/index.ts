@@ -73,11 +73,26 @@ export interface ProjectMetric {
   context: string;
 }
 
+// Document file (markdown, code, etc.) for project documentation
+export interface DocumentFile {
+  id: string;
+  type: 'markdown' | 'code' | 'text';
+  filename: string;
+  content: string;                // File content (stored in DB, not storage)
+  language?: string;              // For code files: tsx, ts, js, py, etc.
+  description?: string;           // User's note about the file
+  uploadedAt: string;
+  fileSize: number;               // Size in bytes
+}
+
 // Full project documentation
 export interface ProjectDocumentation {
   // Visual assets
   screenshots: MediaAsset[];
   architectureDiagrams: MediaAsset[];
+
+  // Document files (markdown, code, etc.)
+  documentFiles?: DocumentFile[];
 
   // Technical narrative
   technicalDecisions: TechnicalDecision[];
@@ -101,6 +116,7 @@ export interface ProjectDocumentation {
 export const DEFAULT_PROJECT_DOCUMENTATION: ProjectDocumentation = {
   screenshots: [],
   architectureDiagrams: [],
+  documentFiles: [],
   technicalDecisions: [],
   challenges: [],
   metrics: [],

@@ -1,10 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useInterviewPrepStore,
-  useCurrentProfile,
   toast,
 } from '@/src/stores';
-import { useApplications, useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
+import { useApplications, useStories, useUnifiedActiveProfileId, useProfile } from '@/src/hooks/useAppData';
 import {
   predictInterviewQuestions,
   generateQuickRefFromSession,
@@ -413,7 +412,7 @@ const EmptyState: React.FC<{
 // Main page component
 export const InterviewPrepPage: React.FC = () => {
   const activeProfileId = useUnifiedActiveProfileId();
-  const profile = useCurrentProfile();
+  const { profile } = useProfile();
   const { applications: allApplications } = useApplications();
   const { stories: allStories } = useStories();
 

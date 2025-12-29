@@ -217,23 +217,28 @@ function parseZustandStorage<T>(key: string): T | null {
 }
 
 /**
+ * Check if migration has already been completed
+ */
+export function isMigrationComplete(): boolean {
+  return localStorage.getItem('jhq:migration:v1') !== null;
+}
+
+/**
  * Check if user has localStorage data to migrate
+ * Only returns true if there is actual meaningful data (not just empty arrays from Zustand persist)
  */
 export function hasLocalStorageData(): boolean {
-  const keys = [
-    STORAGE_KEYS.PROFILE,
-    STORAGE_KEYS.APPLICATIONS,
-    STORAGE_KEYS.STORIES,
-    STORAGE_KEYS.COMPANY_RESEARCH,
-    STORAGE_KEYS.TECHNICAL_ANSWERS,
-    STORAGE_KEYS.ANALYZED_JOBS,
-    // Legacy keys
-    STORAGE_KEYS.LEGACY_PROFILE,
-    STORAGE_KEYS.LEGACY_APPLICATIONS,
-    STORAGE_KEYS.LEGACY_STORIES,
-  ];
+  // If migration is already complete, don't prompt again
+  if (isMigrationComplete()) {
+    return false;
+  }
 
-  return keys.some((key) => localStorage.getItem(key) !== null);
+  // Check for actual data content, not just existence of keys
+  const summary = getLocalStorageSummary();
+  const totalItems = Object.values(summary).reduce((a, b) => a + b, 0);
+
+  // Only return true if there's at least one item to migrate
+  return totalItems > 0;
 }
 
 /**
@@ -420,13 +425,6 @@ export function clearMigratedLocalStorage(): void {
   // Mark migration as complete
   localStorage.setItem('jhq:migration:v1', new Date().toISOString());
   console.log('Cleared migrated localStorage data');
-}
-
-/**
- * Check if migration has already been completed
- */
-export function isMigrationComplete(): boolean {
-  return localStorage.getItem('jhq:migration:v1') !== null;
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   Edit2,
   Check,
   X,
+  Files,
 } from 'lucide-react';
 import {
   Project,
@@ -147,6 +148,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
 
     return {
       images: docs.screenshots.length + docs.architectureDiagrams.length,
+      documents: docs.documentFiles?.length || 0,
       decisions: docs.technicalDecisions.length,
       challenges: docs.challenges.length,
       metrics: docs.metrics.length,
@@ -306,6 +308,12 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                             {stats.images}
                           </span>
                         )}
+                        {stats.documents > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Files className="w-3 h-3" />
+                            {stats.documents}
+                          </span>
+                        )}
                         {stats.decisions > 0 && (
                           <span className="flex items-center gap-1">
                             <Lightbulb className="w-3 h-3" />
@@ -396,13 +404,17 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                     </div>
 
                     {/* Documentation Preview */}
-                    {stats && (stats.images > 0 || stats.decisions > 0 || stats.challenges > 0) && (
+                    {stats && (stats.images > 0 || stats.documents > 0 || stats.decisions > 0 || stats.challenges > 0) && (
                       <div className="p-3 border-t border-gray-800 bg-gray-900/30">
                         <h4 className="text-xs font-medium text-gray-400 mb-2">Documentation</h4>
-                        <div className="grid grid-cols-4 gap-2 text-xs">
+                        <div className="grid grid-cols-5 gap-2 text-xs">
                           <div className="p-2 bg-gray-800 rounded text-center">
                             <div className="text-lg font-bold text-white">{stats.images}</div>
                             <div className="text-gray-500">Images</div>
+                          </div>
+                          <div className="p-2 bg-gray-800 rounded text-center">
+                            <div className="text-lg font-bold text-white">{stats.documents}</div>
+                            <div className="text-gray-500">Docs</div>
                           </div>
                           <div className="p-2 bg-gray-800 rounded text-center">
                             <div className="text-lg font-bold text-white">{stats.decisions}</div>
