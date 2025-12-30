@@ -5,7 +5,7 @@
  * Creates a styled HTML document and triggers print-to-PDF.
  */
 
-import type { EnhancedProfile, EnhancedRole, ResumeAnalysis, UserProfile } from '@/src/types';
+import type { EnhancedProfile, EnhancedRole, ResumeAnalysis, UserProfile, SkillGroup } from '@/src/types';
 
 /**
  * Parse a duration string and extract the end date for sorting
@@ -310,7 +310,40 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     return Object.fromEntries(sortedEntries);
   };
 
-  const technicalCategories = categorizeSkills(enhanced.technicalSkills);
+  // Convert user-defined SkillGroups to the format used for rendering
+  const userGroupsToCategories = (groups: SkillGroup[]): Record<string, string[]> => {
+    if (!groups || groups.length === 0) return {};
+
+    // Sort by order and convert to Record format
+    const sorted = [...groups].sort((a, b) => a.order - b.order);
+    return Object.fromEntries(
+      sorted.map(g => [g.name, g.skills]).filter(([_, skills]) => skills.length > 0)
+    );
+  };
+
+  // Use user-defined skill groups if available, otherwise auto-categorize
+  const userDefinedCategories = profile.skillGroups && profile.skillGroups.length > 0
+    ? userGroupsToCategories(profile.skillGroups)
+    : null;
+
+  // If user has defined groups, use them. Otherwise fall back to auto-categorization.
+  // Also include any uncategorized skills in an "Additional Skills" group
+  let technicalCategories: Record<string, string[]>;
+
+  if (userDefinedCategories && Object.keys(userDefinedCategories).length > 0) {
+    technicalCategories = userDefinedCategories;
+
+    // Find skills not in any user group and add them as "Additional Skills"
+    const categorizedSkills = new Set(Object.values(userDefinedCategories).flat());
+    const uncategorized = enhanced.technicalSkills.filter(s => !categorizedSkills.has(s));
+
+    if (uncategorized.length > 0) {
+      technicalCategories['Additional Skills'] = uncategorized;
+    }
+  } else {
+    // Fall back to auto-categorization
+    technicalCategories = categorizeSkills(enhanced.technicalSkills);
+  }
 
   return `
 <!DOCTYPE html>
@@ -842,6 +875,36 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
 }
 
 /**
+ * Convert user-defined SkillGroups to Record format for rendering
+ */
+function skillGroupsToRecord(
+  groups: SkillGroup[] | undefined,
+  technicalSkills: string[]
+): Record<string, string[]> | null {
+  if (!groups || groups.length === 0) return null;
+
+  // Sort by order and convert to Record format
+  const sorted = [...groups].sort((a, b) => a.order - b.order);
+  const result: Record<string, string[]> = {};
+
+  for (const group of sorted) {
+    if (group.skills.length > 0) {
+      result[group.name] = group.skills;
+    }
+  }
+
+  // Find skills not in any user group and add them as "Additional Skills"
+  const categorizedSkills = new Set(Object.values(result).flat());
+  const uncategorized = technicalSkills.filter(s => !categorizedSkills.has(s));
+
+  if (uncategorized.length > 0) {
+    result['Additional Skills'] = uncategorized;
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+/**
  * Generate professional resume HTML for PDF export
  */
 export function generateResumeHTML(options: ResumePDFOptions): string {
@@ -874,6 +937,9 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
   } else {
     pdfTitle = `${namePart} - Resume - ${datePart}`;
   }
+
+  // Get skill groups - use user-defined if available
+  const skillCategories = skillGroupsToRecord(profile.skillGroups, enhanced.technicalSkills);
 
   return `
 <!DOCTYPE html>
@@ -1307,6 +1373,33 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     <!-- Skills -->
     <section class="section">
       <h2 class="section-title">Skills</h2>
+      ${
+        skillCategories
+          ? `
+      <div>
+        ${Object.entries(skillCategories).map(([category, skills]) => `
+        <div class="skills-category" style="margin-bottom: 8px;">
+          <div class="skills-category-title">${category}</div>
+          <div class="skills-grid">
+            ${skills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
+          </div>
+        </div>
+        `).join('')}
+        ${
+          enhanced.softSkills.length > 0
+            ? `
+          <div class="skills-category" style="margin-top: 12px;">
+            <div class="skills-category-title">Professional Skills</div>
+            <div class="skills-grid">
+              ${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
+            </div>
+          </div>
+        `
+            : ''
+        }
+      </div>
+      `
+          : `
       <div class="two-column">
         <div class="skills-category">
           <div class="skills-category-title">Technical Skills</div>
@@ -1327,6 +1420,8 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
             : ''
         }
       </div>
+      `
+      }
     </section>
 
     <!-- Experience -->

@@ -423,8 +423,8 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({ session }) => {
   // Start practice
   const handleStartPractice = () => {
     if (mode === 'mock') {
-      // Navigate to mock interview with context
-      navigate('/interview');
+      // Navigate to enhanced mock interview with session context
+      navigate(`/mock-interview?sessionId=${session.id}`);
       return;
     }
 

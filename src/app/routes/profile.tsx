@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from '@/src/stores';
 import { useProfileData } from '@/src/hooks/useProfileData';
-import { processDocuments } from '@/src/services/gemini';
+import { processDocuments, categorizeSkills } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select, EditableText, EditableList } from '@/src/components/ui';
 import { ProfileEmptyState } from '@/src/components/shared';
-import { ProfileManagement } from '@/src/components/profile';
+import { ProfileManagement, SkillGroupManager } from '@/src/components/profile';
 import { cn } from '@/src/lib/utils';
-import type { UserProfile, Achievement, Role, Project } from '@/src/types';
+import type { UserProfile, Achievement, Role, Project, SkillGroup } from '@/src/types';
 import {
   User,
   Upload,
@@ -32,6 +32,7 @@ import {
   CloudOff,
   Loader2,
   FolderKanban,
+  Tags,
 } from 'lucide-react';
 import { ProjectsSection } from '@/src/components/portfolio';
 import { useAuth } from '@/src/lib/supabase';
@@ -257,6 +258,32 @@ export const ProfilePage: React.FC = () => {
       type,
       editedProfile[type].filter((s) => s !== skill)
     );
+  };
+
+  // Skill group handlers
+  const [isAutoCategorizing, setIsAutoCategorizing] = useState(false);
+
+  const handleSkillGroupsChange = (groups: SkillGroup[]) => {
+    handleFieldChange('skillGroups', groups);
+  };
+
+  const handleAutoCategorizeTechnical = async () => {
+    if (editedProfile.technicalSkills.length === 0) {
+      toast.error('No skills', 'Add some technical skills first');
+      return;
+    }
+
+    setIsAutoCategorizing(true);
+    try {
+      const groups = await categorizeSkills(editedProfile.technicalSkills);
+      handleFieldChange('skillGroups', groups);
+      toast.success('Skills categorized', `Created ${groups.length} skill groups`);
+    } catch (error) {
+      console.error('Auto-categorize failed:', error);
+      toast.error('Categorization failed', 'Could not auto-categorize skills');
+    } finally {
+      setIsAutoCategorizing(false);
+    }
   };
 
   // Preference input handlers
@@ -572,6 +599,28 @@ export const ProfilePage: React.FC = () => {
                 </Button>
               </div>
             </div>
+          </div>
+        </ProfileSection>
+
+        {/* Skill Groups */}
+        <ProfileSection
+          title="Organize Skills"
+          icon={<Tags className="w-4 h-4" />}
+          isOpen={activeSection === 'skillGroups'}
+          onToggle={() => toggleSection('skillGroups')}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Organize your technical skills into groups for a better resume layout. Drag skills between groups or use AI to auto-categorize.
+            </p>
+            <SkillGroupManager
+              technicalSkills={editedProfile.technicalSkills}
+              softSkills={editedProfile.softSkills}
+              skillGroups={editedProfile.skillGroups || []}
+              onSkillGroupsChange={handleSkillGroupsChange}
+              onAutoCategorizeTechnical={handleAutoCategorizeTechnical}
+              isAutoCategorizing={isAutoCategorizing}
+            />
           </div>
         </ProfileSection>
 

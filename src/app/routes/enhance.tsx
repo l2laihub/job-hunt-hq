@@ -48,6 +48,7 @@ import {
   FileUp,
   UserPlus,
   ExternalLink,
+  Save,
 } from 'lucide-react';
 
 // Source of data for enhancement
@@ -586,17 +587,20 @@ const AnalysisOverview: React.FC<{ analysis: ResumeAnalysis }> = ({ analysis }) 
 // Enhanced preview component with inline editing
 interface EnhancedPreviewProps {
   enhanced: EnhancedProfile;
-  original: any;
+  original: UserProfile;
   onUpdate: (updates: Partial<EnhancedProfile>) => void;
+  onSaveToProfile: (field: 'headline' | 'experience' | 'skills' | 'achievements' | 'all') => void;
+  isSaving?: boolean;
 }
 
 const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
   enhanced,
   original,
   onUpdate,
+  onSaveToProfile,
+  isSaving = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'headline' | 'experience' | 'skills' | 'achievements'>('headline');
-  const [isEditing, setIsEditing] = useState(false);
 
   // Sort roles for display
   const sortedRoles = sortRolesByDate(enhanced.recentRoles);
@@ -688,6 +692,30 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
             <Badge className="bg-blue-900/30 text-blue-400 text-xs">
               Click any text to edit
             </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => onSaveToProfile(activeTab)}
+              disabled={isSaving}
+              className="bg-green-600 hover:bg-green-500 text-xs"
+            >
+              {isSaving ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <Save className="w-3 h-3 mr-1" />
+              )}
+              Save {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onSaveToProfile('all')}
+              disabled={isSaving}
+              className="text-xs text-gray-400 hover:text-white"
+            >
+              Save All Changes
+            </Button>
           </div>
         </div>
         <div className="flex gap-2 mt-2">
@@ -797,6 +825,11 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
           <div className="space-y-4">
             <div className="text-xs text-gray-500 mb-2">
               Click skills to edit. Green badges indicate new skills added by AI.
+              {original.skillGroups && original.skillGroups.length > 0 && (
+                <span className="ml-2 text-cyan-400">
+                  Your {original.skillGroups.length} skill groups will be used in the PDF.
+                </span>
+              )}
             </div>
             <div>
               <div className="text-sm font-medium text-gray-300 mb-2">Technical Skills</div>
@@ -1275,6 +1308,60 @@ export const EnhancePage: React.FC = () => {
         },
       };
     });
+  };
+
+  // State for saving individual sections
+  const [isSavingToProfile, setIsSavingToProfile] = useState(false);
+
+  // Handler for saving specific sections from Enhanced Preview to profile
+  const handleSaveToProfile = async (field: 'headline' | 'experience' | 'skills' | 'achievements' | 'all') => {
+    if (!enhancement) return;
+
+    setIsSavingToProfile(true);
+    try {
+      const ep = enhancement.enhancedProfile;
+
+      if (field === 'headline' || field === 'all') {
+        updateProfile({ headline: ep.headline });
+      }
+
+      if (field === 'experience' || field === 'all') {
+        if (ep.recentRoles.length > 0) {
+          const updatedRoles = ep.recentRoles.map((er) => ({
+            company: er.company,
+            title: er.title,
+            duration: er.duration,
+            highlights: er.enhancedHighlights,
+          }));
+          updateProfile({ recentRoles: updatedRoles });
+        }
+      }
+
+      if (field === 'skills' || field === 'all') {
+        if (ep.technicalSkills.length > 0) {
+          const normalizedTechnicalSkills = normalizeSkills(ep.technicalSkills);
+          updateProfile({ technicalSkills: normalizedTechnicalSkills });
+        }
+        if (ep.softSkills.length > 0) {
+          const normalizedSoftSkills = normalizeSkills(ep.softSkills);
+          updateProfile({ softSkills: normalizedSoftSkills });
+        }
+      }
+
+      if (field === 'achievements' || field === 'all') {
+        if (ep.keyAchievements && ep.keyAchievements.length > 0) {
+          updateProfile({ keyAchievements: ep.keyAchievements });
+        }
+      }
+
+      const fieldLabel = field === 'all' ? 'All changes' : field.charAt(0).toUpperCase() + field.slice(1);
+      toast.success('Profile updated', `${fieldLabel} saved to your profile`);
+    } catch (error) {
+      console.error('Failed to save to profile:', error);
+      toast.error('Save failed', 'Could not save changes to profile');
+    } finally {
+      setIsSavingToProfile(false);
+    }
   };
 
   const handleApplyToProfile = () => {
@@ -2011,6 +2098,8 @@ export const EnhancePage: React.FC = () => {
               enhanced={enhancement.enhancedProfile}
               original={activeProfile}
               onUpdate={handleUpdateEnhancedProfile}
+              onSaveToProfile={handleSaveToProfile}
+              isSaving={isSavingToProfile}
             />
           </>
         )}

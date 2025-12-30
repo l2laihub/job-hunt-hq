@@ -218,3 +218,189 @@ export const LIKELIHOOD_LEVELS: { value: LikelihoodLevel; label: string; color: 
   { value: 'medium', label: 'Medium', color: 'yellow' },
   { value: 'low', label: 'Low', color: 'gray' },
 ];
+
+// ============================================
+// ENHANCED MOCK INTERVIEW TYPES
+// ============================================
+
+/**
+ * Enhanced interview configuration with prep session context
+ */
+export interface EnhancedInterviewConfig {
+  // Base config
+  type: 'behavioral' | 'technical' | 'system-design' | 'mixed';
+  difficulty: 'easy' | 'medium' | 'hard';
+  duration: number; // minutes
+
+  // Prep session integration
+  prepSessionId: string;
+  applicationId: string;
+
+  // Question selection
+  questionPriority: 'unpracticed' | 'high-likelihood' | 'random' | 'custom';
+  selectedQuestionIds?: string[]; // For custom selection
+  maxQuestions?: number; // Limit number of questions
+
+  // Feedback settings
+  showPreparedAnswers: boolean; // Show prepared answer after each response
+  enablePerQuestionFeedback: boolean; // Evaluate after each question
+
+  // Focus areas
+  focusCategories?: QuestionCategory[]; // Filter by category
+}
+
+/**
+ * STAR adherence tracking
+ */
+export interface StarAdherence {
+  situation: boolean;
+  task: boolean;
+  action: boolean;
+  result: boolean;
+  score: number; // 0-4 based on elements present
+}
+
+/**
+ * Comparison to prepared answer
+ */
+export interface PreparedAnswerComparison {
+  similarity: number; // 0-100%
+  keyPointsCovered: string[];
+  keyPointsMissed: string[];
+  additionalPoints: string[]; // Good points not in prepared answer
+}
+
+/**
+ * Per-question evaluation result
+ */
+export interface QuestionEvaluation {
+  score: number; // 1-10
+  starAdherence: StarAdherence;
+  preparedAnswerComparison?: PreparedAnswerComparison;
+  strengths: string[];
+  weaknesses: string[];
+  feedback: string;
+  improvementTips: string[];
+  suggestedFollowUp?: string;
+}
+
+/**
+ * Result for a single question in the interview
+ */
+export interface QuestionResult {
+  questionId: string;
+  question: PredictedQuestion;
+  userResponse: string;
+  userTranscript?: string; // If different from response (e.g., cleaned up)
+  audioBlob?: string; // Base64 encoded
+  evaluation: QuestionEvaluation;
+  responseTimeSeconds: number;
+  timestamp: string;
+}
+
+/**
+ * Category-based score breakdown
+ */
+export interface CategoryScores {
+  behavioral?: number;
+  technical?: number;
+  situational?: number;
+  'role-specific'?: number;
+  'company-specific'?: number;
+}
+
+/**
+ * Progress update after session
+ */
+export interface SessionProgressUpdate {
+  questionsNewlyPracticed: number;
+  questionsImproved: number; // Better score than last practice
+  totalPracticeCount: number;
+  readinessScoreChange: number; // +/- change
+}
+
+/**
+ * Enhanced interview feedback with question breakdown
+ */
+export interface EnhancedInterviewFeedback {
+  // Overall scores
+  overallScore: number; // 1-10
+  categoryScores: CategoryScores;
+
+  // Question-by-question results
+  questionResults: QuestionResult[];
+
+  // Summary stats
+  questionsAnswered: number;
+  averageResponseTime: number; // seconds
+  totalDuration: number; // seconds
+
+  // Prepared answer comparison
+  preparedVsActual: {
+    questionsWithPreparedAnswers: number;
+    averageSimilarity: number;
+    bestMatchQuestionId?: string;
+    worstMatchQuestionId?: string;
+  };
+
+  // Progress tracking
+  progressUpdate: SessionProgressUpdate;
+
+  // AI-generated summary
+  topStrengths: string[];
+  priorityImprovements: string[];
+  summary: string;
+  nextSteps: string[];
+
+  // Metadata
+  completedAt: string;
+  config: EnhancedInterviewConfig;
+}
+
+/**
+ * Live interview session state
+ */
+export type LiveInterviewPhase = 'setup' | 'connecting' | 'active' | 'evaluating' | 'feedback';
+
+/**
+ * Current question state during active interview
+ */
+export interface ActiveQuestionState {
+  question: PredictedQuestion;
+  index: number;
+  totalQuestions: number;
+  startedAt: string;
+  isRecording: boolean;
+  hasResponded: boolean;
+  evaluation?: QuestionEvaluation;
+}
+
+/**
+ * Enhanced mock interview session (saved to store)
+ */
+export interface EnhancedMockSession extends PrepPracticeSession {
+  // Override mode to be specifically 'mock'
+  mode: 'mock';
+
+  // Enhanced config
+  config: EnhancedInterviewConfig;
+
+  // Full results
+  feedback?: EnhancedInterviewFeedback;
+
+  // Question results for detailed tracking
+  questionResults: QuestionResult[];
+}
+
+/**
+ * Default config for enhanced interview
+ */
+export const DEFAULT_ENHANCED_INTERVIEW_CONFIG: Partial<EnhancedInterviewConfig> = {
+  type: 'mixed',
+  difficulty: 'medium',
+  duration: 20,
+  questionPriority: 'unpracticed',
+  maxQuestions: 5,
+  showPreparedAnswers: true,
+  enablePerQuestionFeedback: true,
+};

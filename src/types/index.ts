@@ -139,6 +139,15 @@ export interface Project {
   hasDocumentation?: boolean;     // Flag if docs exist in separate table
 }
 
+// Skill Group for organizing skills into categories
+export interface SkillGroup {
+  id: string;
+  name: string;           // e.g., "Property Management", "Cloud & Infrastructure"
+  skills: string[];       // Skills in this group
+  order: number;          // Display order (lower = first)
+  isCustom?: boolean;     // Whether user created this group vs AI-suggested
+}
+
 // User Profile
 export interface UserProfile {
   name: string;
@@ -148,6 +157,7 @@ export interface UserProfile {
   yearsExperience: number;
   technicalSkills: string[];
   softSkills: string[];
+  skillGroups?: SkillGroup[];     // Optional grouped skills for organized display
   industries: string[];
   keyAchievements: Achievement[];
   recentRoles: Role[];
@@ -899,6 +909,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   yearsExperience: 5,
   technicalSkills: [],
   softSkills: [],
+  skillGroups: [],
   industries: [],
   keyAchievements: [],
   recentRoles: [],

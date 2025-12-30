@@ -403,6 +403,15 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
 }
 
 /**
+ * Mark migration as skipped (user chose not to migrate)
+ * This prevents the migration dialog from showing again
+ */
+export function markMigrationSkipped(): void {
+  localStorage.setItem('jhq:migration:v1', `skipped:${new Date().toISOString()}`);
+  console.log('Migration marked as skipped');
+}
+
+/**
  * Clear localStorage after successful migration
  */
 export function clearMigratedLocalStorage(): void {

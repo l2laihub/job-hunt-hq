@@ -19,6 +19,7 @@ export { generateTopicDetails } from './topic-details';
 export { enhanceResume, analyzeResumeQuick } from './resume-enhance';
 export { generateSkillsRoadmap } from './skills-roadmap';
 export { generateApplicationAnswer, generateBatchApplicationAnswers } from './application-questions';
+export { categorizeSkills, suggestSkillsForCategory } from './categorize-skills';
 
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';

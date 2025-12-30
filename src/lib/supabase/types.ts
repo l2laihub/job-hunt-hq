@@ -30,6 +30,7 @@ export interface Database {
           current_situation: string;
           technical_skills: Json;
           soft_skills: Json;
+          skill_groups: Json;
           industries: Json;
           goals: Json;
           constraints: Json;
@@ -56,6 +57,7 @@ export interface Database {
           current_situation?: string;
           technical_skills?: Json;
           soft_skills?: Json;
+          skill_groups?: Json;
           industries?: Json;
           goals?: Json;
           constraints?: Json;
@@ -82,6 +84,7 @@ export interface Database {
           current_situation?: string;
           technical_skills?: Json;
           soft_skills?: Json;
+          skill_groups?: Json;
           industries?: Json;
           goals?: Json;
           constraints?: Json;

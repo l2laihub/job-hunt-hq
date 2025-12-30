@@ -8,6 +8,7 @@ import {
   getLocalStorageSummary,
   runFullMigration,
   isMigrationComplete,
+  markMigrationSkipped,
 } from '@/src/stores/supabase';
 import { Database, ArrowRight, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -32,6 +33,12 @@ export function DataMigration({ onComplete, onSkip }: DataMigrationProps) {
     setSummary(getLocalStorageSummary());
     setStatus('ready');
   }, [onComplete]);
+
+  const handleSkip = () => {
+    // Mark migration as skipped so it doesn't appear again
+    markMigrationSkipped();
+    onSkip();
+  };
 
   const handleMigrate = async () => {
     setStatus('migrating');
@@ -130,7 +137,7 @@ export function DataMigration({ onComplete, onSkip }: DataMigrationProps) {
 
             <div className="flex gap-3">
               <button
-                onClick={onSkip}
+                onClick={handleSkip}
                 className="flex-1 py-2.5 px-4 bg-gray-800 text-gray-300 rounded-lg font-medium hover:bg-gray-700 transition-colors"
               >
                 Skip
@@ -180,7 +187,7 @@ export function DataMigration({ onComplete, onSkip }: DataMigrationProps) {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={onSkip}
+                onClick={handleSkip}
                 className="flex-1 py-2.5 px-4 bg-gray-800 text-gray-300 rounded-lg font-medium hover:bg-gray-700 transition-colors"
               >
                 Continue Without Data

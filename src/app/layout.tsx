@@ -35,10 +35,10 @@ const navItems = [
   // Job Search
   { to: '/analyzer', label: 'Job Prep', icon: Search },
   { to: '/research', label: 'Research', icon: Globe },
-  // Interview Prep Hub - NEW
+  // Interview Prep Hub
   { to: '/interview-prep', label: 'Interview Prep', icon: Target },
   { to: '/answers', label: 'Answer Prep', icon: Zap },
-  { to: '/interview', label: 'Mock Interview', icon: Mic },
+  { to: '/mock-interview', label: 'Mock Interview', icon: Mic },
   // Tools
   { to: '/enhance', label: 'Enhance', icon: Sparkles },
 ];

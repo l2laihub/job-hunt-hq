@@ -40,5 +40,6 @@ export {
   migrateLocalStorageToSupabase,
   clearMigratedLocalStorage,
   isMigrationComplete,
+  markMigrationSkipped,
   runFullMigration,
 } from '@/src/services/database/migration';
