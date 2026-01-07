@@ -25,6 +25,11 @@ export interface Database {
           display_name: string;
           email: string | null;
           phone: string | null;
+          linkedin_url: string | null;
+          github_url: string | null;
+          portfolio_url: string | null;
+          website_url: string | null;
+          other_links: Json;
           headline: string;
           years_experience: number;
           current_situation: string;
@@ -52,6 +57,11 @@ export interface Database {
           display_name?: string;
           email?: string | null;
           phone?: string | null;
+          linkedin_url?: string | null;
+          github_url?: string | null;
+          portfolio_url?: string | null;
+          website_url?: string | null;
+          other_links?: Json;
           headline?: string;
           years_experience?: number;
           current_situation?: string;
@@ -79,6 +89,11 @@ export interface Database {
           display_name?: string;
           email?: string | null;
           phone?: string | null;
+          linkedin_url?: string | null;
+          github_url?: string | null;
+          portfolio_url?: string | null;
+          website_url?: string | null;
+          other_links?: Json;
           headline?: string;
           years_experience?: number;
           current_situation?: string;

@@ -33,6 +33,11 @@ import {
   Loader2,
   FolderKanban,
   Tags,
+  Linkedin,
+  Github,
+  Globe,
+  Link2,
+  X,
 } from 'lucide-react';
 import { ProjectsSection } from '@/src/components/portfolio';
 import { useAuth } from '@/src/lib/supabase';
@@ -475,6 +480,122 @@ export const ProfilePage: React.FC = () => {
                 placeholder="+1 (555) 123-4567"
               />
             </div>
+
+            {/* Professional Links */}
+            <Card className="bg-gray-800/30">
+              <CardContent className="p-4">
+                <h4 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-blue-400" />
+                  Professional Links
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-gray-400 flex items-center gap-1.5">
+                      <Linkedin className="w-3.5 h-3.5 text-blue-500" />
+                      LinkedIn
+                    </label>
+                    <Input
+                      type="url"
+                      value={editedProfile.linkedinUrl || ''}
+                      onChange={(e) => handleFieldChange('linkedinUrl', e.target.value)}
+                      placeholder="https://linkedin.com/in/yourprofile"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-gray-400 flex items-center gap-1.5">
+                      <Github className="w-3.5 h-3.5" />
+                      GitHub
+                    </label>
+                    <Input
+                      type="url"
+                      value={editedProfile.githubUrl || ''}
+                      onChange={(e) => handleFieldChange('githubUrl', e.target.value)}
+                      placeholder="https://github.com/yourusername"
+                    />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-gray-400 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-green-400" />
+                      Portfolio
+                    </label>
+                    <Input
+                      type="url"
+                      value={editedProfile.portfolioUrl || ''}
+                      onChange={(e) => handleFieldChange('portfolioUrl', e.target.value)}
+                      placeholder="https://yourportfolio.com"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-gray-400 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-purple-400" />
+                      Personal Website
+                    </label>
+                    <Input
+                      type="url"
+                      value={editedProfile.websiteUrl || ''}
+                      onChange={(e) => handleFieldChange('websiteUrl', e.target.value)}
+                      placeholder="https://yourwebsite.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Other Links */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-400">Other Links</label>
+                  {(editedProfile.otherLinks || []).map((link, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        value={link.label}
+                        onChange={(e) => {
+                          const newLinks = [...(editedProfile.otherLinks || [])];
+                          newLinks[idx] = { ...newLinks[idx], label: e.target.value };
+                          handleFieldChange('otherLinks', newLinks);
+                        }}
+                        placeholder="Label (e.g., Dribbble)"
+                        className="w-1/3"
+                      />
+                      <Input
+                        type="url"
+                        value={link.url}
+                        onChange={(e) => {
+                          const newLinks = [...(editedProfile.otherLinks || [])];
+                          newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                          handleFieldChange('otherLinks', newLinks);
+                        }}
+                        placeholder="https://..."
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newLinks = (editedProfile.otherLinks || []).filter((_, i) => i !== idx);
+                          handleFieldChange('otherLinks', newLinks);
+                        }}
+                        className="text-gray-500 hover:text-red-400"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newLinks = [...(editedProfile.otherLinks || []), { label: '', url: '' }];
+                      handleFieldChange('otherLinks', newLinks);
+                    }}
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                    className="text-blue-400 hover:text-blue-300"
+                  >
+                    Add another link
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid md:grid-cols-2 gap-4">
               <Input
                 label="Years of Experience"

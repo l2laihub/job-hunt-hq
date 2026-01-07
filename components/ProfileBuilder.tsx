@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { processDocuments } from '../services/geminiService';
-import { Upload, FileText, Loader2, Save, X, Plus, Trash2 } from 'lucide-react';
+import { Upload, FileText, Loader2, Save, X, Plus, Trash2, Linkedin, Github, Globe, Link2 } from 'lucide-react';
 import { ProjectsSection } from '../src/components/portfolio';
 
 interface ProfileBuilderProps {
@@ -235,7 +235,121 @@ export const ProfileBuilder: React.FC<ProfileBuilderProps> = ({ profile, onSave,
                    />
                  </div>
                </div>
-               
+
+               {/* Professional Links Section */}
+               <div className="p-4 bg-gray-950 rounded-lg border border-gray-800">
+                 <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                   <Link2 className="w-4 h-4 text-blue-400" />
+                   Professional Links
+                 </h3>
+                 <div className="grid grid-cols-2 gap-4 mb-4">
+                   <div className="space-y-1">
+                     <label className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                       <Linkedin className="w-3.5 h-3.5 text-blue-500" />
+                       LinkedIn
+                     </label>
+                     <input
+                       type="url"
+                       value={localProfile.linkedinUrl || ''}
+                       onChange={e => setLocalProfile({...localProfile, linkedinUrl: e.target.value})}
+                       placeholder="https://linkedin.com/in/yourprofile"
+                       className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
+                     />
+                   </div>
+                   <div className="space-y-1">
+                     <label className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                       <Github className="w-3.5 h-3.5" />
+                       GitHub
+                     </label>
+                     <input
+                       type="url"
+                       value={localProfile.githubUrl || ''}
+                       onChange={e => setLocalProfile({...localProfile, githubUrl: e.target.value})}
+                       placeholder="https://github.com/yourusername"
+                       className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
+                     />
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mb-4">
+                   <div className="space-y-1">
+                     <label className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                       <Globe className="w-3.5 h-3.5 text-green-400" />
+                       Portfolio
+                     </label>
+                     <input
+                       type="url"
+                       value={localProfile.portfolioUrl || ''}
+                       onChange={e => setLocalProfile({...localProfile, portfolioUrl: e.target.value})}
+                       placeholder="https://yourportfolio.com"
+                       className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
+                     />
+                   </div>
+                   <div className="space-y-1">
+                     <label className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+                       <Globe className="w-3.5 h-3.5 text-purple-400" />
+                       Personal Website
+                     </label>
+                     <input
+                       type="url"
+                       value={localProfile.websiteUrl || ''}
+                       onChange={e => setLocalProfile({...localProfile, websiteUrl: e.target.value})}
+                       placeholder="https://yourwebsite.com"
+                       className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder:text-gray-600"
+                     />
+                   </div>
+                 </div>
+
+                 {/* Other Links */}
+                 <div className="space-y-2">
+                   <label className="text-xs font-medium text-gray-400">Other Links</label>
+                   {(localProfile.otherLinks || []).map((link, idx) => (
+                     <div key={idx} className="flex gap-2 items-center">
+                       <input
+                         type="text"
+                         value={link.label}
+                         onChange={e => {
+                           const newLinks = [...(localProfile.otherLinks || [])];
+                           newLinks[idx] = { ...newLinks[idx], label: e.target.value };
+                           setLocalProfile({...localProfile, otherLinks: newLinks});
+                         }}
+                         placeholder="Label (e.g., Dribbble)"
+                         className="w-1/3 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600"
+                       />
+                       <input
+                         type="url"
+                         value={link.url}
+                         onChange={e => {
+                           const newLinks = [...(localProfile.otherLinks || [])];
+                           newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                           setLocalProfile({...localProfile, otherLinks: newLinks});
+                         }}
+                         placeholder="https://..."
+                         className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600"
+                       />
+                       <button
+                         onClick={() => {
+                           const newLinks = (localProfile.otherLinks || []).filter((_, i) => i !== idx);
+                           setLocalProfile({...localProfile, otherLinks: newLinks});
+                         }}
+                         className="text-gray-500 hover:text-red-400 p-1"
+                       >
+                         <X className="w-4 h-4" />
+                       </button>
+                     </div>
+                   ))}
+                   <button
+                     onClick={() => {
+                       const newLinks = [...(localProfile.otherLinks || []), { label: '', url: '' }];
+                       setLocalProfile({...localProfile, otherLinks: newLinks});
+                     }}
+                     className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300"
+                   >
+                     <Plus className="w-3.5 h-3.5" />
+                     Add another link
+                   </button>
+                 </div>
+               </div>
+
                <div className="space-y-1">
                  <label className="text-xs font-medium text-gray-400">Current Situation / About</label>
                  <textarea 

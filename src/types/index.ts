@@ -153,6 +153,12 @@ export interface UserProfile {
   name: string;
   email?: string;
   phone?: string;
+  // Professional links
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  websiteUrl?: string;
+  otherLinks?: { label: string; url: string }[];
   headline: string;
   yearsExperience: number;
   technicalSkills: string[];
@@ -905,6 +911,11 @@ export const DEFAULT_PROFILE: UserProfile = {
   name: 'Senior Engineer',
   email: '',
   phone: '',
+  linkedinUrl: '',
+  githubUrl: '',
+  portfolioUrl: '',
+  websiteUrl: '',
+  otherLinks: [],
   headline: 'Senior Software Engineer',
   yearsExperience: 5,
   technicalSkills: [],
