@@ -61,7 +61,7 @@ export function profileRowToUserProfileWithMeta(row: ProfileRow): UserProfileWit
     activeProjects: (row.active_projects as unknown as UserProfile['activeProjects']) || [],
     preferences: (row.preferences as unknown as UserProfile['preferences']) || {
       targetRoles: [],
-      workStyle: 'remote',
+      workStyle: ['remote'],
       salaryRange: { min: 100000, max: 200000 },
       dealBreakers: [],
       priorityFactors: [],

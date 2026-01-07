@@ -131,10 +131,9 @@ function hasGroupedSkills(skills: string[]): boolean {
 }
 
 const workStyleOptions = [
-  { value: 'remote', label: 'Remote' },
-  { value: 'hybrid', label: 'Hybrid' },
-  { value: 'onsite', label: 'On-site' },
-  { value: 'flexible', label: 'Flexible' },
+  { value: 'remote' as const, label: 'Remote' },
+  { value: 'hybrid' as const, label: 'Hybrid' },
+  { value: 'onsite' as const, label: 'On-site' },
 ];
 
 export const ProfilePage: React.FC = () => {
@@ -603,12 +602,39 @@ export const ProfilePage: React.FC = () => {
                 value={editedProfile.yearsExperience.toString()}
                 onChange={(e) => handleFieldChange('yearsExperience', parseInt(e.target.value) || 0)}
               />
-              <Select
-                label="Preferred Work Style"
-                value={editedProfile.preferences.workStyle}
-                onChange={(val) => handleNestedChange('preferences', 'workStyle', val)}
-                options={workStyleOptions}
-              />
+              <div className="space-y-1">
+                <label className="text-sm text-gray-400">Preferred Work Style</label>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  {workStyleOptions.map((option) => {
+                    const isSelected = (editedProfile.preferences.workStyle || []).includes(option.value);
+                    return (
+                      <label
+                        key={option.value}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors',
+                          isSelected
+                            ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                            : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            const current = editedProfile.preferences.workStyle || [];
+                            const updated = isSelected
+                              ? current.filter((v) => v !== option.value)
+                              : [...current, option.value];
+                            handleNestedChange('preferences', 'workStyle', updated);
+                          }}
+                          className="sr-only"
+                        />
+                        <span className="text-sm">{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <Textarea
               label="Current Situation"

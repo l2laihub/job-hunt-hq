@@ -173,7 +173,7 @@ export interface UserProfile {
   activeProjects: Project[];
   preferences: {
     targetRoles: string[];
-    workStyle: 'remote' | 'hybrid' | 'onsite' | 'flexible';
+    workStyle: ('remote' | 'hybrid' | 'onsite')[];
     salaryRange: { min: number; max: number };
     dealBreakers: string[];
     priorityFactors: string[];
@@ -930,7 +930,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   activeProjects: [],
   preferences: {
     targetRoles: ['Software Engineer'],
-    workStyle: 'remote',
+    workStyle: ['remote'],
     salaryRange: { min: 100000, max: 200000 },
     dealBreakers: [],
     priorityFactors: [],
