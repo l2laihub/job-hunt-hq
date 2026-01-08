@@ -82,6 +82,7 @@ import {
   ListChecks,
   CheckSquare,
   Square,
+  Info,
 } from 'lucide-react';
 
 type ViewType = 'analyze' | 'history' | 'detail';
@@ -361,6 +362,9 @@ export const AnalyzerPage: React.FC = () => {
     const questions = selectedJob.screeningQuestions?.filter((_, i) => selectedScreeningQuestions.has(i)) || [];
     if (questions.length === 0) return;
 
+    // Get company research if available from linked application
+    const companyResearch = getCompanyResearchForJob(selectedJob);
+
     setIsGeneratingBulkAnswers(true);
     let successCount = 0;
 
@@ -375,6 +379,7 @@ export const AnalyzerPage: React.FC = () => {
           company: selectedJob.company,
           role: selectedJob.role,
           maxLength: characterLimit,
+          companyResearch, // Pass company research for better context
         });
 
         addApplicationQuestion(selectedJob.id, {
@@ -386,6 +391,7 @@ export const AnalyzerPage: React.FC = () => {
           keyPoints: result.keyPoints,
           wordCount: result.wordCount,
           characterCount: result.characterCount,
+          salaryContext: result.salaryContext, // Include salary context for salary questions
         });
 
         successCount++;
@@ -528,6 +534,9 @@ export const AnalyzerPage: React.FC = () => {
 
     setIsGeneratingAnswer(true);
     try {
+      // Get company research if available from linked application
+      const companyResearch = getCompanyResearchForJob(selectedJob);
+
       const result = await generateApplicationAnswer({
         question: questionInput,
         jobDescription: selectedJob.jobDescription,
@@ -537,6 +546,7 @@ export const AnalyzerPage: React.FC = () => {
         company: selectedJob.company,
         role: selectedJob.role,
         maxLength: characterLimit,
+        companyResearch, // Pass company research for better context
       });
 
       addApplicationQuestion(selectedJob.id, {
@@ -548,6 +558,7 @@ export const AnalyzerPage: React.FC = () => {
         wordCount: result.wordCount,
         characterCount: result.characterCount,
         alternativeAnswers: result.alternativeAnswers,
+        salaryContext: result.salaryContext, // Include salary context for salary questions
       });
 
       toast.success('Answer generated', `${result.characterCount} characters`);
@@ -666,6 +677,16 @@ export const AnalyzerPage: React.FC = () => {
         app.company?.toLowerCase() === job.company?.toLowerCase() &&
         app.role?.toLowerCase() === job.role?.toLowerCase()
     );
+  };
+
+  // Find matching application's company research for an analyzed job
+  const getCompanyResearchForJob = (job: AnalyzedJob) => {
+    const matchingApp = applications.find(
+      (app) =>
+        app.company?.toLowerCase() === job.company?.toLowerCase() &&
+        app.role?.toLowerCase() === job.role?.toLowerCase()
+    );
+    return matchingApp?.companyResearch;
   };
 
   // Add analyzed job to applications
@@ -1822,6 +1843,68 @@ export const AnalyzerPage: React.FC = () => {
                                   </li>
                                 ))}
                               </ul>
+                            </div>
+                          )}
+
+                          {/* Salary Context - only for salary-related questions */}
+                          {qa.salaryContext && editingQuestionId !== qa.id && (
+                            <div className="mt-3 pt-3 border-t border-gray-700">
+                              <h5 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                                <DollarSign className="w-3 h-3" />
+                                Salary Context (for your reference)
+                              </h5>
+                              <div className={cn(
+                                "p-3 rounded-lg text-xs space-y-2",
+                                qa.salaryContext.assessment === 'within-range'
+                                  ? "bg-green-900/20 border border-green-700/50"
+                                  : qa.salaryContext.assessment === 'above-target'
+                                  ? "bg-yellow-900/20 border border-yellow-700/50"
+                                  : qa.salaryContext.assessment === 'below-target'
+                                  ? "bg-blue-900/20 border border-blue-700/50"
+                                  : "bg-gray-800/50 border border-gray-700"
+                              )}>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-gray-500">Your Target:</span>
+                                    <span className="ml-1 text-gray-300">
+                                      ${Math.round(qa.salaryContext.userTarget.min / 1000)}K - ${Math.round(qa.salaryContext.userTarget.max / 1000)}K
+                                    </span>
+                                  </div>
+                                  {qa.salaryContext.jdRange && (
+                                    <div>
+                                      <span className="text-gray-500">JD Range:</span>
+                                      <span className="ml-1 text-gray-300">{qa.salaryContext.jdRange}</span>
+                                    </div>
+                                  )}
+                                  {qa.salaryContext.glassdoorRange && (
+                                    <div>
+                                      <span className="text-gray-500">Market Data:</span>
+                                      <span className="ml-1 text-gray-300">{qa.salaryContext.glassdoorRange}</span>
+                                    </div>
+                                  )}
+                                  {qa.salaryContext.recommendedRange && (
+                                    <div>
+                                      <span className="text-gray-500">Recommended:</span>
+                                      <span className={cn(
+                                        "ml-1 font-medium",
+                                        qa.salaryContext.assessment === 'within-range' ? "text-green-400" : "text-yellow-400"
+                                      )}>
+                                        {qa.salaryContext.recommendedRange}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {qa.salaryContext.negotiationTip && (
+                                  <div className="flex items-start gap-2 pt-2 border-t border-gray-700/50">
+                                    {qa.salaryContext.assessment === 'above-target' ? (
+                                      <AlertTriangle className="w-3 h-3 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                      <Info className="w-3 h-3 text-blue-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    <span className="text-gray-400">{qa.salaryContext.negotiationTip}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 

@@ -787,6 +787,16 @@ export interface ResumeEnhancement {
   updatedAt: string;
 }
 
+// Salary context for salary-related questions
+export interface SalaryContext {
+  userTarget: { min: number; max: number };
+  jdRange?: string;
+  glassdoorRange?: string;
+  recommendedRange?: string;
+  negotiationTip?: string;
+  assessment: 'within-range' | 'below-target' | 'above-target' | 'unknown';
+}
+
 // Application Question Answer Types - for LinkedIn/Company Application Questions
 export interface ApplicationQuestionAnswer {
   id: string;
@@ -806,6 +816,7 @@ export interface ApplicationQuestionAnswer {
   editedAt?: string;
   copyCount: number;
   createdAt: string;
+  salaryContext?: SalaryContext; // Context for salary/compensation questions
 }
 
 // Skills Roadmap Types - for aspirational jobs with low fit
