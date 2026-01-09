@@ -10,6 +10,7 @@ import { MockInterview } from './components/MockInterview';
 import { TechnicalAnswerGenerator } from './components/TechnicalAnswerGenerator';
 import { EnhancePage } from './src/app/routes/enhance';
 import { useAuth } from './src/lib/supabase';
+import { interviewNotesService } from './src/services/database';
 import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic, Zap, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -34,6 +35,9 @@ const COLUMNS: { id: ApplicationStatus; label: string; icon: React.ReactNode; co
 export default function App() {
   // Get authenticated user
   const { user } = useAuth();
+
+  // Debug - remove after testing
+  console.log('[App] User:', user?.id, 'Email:', user?.email);
 
   // State with Lazy Initialization from LocalStorage to prevent overwriting on mount
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview' | 'answers' | 'enhance'>('dashboard');
@@ -78,6 +82,19 @@ export default function App() {
 
   // For Research Navigation
   const [researchTarget, setResearchTarget] = useState<string | undefined>(undefined);
+
+  // Interview notes counts per application
+  const [interviewNotesCounts, setInterviewNotesCounts] = useState<Record<string, number>>({});
+
+  // Load interview notes counts when user is logged in and applications change
+  useEffect(() => {
+    if (user?.id && applications.length > 0) {
+      const appIds = applications.map(app => app.id);
+      interviewNotesService.countByApplications(appIds)
+        .then(counts => setInterviewNotesCounts(counts))
+        .catch(err => console.error('Failed to load interview notes counts:', err));
+    }
+  }, [user?.id, applications]);
 
   // Auto-Save Effects
   useEffect(() => {
@@ -343,12 +360,13 @@ export default function App() {
                   {applications
                     .filter(app => app.status === col.id)
                     .map(app => (
-                      <JobCard 
-                        key={app.id} 
-                        application={app} 
-                        onClick={handleEditApplication} 
+                      <JobCard
+                        key={app.id}
+                        application={app}
+                        onClick={handleEditApplication}
                         onDragStart={handleDragStart}
                         onResearch={handleResearchFromCard}
+                        interviewNotesCount={interviewNotesCounts[app.id] || 0}
                       />
                   ))}
                   {applications.filter(app => app.status === col.id).length === 0 && (
@@ -409,7 +427,7 @@ export default function App() {
       </main>
 
       {/* Modals */}
-      <ApplicationModal 
+      <ApplicationModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -420,6 +438,9 @@ export default function App() {
         initialData={editingApp}
         analysisData={pendingAnalysis?.data}
         jdText={pendingAnalysis?.jd}
+        userId={user?.id}
+        profile={profile}
+        stories={stories}
       />
 
     </div>

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useApplicationStore, useUIStore, toast } from '@/src/stores';
+import { useAuth } from '@/src/lib/supabase';
+import { useSupabaseActiveProfile, useSupabaseStoriesStore } from '@/src/stores/supabase';
 import type { JobApplication, ApplicationStatus, JDAnalysis } from '@/src/types';
 import { Dialog, Button, Input, Textarea, Select, Badge } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import { APPLICATION_STATUSES } from '@/src/lib/constants';
+import { InterviewNotesTab } from '@/components/InterviewNotesTab';
 import {
   Edit2,
   Brain,
+  Mic,
   CheckCircle,
   AlertTriangle,
   MessageCircle,
@@ -58,8 +62,14 @@ export const ApplicationModal: React.FC = () => {
   const addApplication = useApplicationStore((s) => s.addApplication);
   const updateApplication = useApplicationStore((s) => s.updateApplication);
 
-  const [activeTab, setActiveTab] = useState<'details' | 'analysis'>('details');
+  // Get auth and profile data for Interview Notes
+  const { user } = useAuth();
+  const profile = useSupabaseActiveProfile();
+  const stories = useSupabaseStoriesStore((s) => s.stories);
+
+  const [activeTab, setActiveTab] = useState<'details' | 'analysis' | 'notes'>('details');
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [interviewNotesCount, setInterviewNotesCount] = useState(0);
 
   const isOpen = activeModal === 'application';
   const isEditing = Boolean(modalData?.id);
@@ -132,7 +142,7 @@ export const ApplicationModal: React.FC = () => {
             {isEditing ? 'Application Details' : 'New Application'}
           </h2>
 
-          {analysis && (
+          {isEditing && (
             <div className="flex bg-gray-900 rounded p-0.5 border border-gray-700">
               <button
                 onClick={() => setActiveTab('details')}
@@ -145,16 +155,34 @@ export const ApplicationModal: React.FC = () => {
               >
                 <Edit2 className="w-3 h-3" /> Edit
               </button>
+              {analysis && (
+                <button
+                  onClick={() => setActiveTab('analysis')}
+                  className={cn(
+                    'px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors',
+                    activeTab === 'analysis'
+                      ? 'bg-blue-900/40 text-blue-300'
+                      : 'text-gray-400 hover:text-gray-200'
+                  )}
+                >
+                  <Brain className="w-3 h-3" /> Analysis
+                </button>
+              )}
               <button
-                onClick={() => setActiveTab('analysis')}
+                onClick={() => setActiveTab('notes')}
                 className={cn(
                   'px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors',
-                  activeTab === 'analysis'
-                    ? 'bg-blue-900/40 text-blue-300'
+                  activeTab === 'notes'
+                    ? 'bg-purple-900/40 text-purple-300'
                     : 'text-gray-400 hover:text-gray-200'
                 )}
               >
-                <Brain className="w-3 h-3" /> Analysis
+                <Mic className="w-3 h-3" /> Notes
+                {interviewNotesCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-purple-600 rounded-full text-[10px] text-white">
+                    {interviewNotesCount}
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -278,13 +306,29 @@ export const ApplicationModal: React.FC = () => {
             </Button>
           </div>
         </form>
-      ) : (
+      ) : activeTab === 'analysis' ? (
         <div className="p-6 overflow-y-auto max-h-[60vh] bg-gray-900/50">
           {analysis ? (
             <AnalysisResultView analysis={analysis} />
           ) : (
             <div className="text-center text-gray-500 py-10">No analysis data available.</div>
           )}
+        </div>
+      ) : activeTab === 'notes' && modalData?.id && user && profile ? (
+        <div className="p-6 overflow-y-auto max-h-[60vh] bg-gray-900/50">
+          <InterviewNotesTab
+            application={modalData as JobApplication}
+            userId={user.id}
+            profile={profile}
+            stories={stories}
+            onNotesCountChange={setInterviewNotesCount}
+          />
+        </div>
+      ) : (
+        <div className="p-6 overflow-y-auto max-h-[60vh] bg-gray-900/50">
+          <div className="text-center text-gray-500 py-10">
+            {!user ? 'Please sign in to access interview notes.' : 'Interview notes not available.'}
+          </div>
         </div>
       )}
     </Dialog>

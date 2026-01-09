@@ -161,6 +161,8 @@ For each question, provide:
 - For ${interviewType} interviews, focus on appropriate question types
 - Don't give generic questions - make them specific to the JD and company
 - Consider the company culture and recent news if research is available
+- Keep "source" field brief (1-2 sentences max)
+- Keep "suggestedApproach" field concise (2-3 sentences max)
 
 Return a JSON object with a "questions" array containing all predicted questions.`;
 
@@ -204,6 +206,7 @@ Return a JSON object with a "questions" array containing all predicted questions
         responseMimeType: 'application/json',
         responseSchema: schema,
         thinkingConfig: { thinkingBudget: DEFAULT_THINKING_BUDGET * 2 },
+        maxOutputTokens: 8192, // Ensure sufficient output space
       },
     });
 
@@ -216,7 +219,55 @@ Return a JSON object with a "questions" array containing all predicted questions
       jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
     }
 
-    const result = JSON.parse(jsonText);
+    // Try to parse, with fallback for truncated responses
+    let result;
+    try {
+      result = JSON.parse(jsonText);
+    } catch (parseError) {
+      // If JSON is truncated, try to salvage partial data
+      console.warn('JSON parse failed, attempting to salvage partial response');
+
+      // Try to find the last complete question object
+      const questionsMatch = jsonText.match(/"questions"\s*:\s*\[([\s\S]*)/);
+      if (questionsMatch) {
+        const questionsContent = questionsMatch[1];
+        // Find all complete question objects using a more robust pattern
+        const completeObjects: PredictedQuestionRaw[] = [];
+        let depth = 0;
+        let start = -1;
+
+        for (let i = 0; i < questionsContent.length; i++) {
+          const char = questionsContent[i];
+          if (char === '{') {
+            if (depth === 0) start = i;
+            depth++;
+          } else if (char === '}') {
+            depth--;
+            if (depth === 0 && start !== -1) {
+              try {
+                const objStr = questionsContent.substring(start, i + 1);
+                const obj = JSON.parse(objStr);
+                if (obj.question && obj.category) {
+                  completeObjects.push(obj);
+                }
+              } catch {
+                // Skip malformed object
+              }
+              start = -1;
+            }
+          }
+        }
+
+        if (completeObjects.length > 0) {
+          console.log(`Salvaged ${completeObjects.length} questions from truncated response`);
+          result = { questions: completeObjects };
+        } else {
+          throw parseError;
+        }
+      } else {
+        throw parseError;
+      }
+    }
 
     // Transform raw questions to PredictedQuestion format
     return (result.questions || []).map((q: PredictedQuestionRaw): PredictedQuestion => ({

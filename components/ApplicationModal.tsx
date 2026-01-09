@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { JobApplication, JDAnalysis, ApplicationStatus } from '../types';
-import { X, Edit2, Brain } from 'lucide-react';
+import { JobApplication, JDAnalysis, ApplicationStatus, UserProfile, Experience } from '../types';
+import { X, Edit2, Brain, Mic } from 'lucide-react';
 import { AnalysisResultView } from './AnalysisResultView';
+import { InterviewNotesTab } from './InterviewNotesTab';
 
 interface ApplicationModalProps {
   isOpen: boolean;
@@ -10,10 +11,25 @@ interface ApplicationModalProps {
   initialData?: Partial<JobApplication>;
   analysisData?: JDAnalysis | null;
   jdText?: string;
+  userId?: string;
+  profile?: UserProfile;
+  stories?: Experience[];
 }
 
-export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onClose, onSave, initialData, analysisData, jdText }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'analysis'>('details');
+export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onClose, onSave, initialData, analysisData, jdText, userId, profile, stories }) => {
+  const [activeTab, setActiveTab] = useState<'details' | 'analysis' | 'notes'>('details');
+  const [interviewNotesCount, setInterviewNotesCount] = useState(0);
+
+  // Debug logging - remove after testing
+  console.log('[ApplicationModal] Props:', {
+    isOpen,
+    hasInitialData: !!initialData,
+    initialDataId: initialData?.id,
+    userId,
+    hasProfile: !!profile,
+    profileName: profile?.name,
+    storiesCount: stories?.length,
+  });
   const [formData, setFormData] = useState<Partial<JobApplication>>({
     company: '',
     role: '',
@@ -67,7 +83,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
                {initialData?.id ? 'Application Details' : 'New Application'}
              </h2>
              {/* Tab Switcher */}
-             {effectiveAnalysis && (
+             {initialData?.id && (
                 <div className="flex bg-gray-900 rounded p-0.5 border border-gray-700">
                   <button
                     onClick={() => setActiveTab('details')}
@@ -77,13 +93,28 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
                   >
                     <Edit2 className="w-3 h-3" /> Edit
                   </button>
+                  {effectiveAnalysis && (
+                    <button
+                      onClick={() => setActiveTab('analysis')}
+                      className={`px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors ${
+                        activeTab === 'analysis' ? 'bg-blue-900/40 text-blue-300' : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      <Brain className="w-3 h-3" /> Analysis
+                    </button>
+                  )}
                   <button
-                    onClick={() => setActiveTab('analysis')}
+                    onClick={() => setActiveTab('notes')}
                     className={`px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors ${
-                      activeTab === 'analysis' ? 'bg-blue-900/40 text-blue-300' : 'text-gray-400 hover:text-gray-200'
+                      activeTab === 'notes' ? 'bg-purple-900/40 text-purple-300' : 'text-gray-400 hover:text-gray-200'
                     }`}
                   >
-                    <Brain className="w-3 h-3" /> Analysis
+                    <Mic className="w-3 h-3" /> Notes
+                    {interviewNotesCount > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-purple-600 rounded-full text-[10px] text-white">
+                        {interviewNotesCount}
+                      </span>
+                    )}
                   </button>
                 </div>
              )}
@@ -221,13 +252,29 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({ isOpen, onCl
             </button>
           </div>
         </form>
-        ) : (
+        ) : activeTab === 'analysis' ? (
           <div className="flex-1 overflow-y-auto p-6 bg-gray-900/50">
             {effectiveAnalysis ? (
               <AnalysisResultView analysis={effectiveAnalysis} />
             ) : (
               <div className="text-center text-gray-500 py-10">No analysis data available.</div>
             )}
+          </div>
+        ) : activeTab === 'notes' && initialData?.id && userId && profile ? (
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-900/50">
+            <InterviewNotesTab
+              application={initialData as JobApplication}
+              userId={userId}
+              profile={profile}
+              stories={stories}
+              onNotesCountChange={setInterviewNotesCount}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-6 bg-gray-900/50">
+            <div className="text-center text-gray-500 py-10">
+              {!userId ? 'Please sign in to access interview notes.' : 'Interview notes not available.'}
+            </div>
           </div>
         )}
       </div>

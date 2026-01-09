@@ -19,6 +19,7 @@ import type {
   TechnicalAnswerRow,
   AnalyzedJobRow,
   PracticeSessionRow,
+  InterviewNoteRow,
   Json,
 } from '@/src/lib/supabase/types';
 
@@ -281,4 +282,5 @@ export type {
   TechnicalAnswerRow,
   AnalyzedJobRow,
   PracticeSessionRow,
-};
+  InterviewNoteRow,
+} from '@/src/lib/supabase/types';

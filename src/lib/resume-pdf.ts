@@ -87,6 +87,8 @@ interface ResumePDFOptions {
   };
   template?: 'professional' | 'modern' | 'minimal' | 'executive';
   includeScores?: boolean;
+  /** Job-specific skill groups for PDF export (overrides profile.skillGroups) */
+  jobSkillGroups?: SkillGroup[];
 }
 
 // Professional color schemes for different templates
@@ -134,7 +136,7 @@ const templates = {
  * Generate executive template HTML - premium layout with improved visual hierarchy
  */
 function generateExecutiveHTML(options: ResumePDFOptions): string {
-  const { enhanced, profile, analysis, jobInfo, includeScores = false } = options;
+  const { enhanced, profile, analysis, jobInfo, includeScores = false, jobSkillGroups } = options;
   const colors = templates.executive;
 
   const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
@@ -321,9 +323,14 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     );
   };
 
-  // Use user-defined skill groups if available, otherwise auto-categorize
-  const userDefinedCategories = profile.skillGroups && profile.skillGroups.length > 0
-    ? userGroupsToCategories(profile.skillGroups)
+  // Priority: jobSkillGroups > profile.skillGroups > auto-categorize
+  // jobSkillGroups are job-specific skill arrangements that don't modify the profile
+  const skillGroupsToUse = jobSkillGroups && jobSkillGroups.length > 0
+    ? jobSkillGroups
+    : profile.skillGroups;
+
+  const userDefinedCategories = skillGroupsToUse && skillGroupsToUse.length > 0
+    ? userGroupsToCategories(skillGroupsToUse)
     : null;
 
   // If user has defined groups, use them. Otherwise fall back to auto-categorization.
@@ -683,20 +690,6 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       margin-top: 2px;
     }
 
-    /* Tailored badge */
-    .tailored-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: linear-gradient(90deg, ${colors.accent}20, ${colors.accent}10);
-      color: ${colors.accent};
-      font-size: 8pt;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 12px;
-      margin-top: 8px;
-    }
-
     /* Print optimizations */
     @media print {
       html, body {
@@ -760,15 +753,6 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
         </div>
         ` : ''}
       </div>
-      ` : ''}
-
-      ${jobInfo?.role && jobInfo?.company ? `
-      <span class="tailored-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
-        Tailored for ${jobInfo.role} at ${jobInfo.company}
-      </span>
       ` : ''}
 
       ${includeScores && analysis ? `
@@ -915,6 +899,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     jobInfo,
     template = 'professional',
     includeScores = false,
+    jobSkillGroups,
   } = options;
 
   // Use executive template if selected
@@ -938,8 +923,13 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     pdfTitle = `${namePart} - Resume - ${datePart}`;
   }
 
+  // Priority: jobSkillGroups > profile.skillGroups
+  const skillGroupsToUse = jobSkillGroups && jobSkillGroups.length > 0
+    ? jobSkillGroups
+    : profile.skillGroups;
+
   // Get skill groups - use user-defined if available
-  const skillCategories = skillGroupsToRecord(profile.skillGroups, enhanced.technicalSkills);
+  const skillCategories = skillGroupsToRecord(skillGroupsToUse, enhanced.technicalSkills);
 
   return `
 <!DOCTYPE html>
@@ -1049,18 +1039,6 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       text-decoration: none !important;
       background: transparent !important;
       border: none !important;
-    }
-
-    /* Tailored Badge */
-    .tailored-badge {
-      display: inline-block;
-      background: ${colors.accent}15;
-      color: ${colors.accent};
-      font-size: 8pt;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 12px;
-      margin-top: 8px;
     }
 
     /* Score Badge */
@@ -1334,11 +1312,6 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
         ` : ''}
       </div>
       `
-          : ''
-      }
-      ${
-        jobInfo?.role && jobInfo?.company
-          ? `<span class="tailored-badge">Tailored for ${jobInfo.role} at ${jobInfo.company}</span>`
           : ''
       }
       ${

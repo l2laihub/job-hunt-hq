@@ -113,6 +113,7 @@ Analyze this resume/profile and provide:
 - Optimize for ATS keyword matching
 - Keep bullets concise (1-2 lines max)
 - Focus on impact and results, not just responsibilities
+- Format all role durations with full month and year (e.g., "January 2020 - Present", "March 2018 - December 2022")
 
 ## CRITICAL - Skill Formatting Rules:
 - technicalSkills must be an array of INDIVIDUAL skills, NOT grouped or categorized strings
@@ -197,6 +198,7 @@ Analyze and optimize this resume specifically for this job:
 - Add missing keywords naturally (don't keyword stuff)
 - Highlight transferable skills for any gaps
 - Focus on what makes this candidate ideal for THIS specific role
+- Format all role durations with full month and year (e.g., "January 2020 - Present", "March 2018 - December 2022")
 
 ## CRITICAL - Skill Formatting Rules:
 - technicalSkills must be an array of INDIVIDUAL skills, NOT grouped or categorized strings

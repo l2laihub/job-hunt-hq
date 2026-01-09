@@ -16,7 +16,10 @@ import type {
   EnhancementSuggestion,
   EnhancedProfile,
   UserProfile,
+  SkillGroup,
 } from '@/src/types';
+import { categorizeSkills } from '@/src/services/gemini/categorize-skills';
+import { SkillGroupManager } from '@/src/components/profile/SkillGroupManager';
 import {
   Sparkles,
   Target,
@@ -49,6 +52,7 @@ import {
   UserPlus,
   ExternalLink,
   Save,
+  Layers,
 } from 'lucide-react';
 
 // Source of data for enhancement
@@ -591,6 +595,10 @@ interface EnhancedPreviewProps {
   onUpdate: (updates: Partial<EnhancedProfile>) => void;
   onSaveToProfile: (field: 'headline' | 'experience' | 'skills' | 'achievements' | 'all') => void;
   isSaving?: boolean;
+  jobSkillGroups: SkillGroup[];
+  onJobSkillGroupsChange: (groups: SkillGroup[]) => void;
+  isAutoCategorizingSkills?: boolean;
+  onAutoCategorizeTechnical?: () => Promise<void>;
 }
 
 const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
@@ -599,8 +607,13 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
   onUpdate,
   onSaveToProfile,
   isSaving = false,
+  jobSkillGroups,
+  onJobSkillGroupsChange,
+  isAutoCategorizingSkills = false,
+  onAutoCategorizeTechnical,
 }) => {
   const [activeTab, setActiveTab] = useState<'headline' | 'experience' | 'skills' | 'achievements'>('headline');
+  const [showOrganizeSkills, setShowOrganizeSkills] = useState(false);
 
   // Sort roles for display
   const sortedRoles = sortRolesByDate(enhanced.recentRoles);
@@ -823,66 +836,110 @@ const EnhancedPreview: React.FC<EnhancedPreviewProps> = ({
 
         {activeTab === 'skills' && (
           <div className="space-y-4">
-            <div className="text-xs text-gray-500 mb-2">
-              Click skills to edit. Green badges indicate new skills added by AI.
-              {original.skillGroups && original.skillGroups.length > 0 && (
-                <span className="ml-2 text-cyan-400">
-                  Your {original.skillGroups.length} skill groups will be used in the PDF.
-                </span>
-              )}
-            </div>
-            <div>
-              <div className="text-sm font-medium text-gray-300 mb-2">Technical Skills</div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {enhanced.technicalSkills.map((skill, i) => (
-                  <Badge
-                    key={i}
-                    className={cn(
-                      'text-xs cursor-pointer hover:opacity-80 transition-opacity',
-                      original.technicalSkills.includes(skill)
-                        ? 'bg-gray-700 text-gray-300'
-                        : 'bg-green-900/30 text-green-400'
+            {/* Toggle between Skills View and Organize Skills */}
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                {showOrganizeSkills ? (
+                  'Organize skills into groups for the PDF. This only affects the downloaded resume.'
+                ) : (
+                  <>
+                    Click skills to edit. Green badges indicate new skills added by AI.
+                    {jobSkillGroups.length > 0 && (
+                      <span className="ml-2 text-cyan-400">
+                        {jobSkillGroups.length} skill groups for PDF.
+                      </span>
                     )}
-                    onClick={() => {
-                      const newSkills = enhanced.technicalSkills.filter((_, idx) => idx !== i);
-                      handleTechnicalSkillsChange(newSkills);
-                    }}
-                    title="Click to remove"
-                  >
-                    {skill}
-                    {!original.technicalSkills.includes(skill) && ' (new)'}
-                    <X className="w-3 h-3 ml-1 inline" />
-                  </Badge>
-                ))}
+                  </>
+                )}
               </div>
-              <AddSkillInput
-                onAdd={(skill) => handleTechnicalSkillsChange([...enhanced.technicalSkills, skill])}
-                placeholder="Add technical skill..."
-              />
+              <Button
+                size="sm"
+                variant={showOrganizeSkills ? 'default' : 'ghost'}
+                onClick={() => setShowOrganizeSkills(!showOrganizeSkills)}
+                className={cn(
+                  'text-xs',
+                  showOrganizeSkills ? 'bg-cyan-600 hover:bg-cyan-500' : 'text-cyan-400 hover:text-cyan-300'
+                )}
+              >
+                <Layers className="w-3 h-3 mr-1" />
+                {showOrganizeSkills ? 'Back to Skills' : 'Organize for PDF'}
+              </Button>
             </div>
-            <div>
-              <div className="text-sm font-medium text-gray-300 mb-2">Soft Skills</div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {enhanced.softSkills.map((skill, i) => (
-                  <Badge
-                    key={i}
-                    className="bg-gray-700 text-gray-300 text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => {
-                      const newSkills = enhanced.softSkills.filter((_, idx) => idx !== i);
-                      handleSoftSkillsChange(newSkills);
-                    }}
-                    title="Click to remove"
-                  >
-                    {skill}
-                    <X className="w-3 h-3 ml-1 inline" />
-                  </Badge>
-                ))}
+
+            {showOrganizeSkills ? (
+              /* Skill Organization View */
+              <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                <div className="mb-3 p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
+                  <p className="text-xs text-blue-300">
+                    Organize your skills into groups for this job application. Changes here only affect the downloaded resume - your profile remains unchanged.
+                  </p>
+                </div>
+                <SkillGroupManager
+                  technicalSkills={enhanced.technicalSkills}
+                  softSkills={enhanced.softSkills}
+                  skillGroups={jobSkillGroups}
+                  onSkillGroupsChange={onJobSkillGroupsChange}
+                  onAutoCategorizeTechnical={onAutoCategorizeTechnical}
+                  isAutoCategorizing={isAutoCategorizingSkills}
+                />
               </div>
-              <AddSkillInput
-                onAdd={(skill) => handleSoftSkillsChange([...enhanced.softSkills, skill])}
-                placeholder="Add soft skill..."
-              />
-            </div>
+            ) : (
+              /* Skills Edit View */
+              <>
+                <div>
+                  <div className="text-sm font-medium text-gray-300 mb-2">Technical Skills</div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {enhanced.technicalSkills.map((skill, i) => (
+                      <Badge
+                        key={i}
+                        className={cn(
+                          'text-xs cursor-pointer hover:opacity-80 transition-opacity',
+                          original.technicalSkills.includes(skill)
+                            ? 'bg-gray-700 text-gray-300'
+                            : 'bg-green-900/30 text-green-400'
+                        )}
+                        onClick={() => {
+                          const newSkills = enhanced.technicalSkills.filter((_, idx) => idx !== i);
+                          handleTechnicalSkillsChange(newSkills);
+                        }}
+                        title="Click to remove"
+                      >
+                        {skill}
+                        {!original.technicalSkills.includes(skill) && ' (new)'}
+                        <X className="w-3 h-3 ml-1 inline" />
+                      </Badge>
+                    ))}
+                  </div>
+                  <AddSkillInput
+                    onAdd={(skill) => handleTechnicalSkillsChange([...enhanced.technicalSkills, skill])}
+                    placeholder="Add technical skill..."
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-300 mb-2">Soft Skills</div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {enhanced.softSkills.map((skill, i) => (
+                      <Badge
+                        key={i}
+                        className="bg-gray-700 text-gray-300 text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          const newSkills = enhanced.softSkills.filter((_, idx) => idx !== i);
+                          handleSoftSkillsChange(newSkills);
+                        }}
+                        title="Click to remove"
+                      >
+                        {skill}
+                        <X className="w-3 h-3 ml-1 inline" />
+                      </Badge>
+                    ))}
+                  </div>
+                  <AddSkillInput
+                    onAdd={(skill) => handleSoftSkillsChange([...enhanced.softSkills, skill])}
+                    placeholder="Add soft skill..."
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1124,6 +1181,10 @@ export const EnhancePage: React.FC = () => {
     enhancedProfile: EnhancedProfile;
   } | null>(null);
 
+  // Job-specific skill groups (for PDF export without changing profile)
+  const [jobSkillGroups, setJobSkillGroups] = useState<SkillGroup[]>([]);
+  const [isAutoCategorizingSkills, setIsAutoCategorizingSkills] = useState(false);
+
   const selectedJob = useMemo(
     () => analyzedJobs.find((j) => j.id === selectedJobId),
     [analyzedJobs, selectedJobId]
@@ -1310,6 +1371,26 @@ export const EnhancePage: React.FC = () => {
     });
   };
 
+  // Handler for auto-categorizing job-specific skills
+  const handleAutoCategorizeTechnical = async () => {
+    if (!enhancement || enhancement.enhancedProfile.technicalSkills.length === 0) {
+      toast.error('No skills', 'Add some technical skills first');
+      return;
+    }
+
+    setIsAutoCategorizingSkills(true);
+    try {
+      const groups = await categorizeSkills(enhancement.enhancedProfile.technicalSkills);
+      setJobSkillGroups(groups);
+      toast.success('Skills categorized', `Created ${groups.length} skill groups for this job`);
+    } catch (error) {
+      console.error('Auto-categorize failed:', error);
+      toast.error('Categorization failed', 'Could not auto-categorize skills');
+    } finally {
+      setIsAutoCategorizingSkills(false);
+    }
+  };
+
   // State for saving individual sections
   const [isSavingToProfile, setIsSavingToProfile] = useState(false);
 
@@ -1407,6 +1488,7 @@ export const EnhancePage: React.FC = () => {
         jobInfo,
         template: pdfTemplate,
         includeScores: includeScoresInPDF,
+        jobSkillGroups: jobSkillGroups.length > 0 ? jobSkillGroups : undefined,
       });
       setShowDownloadMenu(false);
       toast.success('PDF Generated', 'In print dialog, uncheck "Headers and footers" for clean output');
@@ -1467,6 +1549,7 @@ export const EnhancePage: React.FC = () => {
       jobInfo,
       template: pdfTemplate,
       includeScores: includeScoresInPDF,
+      jobSkillGroups: jobSkillGroups.length > 0 ? jobSkillGroups : undefined,
     });
   };
 
@@ -2100,6 +2183,10 @@ export const EnhancePage: React.FC = () => {
               onUpdate={handleUpdateEnhancedProfile}
               onSaveToProfile={handleSaveToProfile}
               isSaving={isSavingToProfile}
+              jobSkillGroups={jobSkillGroups}
+              onJobSkillGroupsChange={setJobSkillGroups}
+              isAutoCategorizingSkills={isAutoCategorizingSkills}
+              onAutoCategorizeTechnical={handleAutoCategorizeTechnical}
             />
           </>
         )}

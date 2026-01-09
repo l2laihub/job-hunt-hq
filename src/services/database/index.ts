@@ -9,6 +9,7 @@ export { companyResearchService } from './company-research';
 export { technicalAnswersService } from './technical-answers';
 export { analyzedJobsService } from './analyzed-jobs';
 export { enhancementsService } from './enhancements';
+export { interviewNotesService } from './interview-notes';
 
 // Type converters
 export * from './types';
@@ -21,6 +22,7 @@ import { companyResearchService } from './company-research';
 import { technicalAnswersService } from './technical-answers';
 import { analyzedJobsService } from './analyzed-jobs';
 import { enhancementsService } from './enhancements';
+import { interviewNotesService } from './interview-notes';
 
 export const db = {
   profiles: profilesService,
@@ -30,4 +32,5 @@ export const db = {
   technicalAnswers: technicalAnswersService,
   analyzedJobs: analyzedJobsService,
   enhancements: enhancementsService,
+  interviewNotes: interviewNotesService,
 };

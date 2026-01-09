@@ -118,7 +118,7 @@ export const QuestionBank: React.FC<QuestionBankProps> = ({
         <p className="text-gray-400 mb-4">
           Generate AI-predicted interview questions based on the job description and your profile.
         </p>
-        <Button onClick={onGenerateQuestions} disabled={isGenerating}>
+        <Button onClick={() => onGenerateQuestions()} disabled={isGenerating}>
           {isGenerating ? (
             <>
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -174,7 +174,7 @@ export const QuestionBank: React.FC<QuestionBankProps> = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={onGenerateQuestions}
+            onClick={() => onGenerateQuestions()}
             disabled={isGenerating}
           >
             {isGenerating ? (

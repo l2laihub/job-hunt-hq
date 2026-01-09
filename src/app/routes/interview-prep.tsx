@@ -416,15 +416,14 @@ export const InterviewPrepPage: React.FC = () => {
   const { applications: allApplications } = useApplications();
   const { stories: allStories } = useStories();
 
-  const {
-    sessions,
-    createSession,
-    getSession,
-    updateSession,
-    deleteSession,
-    setPredictedQuestions,
-    setQuickReference,
-  } = useInterviewPrepStore();
+  // Use separate selectors to ensure proper subscription to state changes
+  const sessions = useInterviewPrepStore((state) => state.sessions);
+  const createSession = useInterviewPrepStore((state) => state.createSession);
+  const getSession = useInterviewPrepStore((state) => state.getSession);
+  const updateSession = useInterviewPrepStore((state) => state.updateSession);
+  const deleteSession = useInterviewPrepStore((state) => state.deleteSession);
+  const setPredictedQuestions = useInterviewPrepStore((state) => state.setPredictedQuestions);
+  const setQuickReference = useInterviewPrepStore((state) => state.setQuickReference);
 
   // Filter by active profile
   const applications = useMemo(() => {
@@ -463,38 +462,30 @@ export const InterviewPrepPage: React.FC = () => {
   const selectedApp = applications.find((a) => a.id === selectedAppId);
   // Use useMemo with sessions dependency to ensure re-render when session updates
   const session = useMemo(() => {
-    console.log('=== SESSION MEMO RECALCULATING ===');
-    console.log('selectedAppId:', selectedAppId);
-    console.log('sessions length:', sessions.length);
     if (!selectedAppId) return undefined;
-    const found = sessions.find((s) => s.applicationId === selectedAppId);
-    if (found) {
-      const preparedCount = found.predictedQuestions.filter(q => q.isPrepared).length;
-      console.log('Found session, prepared questions:', preparedCount);
-    }
-    return found;
+    return sessions.find((s) => s.applicationId === selectedAppId);
   }, [selectedAppId, sessions]);
-
-  // Create new session
-  const handleCreateSession = useCallback(
-    (appId: string, type: InterviewStage) => {
-      const newSession = createSession(appId, type, activeProfileId ?? undefined);
-      setSelectedAppId(appId);
-      toast.success('Prep session created', 'Start by completing your checklist');
-
-      // Auto-generate questions
-      handleGenerateQuestions(newSession);
-    },
-    [createSession, activeProfileId]
-  );
 
   // Generate predicted questions
   const handleGenerateQuestions = useCallback(
     async (targetSession?: InterviewPrepSession) => {
-      const sess = targetSession || session;
-      if (!sess || !profile) return;
+      // Get the current session from the store to ensure we have the latest data
+      // Don't rely on closure's session which may be stale
+      const currentStoreSession = selectedAppId
+        ? useInterviewPrepStore.getState().sessions.find(s => s.applicationId === selectedAppId)
+        : undefined;
 
-      const app = applications.find((a) => a.id === sess.applicationId);
+      // Use targetSession (passed directly), or current store session, or closure session as fallback
+      const sess = targetSession || currentStoreSession || session;
+
+      if (!sess || !profile) {
+        return;
+      }
+
+      // Use session.applicationId if available, otherwise fall back to selectedAppId
+      const appId = sess.applicationId || selectedAppId;
+      const app = applications.find((a) => a.id === appId);
+
       if (!app || !app.analysis) {
         toast.error('Missing job analysis', 'Analyze the job description first');
         return;
@@ -521,7 +512,20 @@ export const InterviewPrepPage: React.FC = () => {
         setIsGenerating(false);
       }
     },
-    [session, profile, applications, stories, setPredictedQuestions]
+    [session, profile, applications, stories, setPredictedQuestions, selectedAppId]
+  );
+
+  // Create new session
+  const handleCreateSession = useCallback(
+    (appId: string, type: InterviewStage) => {
+      const newSession = createSession(appId, type, activeProfileId ?? undefined);
+      setSelectedAppId(appId);
+      toast.success('Prep session created', 'Start by completing your checklist');
+
+      // Auto-generate questions
+      handleGenerateQuestions(newSession);
+    },
+    [createSession, activeProfileId, handleGenerateQuestions]
   );
 
   // Generate quick reference

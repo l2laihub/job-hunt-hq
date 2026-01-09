@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, MAX_THINKING_BUDGET } from './client';
 import { profileSchema } from './schemas';
 import type { UserProfile } from '@/src/types';
 import { readFileAsText, readFileAsBase64 } from '@/src/lib/utils';
+import mammoth from 'mammoth';
 
 /**
  * Determine the MIME type of a file
@@ -36,6 +37,25 @@ function isTextFile(mimeType: string, fileName: string): boolean {
 }
 
 /**
+ * Check if file is a DOCX file
+ */
+function isDocxFile(mimeType: string, fileName: string): boolean {
+  return (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    fileName.toLowerCase().endsWith('.docx')
+  );
+}
+
+/**
+ * Extract text from a DOCX file using mammoth
+ */
+async function extractTextFromDocx(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+/**
  * Process uploaded documents to extract profile information
  */
 export async function processDocuments(files: File[]): Promise<UserProfile> {
@@ -60,7 +80,18 @@ export async function processDocuments(files: File[]): Promise<UserProfile> {
         }
       }
 
-      // For binary files (PDF, DOCX), use base64
+      // For DOCX files, extract text using mammoth (Gemini doesn't support DOCX directly)
+      if (isDocxFile(mimeType, file.name)) {
+        try {
+          const text = await extractTextFromDocx(file);
+          return { text: `[File: ${file.name}]\n${text}\n` };
+        } catch (error) {
+          console.error(`Failed to extract text from DOCX ${file.name}:`, error);
+          throw new Error(`Failed to read DOCX file: ${file.name}. Please try saving as PDF or TXT.`);
+        }
+      }
+
+      // For binary files (PDF only - DOCX handled above), use base64
       const base64 = await readFileAsBase64(file);
       return {
         inlineData: {

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema, LiveServerMessage, Modality } from "@google/genai";
-import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation } from "../types";
+import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation, InterviewNote, NextStepPrep, InterviewQuestionAsked } from "../types";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -903,6 +903,429 @@ ${documentation.metrics.map(m => `- ${m.metric}: ${m.after}`).join('\n') || 'Non
     return JSON.parse(jsonText);
   } catch (error) {
     console.error("Project Matching Failed:", error);
+    throw error;
+  }
+};
+
+// ============================================
+// INTERVIEW NOTES & RECORDING ANALYSIS
+// ============================================
+
+const interviewTranscriptSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    transcript: {
+      type: Type.STRING,
+      description: "Full text transcript of the audio recording"
+    },
+    speakers: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          label: { type: Type.STRING, description: "Speaker label (e.g., 'Interviewer', 'Candidate')" },
+          estimatedRole: { type: Type.STRING, description: "Estimated role based on context" }
+        }
+      }
+    },
+    durationEstimate: {
+      type: Type.STRING,
+      description: "Estimated duration of the recording"
+    }
+  },
+  required: ['transcript']
+};
+
+const interviewAnalysisSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    summary: {
+      type: Type.STRING,
+      description: "2-3 paragraph summary of the interview covering main topics discussed"
+    },
+    keyTakeaways: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "5-7 key takeaways from the interview"
+    },
+    questionsAsked: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          topic: { type: Type.STRING, enum: ['technical', 'behavioral', 'experience', 'culture', 'logistics', 'other'] },
+          yourResponse: { type: Type.STRING, description: "Brief summary of how you answered" },
+          wasStrong: { type: Type.BOOLEAN, description: "Was this a strong answer?" }
+        },
+        required: ['question', 'topic', 'wasStrong']
+      },
+      description: "Questions asked during the interview with assessment"
+    },
+    nextStepPrep: {
+      type: Type.OBJECT,
+      properties: {
+        areasToReview: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Topics or skills to review before next round"
+        },
+        suggestedStoryTopics: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Story topics from Experience Bank that would be helpful to review"
+        },
+        anticipatedQuestions: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Questions likely to come up in next round based on this interview"
+        },
+        strengthsShown: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Strengths demonstrated in this interview"
+        },
+        areasToImprove: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Areas where answers could be improved"
+        },
+        followUpActions: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Specific actions to take before next round"
+        },
+        redFlags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Any concerns or red flags identified"
+        },
+        greenFlags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Positive signals from the interview"
+        }
+      },
+      required: ['areasToReview', 'anticipatedQuestions', 'strengthsShown', 'areasToImprove', 'followUpActions']
+    }
+  },
+  required: ['summary', 'keyTakeaways', 'questionsAsked', 'nextStepPrep']
+};
+
+/**
+ * Transcribe audio from an interview recording
+ * Uses Gemini's multimodal capabilities to process audio
+ */
+export const transcribeInterviewAudio = async (
+  audioBase64: string,
+  mimeType: string
+): Promise<string> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const prompt = `
+    Transcribe this interview audio recording accurately.
+    Include speaker labels where possible (e.g., "Interviewer:" and "Candidate:").
+    Preserve the conversation flow and any important non-verbal cues (pauses, emphasis).
+
+    Output the full transcript as plain text.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: audioBase64
+            }
+          }
+        ]
+      },
+      config: {
+        thinkingConfig: { thinkingBudget: 2048 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+    return response.text;
+  } catch (error) {
+    console.error("Audio Transcription Failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Analyze an interview transcript or notes to generate insights and prep
+ */
+export const analyzeInterviewContent = async (
+  content: string,
+  context: {
+    stage: string;
+    company: string;
+    role: string;
+    jdAnalysis?: JDAnalysis;
+    companyResearch?: CompanyResearch;
+    profile: UserProfile;
+    stories?: Experience[];
+  }
+): Promise<{
+  summary: string;
+  keyTakeaways: string[];
+  questionsAsked: InterviewQuestionAsked[];
+  nextStepPrep: NextStepPrep;
+}> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  // Build context about available stories for matching
+  const storiesContext = context.stories?.slice(0, 10).map(s =>
+    `- "${s.title}" (Tags: ${s.tags.join(', ')}): ${s.star.situation.slice(0, 100)}...`
+  ).join('\n') || 'No stories available';
+
+  const jdContext = context.jdAnalysis
+    ? `Key skills: ${context.jdAnalysis.requiredSkills?.join(', ') || 'Unknown'}
+       Role type: ${(context.jdAnalysis as FTEAnalysis).roleType || 'Unknown'}`
+    : 'No JD analysis available';
+
+  const companyContext = context.companyResearch
+    ? `Industry: ${context.companyResearch.overview?.industry || 'Unknown'}
+       Culture notes: ${context.companyResearch.engineeringCulture?.notes || 'Unknown'}
+       Interview difficulty: ${context.companyResearch.interviewIntel?.interviewDifficulty || 'Unknown'}`
+    : 'No company research available';
+
+  const prompt = `
+    Analyze this interview content and generate preparation insights for the next round.
+
+    ## Interview Context
+    Stage: ${context.stage}
+    Company: ${context.company}
+    Role: ${context.role}
+
+    ## Job Analysis
+    ${jdContext}
+
+    ## Company Intel
+    ${companyContext}
+
+    ## Candidate Profile
+    Name: ${context.profile.name}
+    Headline: ${context.profile.headline}
+    Years Experience: ${context.profile.yearsExperience}
+    Technical Skills: ${context.profile.technicalSkills.slice(0, 15).join(', ')}
+
+    ## Available STAR Stories (for suggesting relevant ones)
+    ${storiesContext}
+
+    ## Interview Content (Transcript or Notes)
+    ${content}
+
+    ## Task
+    Analyze this interview and provide:
+    1. A comprehensive summary of what was discussed
+    2. Key takeaways from the interview
+    3. List of questions asked with assessment of answer quality
+    4. Detailed preparation guide for the next round including:
+       - Technical areas to review
+       - Suggested STAR stories to prepare (match to the story titles above)
+       - Anticipated follow-up questions
+       - Strengths demonstrated
+       - Areas where answers could be improved
+       - Specific action items
+       - Any red flags or concerns
+       - Positive signals / green flags
+
+    Be specific and actionable. The candidate needs concrete guidance for their next interview.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: interviewAnalysisSchema,
+        thinkingConfig: { thinkingBudget: 4096 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    const result = JSON.parse(jsonText);
+
+    // Map the response to our types
+    return {
+      summary: result.summary,
+      keyTakeaways: result.keyTakeaways || [],
+      questionsAsked: (result.questionsAsked || []).map((q: any) => ({
+        question: q.question,
+        topic: q.topic,
+        yourResponse: q.yourResponse,
+        wasStrong: q.wasStrong
+      })),
+      nextStepPrep: {
+        areasToReview: result.nextStepPrep?.areasToReview || [],
+        suggestedStories: result.nextStepPrep?.suggestedStoryTopics || [],
+        anticipatedQuestions: result.nextStepPrep?.anticipatedQuestions || [],
+        strengthsShown: result.nextStepPrep?.strengthsShown || [],
+        areasToImprove: result.nextStepPrep?.areasToImprove || [],
+        followUpActions: result.nextStepPrep?.followUpActions || [],
+        redFlags: result.nextStepPrep?.redFlags || [],
+        greenFlags: result.nextStepPrep?.greenFlags || []
+      }
+    };
+  } catch (error) {
+    console.error("Interview Analysis Failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Combined function to transcribe and analyze audio in one call
+ * More efficient for processing interview recordings
+ */
+export const processInterviewRecording = async (
+  audioBase64: string,
+  mimeType: string,
+  context: {
+    stage: string;
+    company: string;
+    role: string;
+    jdAnalysis?: JDAnalysis;
+    companyResearch?: CompanyResearch;
+    profile: UserProfile;
+    stories?: Experience[];
+  }
+): Promise<{
+  transcript: string;
+  summary: string;
+  keyTakeaways: string[];
+  questionsAsked: InterviewQuestionAsked[];
+  nextStepPrep: NextStepPrep;
+}> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  // Build context
+  const storiesContext = context.stories?.slice(0, 10).map(s =>
+    `- "${s.title}" (Tags: ${s.tags.join(', ')})`
+  ).join('\n') || 'No stories available';
+
+  const prompt = `
+    First, transcribe this interview audio recording accurately.
+    Then, analyze the content to help the candidate prepare for their next round.
+
+    ## Interview Context
+    Stage: ${context.stage}
+    Company: ${context.company}
+    Role: ${context.role}
+
+    ## Candidate Profile
+    ${context.profile.name} - ${context.profile.headline}
+    Skills: ${context.profile.technicalSkills.slice(0, 10).join(', ')}
+
+    ## Available STAR Stories
+    ${storiesContext}
+
+    ## Output Required
+    1. Full transcript with speaker labels
+    2. Summary of key discussion points
+    3. Key takeaways
+    4. Questions asked with quality assessment
+    5. Next step preparation guide
+
+    Be thorough but actionable.
+  `;
+
+  const combinedSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+      transcript: { type: Type.STRING },
+      summary: { type: Type.STRING },
+      keyTakeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+      questionsAsked: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            question: { type: Type.STRING },
+            topic: { type: Type.STRING },
+            yourResponse: { type: Type.STRING },
+            wasStrong: { type: Type.BOOLEAN }
+          }
+        }
+      },
+      nextStepPrep: {
+        type: Type.OBJECT,
+        properties: {
+          areasToReview: { type: Type.ARRAY, items: { type: Type.STRING } },
+          suggestedStoryTopics: { type: Type.ARRAY, items: { type: Type.STRING } },
+          anticipatedQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          strengthsShown: { type: Type.ARRAY, items: { type: Type.STRING } },
+          areasToImprove: { type: Type.ARRAY, items: { type: Type.STRING } },
+          followUpActions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          redFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
+          greenFlags: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+      }
+    },
+    required: ['transcript', 'summary', 'keyTakeaways', 'questionsAsked', 'nextStepPrep']
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: audioBase64
+            }
+          }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: combinedSchema,
+        thinkingConfig: { thinkingBudget: 8192 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    const result = JSON.parse(jsonText);
+
+    return {
+      transcript: result.transcript,
+      summary: result.summary,
+      keyTakeaways: result.keyTakeaways || [],
+      questionsAsked: (result.questionsAsked || []).map((q: any) => ({
+        question: q.question,
+        topic: q.topic,
+        yourResponse: q.yourResponse,
+        wasStrong: q.wasStrong
+      })),
+      nextStepPrep: {
+        areasToReview: result.nextStepPrep?.areasToReview || [],
+        suggestedStories: result.nextStepPrep?.suggestedStoryTopics || [],
+        anticipatedQuestions: result.nextStepPrep?.anticipatedQuestions || [],
+        strengthsShown: result.nextStepPrep?.strengthsShown || [],
+        areasToImprove: result.nextStepPrep?.areasToImprove || [],
+        followUpActions: result.nextStepPrep?.followUpActions || [],
+        redFlags: result.nextStepPrep?.redFlags || [],
+        greenFlags: result.nextStepPrep?.greenFlags || []
+      }
+    };
+  } catch (error) {
+    console.error("Interview Recording Processing Failed:", error);
     throw error;
   }
 };

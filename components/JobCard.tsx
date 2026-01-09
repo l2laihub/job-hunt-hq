@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { JobApplication } from '../types';
-import { Calendar, DollarSign, Building, Search, Globe } from 'lucide-react';
+import { Calendar, DollarSign, Building, Search, Globe, Mic } from 'lucide-react';
 
 interface JobCardProps {
   application: JobApplication;
   onClick: (app: JobApplication) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onResearch: (app: JobApplication) => void;
+  interviewNotesCount?: number;
 }
 
 const getFitColor = (score?: number) => {
@@ -17,7 +18,7 @@ const getFitColor = (score?: number) => {
   return 'bg-red-900/40 text-red-300 border-red-700/50';
 };
 
-export const JobCard: React.FC<JobCardProps> = ({ application, onClick, onDragStart, onResearch }) => {
+export const JobCard: React.FC<JobCardProps> = ({ application, onClick, onDragStart, onResearch, interviewNotesCount = 0 }) => {
   return (
     <div
       draggable
@@ -27,11 +28,19 @@ export const JobCard: React.FC<JobCardProps> = ({ application, onClick, onDragSt
     >
       <div className="flex justify-between items-start">
         <h3 className="font-semibold text-gray-100 truncate pr-2 flex-1">{application.role}</h3>
-        {application.analysis && (
-          <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getFitColor(application.analysis.fitScore)}`}>
-            {application.analysis.fitScore}/10
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {interviewNotesCount > 0 && (
+            <span className="flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300 border border-purple-700/50">
+              <Mic className="w-3 h-3" />
+              {interviewNotesCount}
+            </span>
+          )}
+          {application.analysis && (
+            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getFitColor(application.analysis.fitScore)}`}>
+              {application.analysis.fitScore}/10
+            </span>
+          )}
+        </div>
       </div>
       
       <div className="flex items-center text-sm text-gray-400">
