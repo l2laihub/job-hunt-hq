@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { toast } from '@/src/stores';
 import { useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { formatExperienceToSTAR } from '@/src/services/gemini';
-import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Dialog, Abbr } from '@/src/components/ui';
+import { Button, Input, Textarea, Card, CardContent, Badge, Dialog, ConfirmDialog, Abbr } from '@/src/components/ui';
+import { MarkdownRenderer } from '@/src/components/ui/markdown-renderer';
 import { StoriesEmptyState } from '@/src/components/shared';
 import { cn } from '@/src/lib/utils';
 import type { Experience, STAR } from '@/src/types';
@@ -12,13 +13,22 @@ import {
   Edit2,
   Trash2,
   Sparkles,
-  Tag,
   ChevronDown,
   ChevronUp,
   Copy,
   Loader2,
-  Mic,
   Search,
+  X,
+  CheckSquare,
+  Square,
+  Filter,
+  FileText,
+  Target,
+  Star,
+  BookOpen,
+  MessageSquare,
+  Lightbulb,
+  CheckCircle,
 } from 'lucide-react';
 
 export const StoriesPage: React.FC = () => {
@@ -35,21 +45,120 @@ export const StoriesPage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStory, setEditingStory] = useState<Experience | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagFilter, setShowTagFilter] = useState(false);
 
-  // Get unique tags from all stories
-  const allTags = Array.from(new Set(stories.flatMap((s) => s.tags)));
+  // Bulk selection state
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
-  // Filter stories
-  const filteredStories = stories.filter((story) => {
-    const matchesSearch =
-      !searchQuery ||
-      story.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      story.rawInput.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      story.star.situation.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTag = !selectedTag || story.tags.includes(selectedTag);
-    return matchesSearch && matchesTag;
-  });
+  // Get unique tags from all stories, sorted alphabetically
+  const allTags = useMemo(() =>
+    Array.from(new Set(stories.flatMap((s) => s.tags))).sort((a, b) =>
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    ),
+    [stories]
+  );
+
+  // Advanced search - matches across all fields
+  const searchStory = useCallback((story: Experience, query: string): boolean => {
+    if (!query.trim()) return true;
+    const lowerQuery = query.toLowerCase();
+
+    // Search in title
+    if (story.title.toLowerCase().includes(lowerQuery)) return true;
+
+    // Search in raw input
+    if (story.rawInput.toLowerCase().includes(lowerQuery)) return true;
+
+    // Search in STAR sections
+    if (story.star.situation.toLowerCase().includes(lowerQuery)) return true;
+    if (story.star.task.toLowerCase().includes(lowerQuery)) return true;
+    if (story.star.action.toLowerCase().includes(lowerQuery)) return true;
+    if (story.star.result.toLowerCase().includes(lowerQuery)) return true;
+
+    // Search in tags
+    if (story.tags.some(tag => tag.toLowerCase().includes(lowerQuery))) return true;
+
+    // Search in metrics
+    if (story.metrics.primary?.toLowerCase().includes(lowerQuery)) return true;
+    if (story.metrics.secondary?.some(m => m.toLowerCase().includes(lowerQuery))) return true;
+
+    // Search in coaching notes
+    if (story.coachingNotes?.toLowerCase().includes(lowerQuery)) return true;
+
+    return false;
+  }, []);
+
+  // Filter stories with advanced search and multi-tag support
+  const filteredStories = useMemo(() => {
+    return stories.filter((story) => {
+      const matchesSearch = searchStory(story, searchQuery);
+      const matchesTags = selectedTags.length === 0 ||
+        selectedTags.every(tag => story.tags.includes(tag));
+      return matchesSearch && matchesTags;
+    });
+  }, [stories, searchQuery, selectedTags, searchStory]);
+
+  // Toggle tag selection for multi-select
+  const toggleTagFilter = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  // Clear all tag filters
+  const clearTagFilters = () => {
+    setSelectedTags([]);
+  };
+
+  // Bulk selection handlers
+  const toggleStorySelection = (storyId: string) => {
+    setSelectedStoryIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(storyId)) {
+        newSet.delete(storyId);
+      } else {
+        newSet.add(storyId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelectedStoryIds(new Set(filteredStories.map(s => s.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedStoryIds(new Set());
+  };
+
+  const exitBulkSelectMode = () => {
+    setBulkSelectMode(false);
+    setSelectedStoryIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedStoryIds.size === 0) return;
+    setShowBulkDeleteConfirm(true);
+  };
+
+  const confirmBulkDelete = () => {
+    const count = selectedStoryIds.size;
+    selectedStoryIds.forEach(id => {
+      deleteStory(id);
+    });
+    toast.success(
+      `${count} ${count === 1 ? 'story' : 'stories'} deleted`,
+      'Selected stories have been removed'
+    );
+    setSelectedStoryIds(new Set());
+    setBulkSelectMode(false);
+    setShowBulkDeleteConfirm(false);
+  };
 
   const handleAddStory = () => {
     setEditingStory(null);
@@ -92,54 +201,169 @@ export const StoriesPage: React.FC = () => {
               Build your interview story library with AI-formatted <Abbr variant="subtle">STAR</Abbr> responses
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={handleAddStory}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Add Story
-          </Button>
+          <div className="flex items-center gap-2">
+            {bulkSelectMode ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exitBulkSelectMode}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedStoryIds.size === 0}
+                  leftIcon={<Trash2 className="w-4 h-4" />}
+                >
+                  Delete ({selectedStoryIds.size})
+                </Button>
+              </>
+            ) : (
+              <>
+                {stories.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBulkSelectMode(true)}
+                    leftIcon={<CheckSquare className="w-4 h-4" />}
+                  >
+                    Select
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  onClick={handleAddStory}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Add Story
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {stories.length > 0 ? (
           <>
-            {/* Search & Filter */}
-            <div className="flex gap-4 items-center">
-              <div className="flex-1">
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search stories..."
-                  leftIcon={<Search className="w-4 h-4" />}
-                />
-              </div>
-              {allTags.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setSelectedTag(null)}
-                    className={cn(
-                      'px-3 py-1 text-xs rounded-full transition-colors',
-                      !selectedTag
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-400 hover:text-white'
-                    )}
-                  >
-                    All
-                  </button>
-                  {allTags.map((tag) => (
+            {/* Search & Filter Bar */}
+            <div className="space-y-3">
+              <div className="flex gap-3 items-center">
+                {/* Search Input */}
+                <div className="flex-1 relative">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search titles, STAR content, tags, metrics..."
+                    leftIcon={<Search className="w-4 h-4" />}
+                  />
+                  {searchQuery && (
                     <button
-                      key={tag}
-                      onClick={() => setSelectedTag(tag === selectedTag ? null : tag)}
-                      className={cn(
-                        'px-3 py-1 text-xs rounded-full transition-colors',
-                        tag === selectedTag
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-800 text-gray-400 hover:text-white'
-                      )}
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      title="Clear search"
+                      aria-label="Clear search"
                     >
-                      {tag}
+                      <X className="w-4 h-4" />
                     </button>
-                  ))}
+                  )}
+                </div>
+
+                {/* Tag Filter Toggle */}
+                {allTags.length > 0 && (
+                  <Button
+                    variant={showTagFilter || selectedTags.length > 0 ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setShowTagFilter(!showTagFilter)}
+                    leftIcon={<Filter className="w-4 h-4" />}
+                  >
+                    Filter
+                    {selectedTags.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-600 rounded-full">
+                        {selectedTags.length}
+                      </span>
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {/* Expanded Tag Filter Panel */}
+              {showTagFilter && allTags.length > 0 && (
+                <div className="p-4 bg-gray-800/50 border border-gray-700 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-400">Filter by tags (select multiple)</span>
+                    {selectedTags.length > 0 && (
+                      <button
+                        onClick={clearTagFilters}
+                        className="text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTagFilter(tag)}
+                        className={cn(
+                          'px-3 py-1.5 text-xs rounded-lg transition-colors border',
+                          selectedTags.includes(tag)
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                        )}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Active Filters Display */}
+              {(searchQuery || selectedTags.length > 0) && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">
+                    Showing {filteredStories.length} of {stories.length} stories
+                  </span>
+                  {selectedTags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {selectedTags.map(tag => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-900/50 text-blue-300 rounded text-xs"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => toggleTagFilter(tag)}
+                            className="hover:text-white"
+                            title={`Remove ${tag} filter`}
+                            aria-label={`Remove ${tag} filter`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bulk Selection Controls */}
+              {bulkSelectMode && (
+                <div className="flex items-center gap-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+                  <button
+                    onClick={selectedStoryIds.size === filteredStories.length ? deselectAll : selectAllVisible}
+                    className="text-sm text-blue-400 hover:text-blue-300"
+                  >
+                    {selectedStoryIds.size === filteredStories.length ? 'Deselect all' : 'Select all visible'}
+                  </button>
+                  <span className="text-gray-500 text-sm">
+                    {selectedStoryIds.size} selected
+                  </span>
                 </div>
               )}
             </div>
@@ -152,6 +376,9 @@ export const StoriesPage: React.FC = () => {
                   story={story}
                   onEdit={() => handleEditStory(story)}
                   onDelete={() => handleDeleteStory(story.id)}
+                  bulkSelectMode={bulkSelectMode}
+                  isSelected={selectedStoryIds.has(story.id)}
+                  onToggleSelect={() => toggleStorySelection(story.id)}
                 />
               ))}
               {filteredStories.length === 0 && (
@@ -177,6 +404,17 @@ export const StoriesPage: React.FC = () => {
           onSave={handleSaveStory}
           initialData={editingStory || undefined}
         />
+
+        {/* Bulk Delete Confirmation */}
+        <ConfirmDialog
+          isOpen={showBulkDeleteConfirm}
+          onClose={() => setShowBulkDeleteConfirm(false)}
+          onConfirm={confirmBulkDelete}
+          title="Delete Stories"
+          message={`Are you sure you want to delete ${selectedStoryIds.size} ${selectedStoryIds.size === 1 ? 'story' : 'stories'}? This action cannot be undone.`}
+          confirmText="Delete"
+          variant="danger"
+        />
       </div>
     </div>
   );
@@ -187,10 +425,52 @@ interface StoryCardProps {
   story: Experience;
   onEdit: () => void;
   onDelete: () => void;
+  bulkSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-const StoryCard: React.FC<StoryCardProps> = ({ story, onEdit, onDelete }) => {
+const StoryCard: React.FC<StoryCardProps> = ({
+  story,
+  onEdit,
+  onDelete,
+  bulkSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
+}) => {
   const [expanded, setExpanded] = useState(false);
+  const [showNarrative, setShowNarrative] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+
+  // Check if this story has generated answer metadata
+  const hasGeneratedMetadata = !!story.generatedAnswerMetadata;
+  const metadata = story.generatedAnswerMetadata;
+
+  // Get format info for display
+  const getFormatInfo = () => {
+    if (!metadata) return null;
+    const formatMap: Record<string, { name: string; color: string }> = {
+      'STAR': { name: 'STAR Format', color: 'purple' },
+      'Requirements-Design-Tradeoffs': { name: 'System Design', color: 'blue' },
+      'Explain-Example-Tradeoffs': { name: 'Conceptual', color: 'green' },
+      'Approach-Implementation-Complexity': { name: 'Problem Solving', color: 'orange' },
+    };
+    return formatMap[metadata.answerFormat] || { name: 'General', color: 'gray' };
+  };
+
+  const formatInfo = getFormatInfo();
+
+  const toggleSection = (index: number) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -198,33 +478,93 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, onEdit, onDelete }) => {
   };
 
   const formatSTARForCopy = () => {
+    if (hasGeneratedMetadata && metadata) {
+      return metadata.narrative;
+    }
     return `**Situation:** ${story.star.situation}\n\n**Task:** ${story.star.task}\n\n**Action:** ${story.star.action}\n\n**Result:** ${story.star.result}`;
   };
 
+  const handleCardClick = () => {
+    if (bulkSelectMode && onToggleSelect) {
+      onToggleSelect();
+    } else {
+      setExpanded(!expanded);
+    }
+  };
+
   return (
-    <Card className="overflow-hidden">
+    <Card className={cn(
+      "overflow-hidden transition-all",
+      bulkSelectMode && isSelected && "ring-2 ring-blue-500 bg-blue-900/10"
+    )}>
       <div
-        className="p-4 cursor-pointer hover:bg-gray-800/30 transition-colors"
-        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          "p-4 cursor-pointer transition-colors",
+          bulkSelectMode
+            ? "hover:bg-gray-800/50"
+            : "hover:bg-gray-800/30"
+        )}
+        onClick={handleCardClick}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="font-semibold text-white">{story.title}</h3>
-            <p className="text-sm text-gray-400 line-clamp-2 mt-1">{story.star.situation}</p>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            <div className="flex gap-1">
-              {story.tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} variant="default" size="sm">
-                  {tag}
-                </Badge>
-              ))}
+        <div className="flex items-start gap-3">
+          {/* Checkbox for bulk selection */}
+          {bulkSelectMode && (
+            <div className="flex-shrink-0 pt-1">
+              {isSelected ? (
+                <CheckSquare className="w-5 h-5 text-blue-500" />
+              ) : (
+                <Square className="w-5 h-5 text-gray-500" />
+              )}
             </div>
-            {expanded ? (
-              <ChevronUp className="w-5 h-5 text-gray-500" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-gray-500" />
-            )}
+          )}
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-white truncate">{story.title}</h3>
+                  {/* Format badge for generated answers */}
+                  {hasGeneratedMetadata && formatInfo && (
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      formatInfo.color === 'purple' && 'bg-purple-900/50 text-purple-400',
+                      formatInfo.color === 'blue' && 'bg-blue-900/50 text-blue-400',
+                      formatInfo.color === 'green' && 'bg-green-900/50 text-green-400',
+                      formatInfo.color === 'orange' && 'bg-orange-900/50 text-orange-400',
+                      formatInfo.color === 'gray' && 'bg-gray-800 text-gray-400',
+                    )}>
+                      {formatInfo.name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-400 line-clamp-2 mt-1">
+                  {hasGeneratedMetadata && metadata?.narrative
+                    ? metadata.narrative.substring(0, 150) + '...'
+                    : story.star.situation}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                <div className="flex gap-1">
+                  {story.tags.slice(0, 3).map((tag) => (
+                    <Badge key={tag} variant="default" size="sm">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {story.tags.length > 3 && (
+                    <Badge variant="default" size="sm">
+                      +{story.tags.length - 3}
+                    </Badge>
+                  )}
+                </div>
+                {!bulkSelectMode && (
+                  expanded ? (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  )
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -232,51 +572,283 @@ const StoryCard: React.FC<StoryCardProps> = ({ story, onEdit, onDelete }) => {
       {expanded && (
         <div className="border-t border-gray-800">
           <CardContent className="p-4 space-y-4">
-            {/* STAR Format */}
-            <div className="space-y-3">
-              <STARSection label="Situation" content={story.star.situation} />
-              <STARSection label="Task" content={story.star.task} />
-              <STARSection label="Action" content={story.star.action} />
-              <STARSection label="Result" content={story.star.result} />
-            </div>
+            {/* Enhanced view for generated answers with metadata */}
+            {hasGeneratedMetadata && metadata ? (
+              <>
+                {/* Toggle between Narrative and Structured view */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowNarrative(!showNarrative)}
+                    className="text-xs"
+                  >
+                    {showNarrative ? 'Show Structured' : 'Show Narrative'}
+                  </Button>
+                </div>
 
-            {/* Metrics */}
-            {story.metrics.primary && (
-              <div className="p-3 bg-green-900/20 border border-green-800/50 rounded-lg">
-                <span className="text-xs text-green-400 uppercase font-semibold">Key Metric</span>
-                <p className="text-green-300 font-medium">{story.metrics.primary}</p>
-                {story.metrics.secondary.length > 0 && (
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {story.metrics.secondary.map((m, i) => (
-                      <Badge key={i} variant="success" size="sm">
-                        {m}
-                      </Badge>
-                    ))}
+                {/* Main Content - Two columns on larger screens */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Left Column */}
+                  <div className="space-y-4">
+                    {/* Narrative or Structured View */}
+                    {showNarrative ? (
+                      <div className="p-4 bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-gray-700 rounded-lg">
+                        <h4 className="text-sm font-semibold text-emerald-400 flex items-center gap-2 mb-3">
+                          <FileText className="w-4 h-4" />
+                          Conversational Answer
+                        </h4>
+                        <div
+                          className="text-[15px] text-gray-200 leading-[1.8] tracking-wide whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{
+                            __html: metadata.narrative
+                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                              .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>')
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-4 border border-gray-700 rounded-lg space-y-3">
+                        <h4 className="text-sm font-semibold text-blue-400 flex items-center gap-2">
+                          <Target className="w-4 h-4" />
+                          {formatInfo?.name || 'Structured'} Breakdown
+                        </h4>
+                        {metadata.sections.map((section, index) => {
+                          const colors = ['purple', 'blue', 'green', 'yellow', 'cyan', 'pink'];
+                          const color = colors[index % colors.length];
+                          const isExpanded = expandedSections.has(index);
+
+                          return (
+                            <div
+                              key={index}
+                              className={cn(
+                                'rounded-lg border-l-4 overflow-hidden',
+                                color === 'purple' && 'bg-purple-900/10 border-l-purple-500',
+                                color === 'blue' && 'bg-blue-900/10 border-l-blue-500',
+                                color === 'green' && 'bg-green-900/10 border-l-green-500',
+                                color === 'yellow' && 'bg-yellow-900/10 border-l-yellow-500',
+                                color === 'cyan' && 'bg-cyan-900/10 border-l-cyan-500',
+                                color === 'pink' && 'bg-pink-900/10 border-l-pink-500',
+                              )}
+                            >
+                              <button
+                                onClick={() => toggleSection(index)}
+                                className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-800/30 transition-colors"
+                              >
+                                <span className={cn(
+                                  'text-xs font-bold uppercase tracking-wide',
+                                  color === 'purple' && 'text-purple-400',
+                                  color === 'blue' && 'text-blue-400',
+                                  color === 'green' && 'text-green-400',
+                                  color === 'yellow' && 'text-yellow-400',
+                                  color === 'cyan' && 'text-cyan-400',
+                                  color === 'pink' && 'text-pink-400',
+                                )}>
+                                  {section.label}
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                                )}
+                              </button>
+                              {isExpanded && (
+                                <div className="px-3 pb-3">
+                                  <p className="text-sm text-gray-300 leading-[1.7] tracking-wide whitespace-pre-wrap">
+                                    {section.content}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Key Metrics */}
+                    {(story.metrics.primary || story.metrics.secondary.length > 0) && (
+                      <div className="p-3 bg-green-900/20 border border-green-800/50 rounded-lg">
+                        <h4 className="text-sm font-semibold text-green-400 flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4" />
+                          Key Metrics & Results
+                        </h4>
+                        {story.metrics.primary && (
+                          <div className="text-lg font-bold text-white mb-2">{story.metrics.primary}</div>
+                        )}
+                        {story.metrics.secondary.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {story.metrics.secondary.map((metric, i) => (
+                              <Badge key={i} variant="default" size="sm">
+                                {metric}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Coaching Notes */}
+                    {story.coachingNotes && (
+                      <div className="p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg">
+                        <h4 className="text-sm font-semibold text-yellow-400 flex items-center gap-2 mb-2">
+                          <Lightbulb className="w-4 h-4" />
+                          Coaching Notes
+                        </h4>
+                        <p className="text-sm text-gray-300 leading-[1.7] whitespace-pre-wrap">{story.coachingNotes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-4">
+                    {/* Key Talking Points */}
+                    {metadata.keyTalkingPoints.length > 0 && (
+                      <div className="p-3 border border-gray-700 rounded-lg">
+                        <h4 className="text-sm font-semibold text-purple-400 flex items-center gap-2 mb-2">
+                          <Star className="w-4 h-4" />
+                          Key Talking Points
+                        </h4>
+                        <ul className="space-y-1">
+                          {metadata.keyTalkingPoints.map((point, i) => (
+                            <li key={i} className="text-sm text-gray-300 leading-[1.6] flex items-start gap-2">
+                              <span className="text-purple-400 mt-0.5">•</span>
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Delivery Tips */}
+                    {metadata.deliveryTips.length > 0 && (
+                      <div className="p-3 border border-gray-700 rounded-lg">
+                        <h4 className="text-sm font-semibold text-cyan-400 flex items-center gap-2 mb-2">
+                          <BookOpen className="w-4 h-4" />
+                          Delivery Tips
+                        </h4>
+                        <ul className="space-y-1">
+                          {metadata.deliveryTips.map((tip, i) => (
+                            <li key={i} className="text-sm text-gray-300 leading-[1.6] flex items-start gap-2">
+                              <span className="text-cyan-400 mt-0.5">{i + 1}.</span>
+                              {tip}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Follow-up Questions with Full Answers */}
+                    {metadata.followUpQA.length > 0 && (
+                      <div className="p-3 border border-gray-700 rounded-lg">
+                        <h4 className="text-sm font-semibold text-orange-400 flex items-center gap-2 mb-3">
+                          <MessageSquare className="w-4 h-4" />
+                          Likely Follow-up Questions
+                        </h4>
+                        <div className="space-y-3">
+                          {metadata.followUpQA.map((followUp, i) => (
+                            <div key={i} className="border-l-2 border-orange-800/50 pl-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-sm text-white font-medium italic">"{followUp.question}"</p>
+                                <Badge
+                                  variant={followUp.likelihood === 'high' ? 'danger' : followUp.likelihood === 'medium' ? 'warning' : 'default'}
+                                  size="sm"
+                                >
+                                  {followUp.likelihood}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-400 mb-1">Suggested response:</p>
+                              <p className="text-sm text-gray-300">{followUp.suggestedAnswer}</p>
+                              {followUp.keyPoints.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {followUp.keyPoints.map((point, j) => (
+                                    <span key={j} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">
+                                      {point}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sources */}
+                    {(metadata.sources.profileSections.length > 0 || metadata.sources.storyIds.length > 0) && (
+                      <div className="p-3 bg-gray-800/30 border border-gray-700 rounded-lg">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Sources Used</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {metadata.sources.profileSections.map((section, i) => (
+                            <Badge key={`profile-${i}`} variant="default" size="sm">
+                              Profile: {section}
+                            </Badge>
+                          ))}
+                          {metadata.sources.storyIds.length > 0 && (
+                            <Badge variant="info" size="sm">
+                              {metadata.sources.storyIds.length} stories referenced
+                            </Badge>
+                          )}
+                          {metadata.sources.synthesized && (
+                            <Badge variant="warning" size="sm">
+                              AI-synthesized
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Legacy STAR Format view */
+              <>
+                <div className="space-y-3">
+                  <STARSection label="Situation" content={story.star.situation} />
+                  <STARSection label="Task" content={story.star.task} />
+                  <STARSection label="Action" content={story.star.action} />
+                  <STARSection label="Result" content={story.star.result} />
+                </div>
+
+                {/* Metrics */}
+                {story.metrics.primary && (
+                  <div className="p-3 bg-green-900/20 border border-green-800/50 rounded-lg">
+                    <span className="text-xs text-green-400 uppercase font-semibold">Key Metric</span>
+                    <p className="text-green-300 font-medium">{story.metrics.primary}</p>
+                    {story.metrics.secondary.length > 0 && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {story.metrics.secondary.map((m, i) => (
+                          <Badge key={i} variant="success" size="sm">
+                            {m}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Coaching Notes */}
-            {story.coachingNotes && (
-              <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-                <span className="text-sm text-blue-400 uppercase font-semibold">AI Coaching</span>
-                <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide mt-2">{story.coachingNotes}</p>
-              </div>
-            )}
+                {/* Coaching Notes */}
+                {story.coachingNotes && (
+                  <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
+                    <span className="text-sm text-blue-400 uppercase font-semibold">AI Coaching</span>
+                    <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide mt-2">{story.coachingNotes}</p>
+                  </div>
+                )}
 
-            {/* Follow-up Questions */}
-            {story.followUpQuestions.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-sm text-gray-500 uppercase font-semibold">
-                  Prepare for Follow-ups
-                </span>
-                <ul className="text-[15px] text-gray-400 space-y-2 list-disc list-inside leading-[1.7]">
-                  {story.followUpQuestions.map((q, i) => (
-                    <li key={i}>{q}</li>
-                  ))}
-                </ul>
-              </div>
+                {/* Follow-up Questions (legacy - just questions without answers) */}
+                {story.followUpQuestions.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-sm text-gray-500 uppercase font-semibold">
+                      Prepare for Follow-ups
+                    </span>
+                    <ul className="text-[15px] text-gray-400 space-y-2 list-disc list-inside leading-[1.7]">
+                      {story.followUpQuestions.map((q, i) => (
+                        <li key={i}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Actions */}
@@ -334,7 +906,11 @@ const STARSection: React.FC<{ label: string; content: string }> = ({ label, cont
     >
       {label}
     </span>
-    <p className="text-[15px] text-gray-300 leading-[1.7] tracking-wide mt-2">{content}</p>
+    <MarkdownRenderer
+      content={content}
+      className="mt-2 prose-p:my-2 prose-p:first:mt-0"
+      variant="default"
+    />
   </div>
 );
 
@@ -396,7 +972,7 @@ const StoryModal: React.FC<StoryModalProps> = ({ isOpen, onClose, onSave, initia
       const result = await formatExperienceToSTAR(rawInput);
       setTitle(result.title);
       setStar(result.star);
-      setTags(result.suggestedTags);
+      setTags(result.tags);
       setCoachingNotes(result.coachingNotes || '');
       setFollowUpQuestions(result.followUpQuestions);
       setStep('review');

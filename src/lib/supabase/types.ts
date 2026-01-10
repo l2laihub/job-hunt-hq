@@ -190,6 +190,7 @@ export interface Database {
           coaching_notes: string | null;
           used_in_interviews: string[];
           times_used: number;
+          generated_answer_metadata: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -208,6 +209,7 @@ export interface Database {
           coaching_notes?: string | null;
           used_in_interviews?: string[];
           times_used?: number;
+          generated_answer_metadata?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -226,6 +228,7 @@ export interface Database {
           coaching_notes?: string | null;
           used_in_interviews?: string[];
           times_used?: number;
+          generated_answer_metadata?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

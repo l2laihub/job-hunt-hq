@@ -382,6 +382,38 @@ export interface STAR {
   result: string;
 }
 
+// Generated Answer Metadata (stored with Experience for rich viewing)
+export interface GeneratedAnswerMetadata {
+  // Question type and format
+  detectedQuestionType: TechnicalQuestionType;
+  answerFormat: AnswerFormatType;
+
+  // Structured sections (for non-STAR formats)
+  sections: AnswerSection[];
+
+  // Full narrative
+  narrative: string;
+
+  // Bullet points
+  bulletPoints: string[];
+
+  // Key talking points
+  keyTalkingPoints: string[];
+
+  // Delivery tips
+  deliveryTips: string[];
+
+  // Full follow-up Q&A with answers
+  followUpQA: FollowUpQA[];
+
+  // Sources used
+  sources: {
+    storyIds: string[];
+    profileSections: string[];
+    synthesized: boolean;
+  };
+}
+
 // Experience/Story
 export interface Experience {
   id: string;
@@ -408,6 +440,8 @@ export interface Experience {
   updatedAt: string;
   // Profile linking for multi-profile support
   profileId?: string;
+  // Generated answer metadata (for AI-generated answers with rich content)
+  generatedAnswerMetadata?: GeneratedAnswerMetadata;
 }
 
 export interface QuestionMatch {

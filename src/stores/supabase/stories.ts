@@ -84,6 +84,8 @@ export const useSupabaseStoriesStore = create<StoriesState>()((set, get) => ({
       createdAt: now,
       updatedAt: now,
       profileId: profileId || partial.profileId,
+      // Preserve generated answer metadata for rich viewing of AI-generated answers
+      generatedAnswerMetadata: partial.generatedAnswerMetadata,
     };
 
     try {

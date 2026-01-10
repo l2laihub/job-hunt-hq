@@ -107,6 +107,7 @@ export const storiesService = {
     if (updates.usedInInterviews !== undefined) updateData.used_in_interviews = updates.usedInInterviews;
     if (updates.timesUsed !== undefined) updateData.times_used = updates.timesUsed;
     if (updates.profileId !== undefined) updateData.profile_id = updates.profileId;
+    if (updates.generatedAnswerMetadata !== undefined) updateData.generated_answer_metadata = updates.generatedAnswerMetadata as unknown as Json;
 
     const { data, error } = await from('stories')
       .update(updateData)

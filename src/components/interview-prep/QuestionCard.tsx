@@ -9,7 +9,6 @@ import {
   Circle,
   ChevronDown,
   ChevronUp,
-  Play,
   Link,
   Unlink,
   Lightbulb,
@@ -372,6 +371,7 @@ const PracticeModal: React.FC<{
 };
 
 // View Story Modal (read-only) with AI-generated narrative
+// Enhanced to show full generated answer content when available
 const ViewStoryModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -381,8 +381,41 @@ const ViewStoryModal: React.FC<{
   const [narrativeText, setNarrativeText] = useState<string>('');
   const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
   const [narrativeError, setNarrativeError] = useState<string | null>(null);
+  const [showNarrative, setShowNarrative] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
 
-  // Generate AI narrative
+  // Check if this story has generated answer metadata
+  const hasGeneratedMetadata = !!story.generatedAnswerMetadata;
+  const metadata = story.generatedAnswerMetadata;
+
+  // Get format info for display
+  const getFormatInfo = () => {
+    if (!metadata) return null;
+    const formatMap: Record<string, { name: string; color: string; icon: string }> = {
+      'STAR': { name: 'STAR Format', color: 'purple', icon: 'story' },
+      'Requirements-Design-Tradeoffs': { name: 'System Design', color: 'blue', icon: 'architecture' },
+      'Explain-Example-Tradeoffs': { name: 'Conceptual', color: 'green', icon: 'lightbulb' },
+      'Approach-Implementation-Complexity': { name: 'Problem Solving', color: 'orange', icon: 'code' },
+    };
+    return formatMap[metadata.answerFormat] || { name: 'General', color: 'gray', icon: 'message' };
+  };
+
+  const formatInfo = getFormatInfo();
+
+  // Toggle section expansion
+  const toggleSection = (index: number) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
+
+  // Generate AI narrative (for legacy stories without metadata)
   const handleGenerateNarrative = useCallback(async () => {
     if (!isGeminiAvailable()) {
       toast.error('AI not available', 'Configure your Gemini API key to generate narratives');
@@ -412,9 +445,320 @@ const ViewStoryModal: React.FC<{
     if (!isOpen) {
       setNarrativeText('');
       setNarrativeError(null);
+      setShowNarrative(true);
+      setExpandedSections(new Set([0, 1, 2, 3, 4, 5]));
     }
   }, [isOpen]);
 
+  // Render enhanced view for generated answers with metadata
+  if (hasGeneratedMetadata && metadata) {
+    return (
+      <Dialog
+        isOpen={isOpen}
+        onClose={onClose}
+        title="View Generated Answer"
+        size="full"
+        className="!max-w-[1200px]"
+      >
+        <div className="p-4 md:p-6 space-y-6 max-h-[85vh] overflow-y-auto">
+          {/* Question Header */}
+          <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-800/30">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-xs text-blue-400 font-medium mb-2 uppercase tracking-wide">Interview Question</p>
+                <p className="text-base md:text-lg text-white leading-relaxed">{question.question}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge className={cn('text-xs', likelihoodColors[question.likelihood])}>
+                  {question.likelihood}
+                </Badge>
+                <Badge className={cn('text-xs', categoryColors[question.category])}>
+                  {question.category}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Format Badge & Title */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {formatInfo && (
+                <div className={cn(
+                  'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium',
+                  formatInfo.color === 'purple' && 'bg-purple-900/30 text-purple-400 border border-purple-800/50',
+                  formatInfo.color === 'blue' && 'bg-blue-900/30 text-blue-400 border border-blue-800/50',
+                  formatInfo.color === 'green' && 'bg-green-900/30 text-green-400 border border-green-800/50',
+                  formatInfo.color === 'orange' && 'bg-orange-900/30 text-orange-400 border border-orange-800/50',
+                )}>
+                  {formatInfo.name}
+                </div>
+              )}
+              <h3 className="text-xl md:text-2xl font-bold text-white">{story.title}</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowNarrative(!showNarrative)}
+              className="text-xs"
+            >
+              {showNarrative ? 'Show Structured' : 'Show Narrative'}
+            </Button>
+          </div>
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2">
+            {story.tags.map((tag) => (
+              <Badge key={tag} variant="primary" className="text-xs md:text-sm">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-4">
+              {/* Narrative or Structured View */}
+              {showNarrative ? (
+                <Card className="p-4 md:p-5 bg-gradient-to-br from-gray-800/80 to-gray-900/80 border-gray-700">
+                  <h4 className="text-sm md:text-base font-semibold text-emerald-400 flex items-center gap-2 mb-4">
+                    <FileText className="w-4 h-4 md:w-5 md:h-5" />
+                    Conversational Answer
+                  </h4>
+                  <div
+                    className="text-[15px] text-gray-200 leading-[1.8] tracking-wide whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: metadata.narrative
+                        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>')
+                    }}
+                  />
+                </Card>
+              ) : (
+                <Card className="p-4 md:p-5 space-y-3">
+                  <h4 className="text-sm md:text-base font-semibold text-blue-400 flex items-center gap-2">
+                    <Target className="w-4 h-4 md:w-5 md:h-5" />
+                    {formatInfo?.name || 'Structured'} Breakdown
+                  </h4>
+                  {metadata.sections.map((section, index) => {
+                    const colors = ['purple', 'blue', 'green', 'yellow', 'cyan', 'pink'];
+                    const color = colors[index % colors.length];
+                    const isExpanded = expandedSections.has(index);
+
+                    return (
+                      <div
+                        key={index}
+                        className={cn(
+                          'rounded-lg border-l-4 overflow-hidden',
+                          color === 'purple' && 'bg-purple-900/10 border-l-purple-500',
+                          color === 'blue' && 'bg-blue-900/10 border-l-blue-500',
+                          color === 'green' && 'bg-green-900/10 border-l-green-500',
+                          color === 'yellow' && 'bg-yellow-900/10 border-l-yellow-500',
+                          color === 'cyan' && 'bg-cyan-900/10 border-l-cyan-500',
+                          color === 'pink' && 'bg-pink-900/10 border-l-pink-500',
+                        )}
+                      >
+                        <button
+                          onClick={() => toggleSection(index)}
+                          className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-800/30 transition-colors"
+                        >
+                          <span className={cn(
+                            'text-xs font-bold uppercase tracking-wide',
+                            color === 'purple' && 'text-purple-400',
+                            color === 'blue' && 'text-blue-400',
+                            color === 'green' && 'text-green-400',
+                            color === 'yellow' && 'text-yellow-400',
+                            color === 'cyan' && 'text-cyan-400',
+                            color === 'pink' && 'text-pink-400',
+                          )}>
+                            {section.label}
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                        {isExpanded && (
+                          <div className="px-3 pb-3">
+                            <p className="text-sm text-gray-300 leading-[1.7] tracking-wide whitespace-pre-wrap">
+                              {section.content}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </Card>
+              )}
+
+              {/* Key Metrics */}
+              {(story.metrics.primary || story.metrics.secondary.length > 0) && (
+                <Card className="p-4 bg-green-900/20 border-green-800/30">
+                  <h4 className="text-sm font-semibold text-green-400 flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Key Metrics & Results
+                  </h4>
+                  {story.metrics.primary && (
+                    <div className="text-lg md:text-xl font-bold text-white mb-2">{story.metrics.primary}</div>
+                  )}
+                  {story.metrics.secondary.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {story.metrics.secondary.map((metric, i) => (
+                        <Badge key={i} variant="default" className="text-xs">
+                          {metric}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* Coaching Notes */}
+              {story.coachingNotes && (
+                <Card className="p-4 bg-yellow-900/20 border-yellow-800/30">
+                  <h4 className="text-sm font-semibold text-yellow-400 flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4" />
+                    Coaching Notes
+                  </h4>
+                  <p className="text-sm text-gray-300 leading-[1.7] tracking-wide whitespace-pre-wrap">{story.coachingNotes}</p>
+                </Card>
+              )}
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-4">
+              {/* Key Talking Points */}
+              {metadata.keyTalkingPoints.length > 0 && (
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-purple-400 flex items-center gap-2 mb-3">
+                    <Star className="w-4 h-4" />
+                    Key Talking Points
+                  </h4>
+                  <ul className="space-y-2">
+                    {metadata.keyTalkingPoints.map((point, i) => (
+                      <li key={i} className="text-sm text-gray-300 leading-[1.7] flex items-start gap-2">
+                        <span className="text-purple-400 mt-0.5">•</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {/* Delivery Tips */}
+              {metadata.deliveryTips.length > 0 && (
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-cyan-400 flex items-center gap-2 mb-3">
+                    <BookOpen className="w-4 h-4" />
+                    Delivery Tips
+                  </h4>
+                  <ul className="space-y-2">
+                    {metadata.deliveryTips.map((tip, i) => (
+                      <li key={i} className="text-sm text-gray-300 leading-[1.7] flex items-start gap-2">
+                        <span className="text-cyan-400 mt-0.5">{i + 1}.</span>
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {/* Follow-up Questions with Full Answers */}
+              {metadata.followUpQA.length > 0 && (
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-orange-400 flex items-center gap-2 mb-3">
+                    <MessageSquare className="w-4 h-4" />
+                    Likely Follow-up Questions
+                  </h4>
+                  <div className="space-y-4">
+                    {metadata.followUpQA.map((followUp, i) => (
+                      <div key={i} className="border-l-2 border-orange-800/50 pl-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm text-white font-medium italic">"{followUp.question}"</p>
+                          <Badge
+                            variant={followUp.likelihood === 'high' ? 'danger' : followUp.likelihood === 'medium' ? 'warning' : 'default'}
+                            className="text-xs"
+                          >
+                            {followUp.likelihood}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2">Suggested response:</p>
+                        <p className="text-sm text-gray-300">{followUp.suggestedAnswer}</p>
+                        {followUp.keyPoints.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {followUp.keyPoints.map((point, j) => (
+                              <span key={j} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">
+                                {point}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Bullet Points */}
+              {metadata.bulletPoints.length > 0 && (
+                <Card className="p-4">
+                  <h4 className="text-sm font-semibold text-emerald-400 flex items-center gap-2 mb-3">
+                    <CheckCircle className="w-4 h-4" />
+                    Quick Reference Points
+                  </h4>
+                  <ul className="space-y-1">
+                    {metadata.bulletPoints.map((point, i) => (
+                      <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
+                        <span className="text-emerald-400 mt-0.5">•</span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {/* Sources */}
+              {(metadata.sources.profileSections.length > 0 || metadata.sources.storyIds.length > 0) && (
+                <Card className="p-4 bg-gray-800/30">
+                  <h4 className="text-sm font-semibold text-gray-400 flex items-center gap-2 mb-2">
+                    Sources Used
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {metadata.sources.profileSections.map((section, i) => (
+                      <Badge key={`profile-${i}`} variant="default" className="text-xs">
+                        Profile: {section}
+                      </Badge>
+                    ))}
+                    {metadata.sources.storyIds.length > 0 && (
+                      <Badge variant="info" className="text-xs">
+                        {metadata.sources.storyIds.length} stories referenced
+                      </Badge>
+                    )}
+                    {metadata.sources.synthesized && (
+                      <Badge variant="warning" className="text-xs">
+                        AI-synthesized
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end pt-4 border-t border-gray-700">
+            <Button onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    );
+  }
+
+  // Legacy view for stories without generated metadata
   return (
     <Dialog
       isOpen={isOpen}

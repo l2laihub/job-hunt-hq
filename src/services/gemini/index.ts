@@ -14,6 +14,16 @@ export { generatePhoneScreenPrep, generateTechnicalInterviewPrep, generateApplic
 export { predictInterviewQuestions, matchStoryToQuestion } from './predict-questions';
 export { generateQuickReference, generateQuickRefFromSession } from './generate-quick-ref';
 export { generateStarAnswer, refineStarAnswer, answerToExperience, type GeneratedAnswer, type GenerateAnswerParams, type RefineAnswerParams } from './generate-star-answer';
+export {
+  generateInterviewAnswer,
+  refineInterviewAnswer,
+  interviewAnswerToExperience,
+  getFormatDisplayInfo,
+  getQuestionTypeDisplayName,
+  type GeneratedInterviewAnswer,
+  type GenerateInterviewAnswerParams,
+  type RefineInterviewAnswerParams,
+} from './generate-interview-answer';
 export { generateNarrative, generateQuickNarrative, type GenerateNarrativeParams } from './generate-narrative';
 export { generateTopicDetails } from './topic-details';
 export { enhanceResume, analyzeResumeQuick } from './resume-enhance';

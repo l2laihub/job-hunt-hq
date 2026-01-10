@@ -10,6 +10,7 @@ import type {
   Experience,
   CompanyResearch,
   JDAnalysis,
+  GeneratedAnswerMetadata,
 } from '@/src/types';
 import type {
   ProfileRow,
@@ -172,6 +173,7 @@ export function storyRowToExperience(row: StoryRow): Experience {
   const star = row.star as unknown as Experience['star'];
   const metrics = row.metrics as unknown as Experience['metrics'];
   const variations = row.variations as unknown as Experience['variations'];
+  const generatedAnswerMetadata = row.generated_answer_metadata as unknown as GeneratedAnswerMetadata | null;
 
   return {
     id: row.id,
@@ -189,6 +191,7 @@ export function storyRowToExperience(row: StoryRow): Experience {
     profileId: row.profile_id || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    generatedAnswerMetadata: generatedAnswerMetadata || undefined,
   };
 }
 
@@ -211,6 +214,7 @@ export function experienceToRow(
     coaching_notes: story.coachingNotes || null,
     used_in_interviews: story.usedInInterviews || [],
     times_used: story.timesUsed,
+    generated_answer_metadata: (story.generatedAnswerMetadata || null) as Json | null,
   };
 }
 
