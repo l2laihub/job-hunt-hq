@@ -6,6 +6,7 @@ import { useTechnicalAnswersStore, initTechnicalAnswersSync, destroyTechnicalAns
 import { useAnalyzedJobsStore, initAnalyzedJobsSync, destroyAnalyzedJobsSync } from './analyzed-jobs';
 import { useEnhancementsStore } from './enhancements';
 import { useCompanyResearchStore } from './company-research';
+import { useInterviewPrepStore, migrateLegacyInterviewPrep, initInterviewPrepSync, destroyInterviewPrepSync } from './interview-prep';
 import { useUIStore, toast } from './ui';
 import type { ModalType, Toast } from './ui';
 import { initStorageSync, destroyStorageSync } from '@/src/lib/storage-sync';
@@ -25,7 +26,7 @@ export { useTechnicalAnswersStore } from './technical-answers';
 export { useAnalyzedJobsStore } from './analyzed-jobs';
 export { useEnhancementsStore } from './enhancements';
 export { useCompanyResearchStore } from './company-research';
-export { useInterviewPrepStore, hasSessionForApplication } from './interview-prep';
+export { useInterviewPrepStore, hasSessionForApplication, migrateLegacyInterviewPrep } from './interview-prep';
 export { useUIStore, toast, type ModalType, type Toast } from './ui';
 
 // Initialize all stores and run migrations
@@ -37,6 +38,7 @@ export function initializeStores(): void {
   migrateLegacyApplications();
   migrateLegacyProfile();
   migrateLegacyStories();
+  migrateLegacyInterviewPrep();
 
   // Set up cross-tab sync for all stores
   initProfileSync();
@@ -44,6 +46,7 @@ export function initializeStores(): void {
   initStoriesSync();
   initTechnicalAnswersSync();
   initAnalyzedJobsSync();
+  initInterviewPrepSync();
 }
 
 // Cleanup function for unmounting
@@ -53,5 +56,6 @@ export function destroyStores(): void {
   destroyStoriesSync();
   destroyTechnicalAnswersSync();
   destroyAnalyzedJobsSync();
+  destroyInterviewPrepSync();
   destroyStorageSync();
 }

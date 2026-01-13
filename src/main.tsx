@@ -20,6 +20,7 @@ const InterviewPrepPage = React.lazy(() => import('./app/routes/interview-prep')
 const AnswersPage = React.lazy(() => import('./app/routes/answers'));
 const EnhancePage = React.lazy(() => import('./app/routes/enhance'));
 const ProfilePage = React.lazy(() => import('./app/routes/profile'));
+const CopilotPage = React.lazy(() => import('./app/routes/copilot'));
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -126,6 +127,14 @@ const App: React.FC = () => {
                 element={
                   <React.Suspense fallback={<PageLoader />}>
                     <ProfilePage />
+                  </React.Suspense>
+                }
+              />
+              <Route
+                path="copilot"
+                element={
+                  <React.Suspense fallback={<PageLoader />}>
+                    <CopilotPage />
                   </React.Suspense>
                 }
               />

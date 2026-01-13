@@ -10,8 +10,9 @@ import { storiesService } from './stories';
 import { companyResearchService } from './company-research';
 import { technicalAnswersService } from './technical-answers';
 import { analyzedJobsService } from './analyzed-jobs';
+import { interviewPrepService } from './interview-prep';
 import { isValidUUID, ensureUUID } from '@/src/lib/utils';
-import type { UserProfileWithMeta, JobApplication, Experience, CompanyResearch, TechnicalAnswer, AnalyzedJob } from '@/src/types';
+import type { UserProfileWithMeta, JobApplication, Experience, CompanyResearch, TechnicalAnswer, AnalyzedJob, InterviewPrepSession, PrepPracticeSession } from '@/src/types';
 
 // Type for ID mapping: old ID -> new UUID
 type IdMapping = Map<string, string>;
@@ -192,6 +193,7 @@ interface MigrationResult {
     companyResearch: number;
     technicalAnswers: number;
     analyzedJobs: number;
+    interviewPrep: number;
   };
   errors: string[];
 }
@@ -251,6 +253,7 @@ export function getLocalStorageSummary(): {
   companyResearch: number;
   technicalAnswers: number;
   analyzedJobs: number;
+  interviewPrep: number;
 } {
   const profileData = parseZustandStorage<{ profiles?: UserProfileWithMeta[] }>(STORAGE_KEYS.PROFILE);
   const appData = parseZustandStorage<{ applications?: JobApplication[] }>(STORAGE_KEYS.APPLICATIONS);
@@ -258,6 +261,7 @@ export function getLocalStorageSummary(): {
   const researchData = parseZustandStorage<{ researches?: CompanyResearch[] }>(STORAGE_KEYS.COMPANY_RESEARCH);
   const answerData = parseZustandStorage<{ answers?: TechnicalAnswer[] }>(STORAGE_KEYS.TECHNICAL_ANSWERS);
   const jobData = parseZustandStorage<{ jobs?: AnalyzedJob[] }>(STORAGE_KEYS.ANALYZED_JOBS);
+  const prepData = parseZustandStorage<{ sessions?: InterviewPrepSession[] }>(STORAGE_KEYS.INTERVIEW_PREP);
 
   return {
     profiles: profileData?.profiles?.length || 0,
@@ -266,6 +270,7 @@ export function getLocalStorageSummary(): {
     companyResearch: researchData?.researches?.length || 0,
     technicalAnswers: answerData?.answers?.length || 0,
     analyzedJobs: jobData?.jobs?.length || 0,
+    interviewPrep: prepData?.sessions?.length || 0,
   };
 }
 
@@ -283,6 +288,7 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
       companyResearch: 0,
       technicalAnswers: 0,
       analyzedJobs: 0,
+      interviewPrep: 0,
     },
     errors: [],
   };
@@ -302,6 +308,7 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
   const researchData = parseZustandStorage<{ researches?: CompanyResearch[] }>(STORAGE_KEYS.COMPANY_RESEARCH);
   const answerData = parseZustandStorage<{ answers?: TechnicalAnswer[] }>(STORAGE_KEYS.TECHNICAL_ANSWERS);
   const jobData = parseZustandStorage<{ jobs?: AnalyzedJob[] }>(STORAGE_KEYS.ANALYZED_JOBS);
+  const prepData = parseZustandStorage<{ sessions?: InterviewPrepSession[]; practiceSessions?: PrepPracticeSession[] }>(STORAGE_KEYS.INTERVIEW_PREP);
 
   // Build ID mappings for all entity types
   const profileMapping = buildProfileIdMapping(profileData?.profiles || []);
@@ -398,6 +405,61 @@ export async function migrateLocalStorageToSupabase(): Promise<MigrationResult> 
     console.error('Analyzed jobs migration error:', error);
   }
 
+  // Migrate interview prep sessions (references profiles and applications)
+  try {
+    if (prepData?.sessions?.length) {
+      // Build prep session ID mapping
+      const prepMapping = buildIdMapping(prepData.sessions);
+
+      // Convert sessions with proper UUIDs
+      const convertedSessions = prepData.sessions.map((session) => {
+        const oldId = session.id;
+        const newId = prepMapping.get(oldId) || oldId;
+
+        return {
+          ...session,
+          id: newId,
+          profileId: mapProfileId(session.profileId, profileMapping),
+          applicationId: mapApplicationId(session.applicationId, appMapping) || session.applicationId,
+          // Update practice session IDs to new UUIDs
+          practiceSessionIds: session.practiceSessionIds.map((psId) => {
+            const practice = prepData.practiceSessions?.find((ps) => ps.id === psId);
+            if (practice && !isValidUUID(psId)) {
+              return ensureUUID(psId);
+            }
+            return psId;
+          }),
+        };
+      });
+
+      await interviewPrepService.upsertMany(convertedSessions);
+      result.migrated.interviewPrep = convertedSessions.length;
+      console.log(`Migrated ${result.migrated.interviewPrep} interview prep sessions`);
+
+      // Migrate practice sessions
+      if (prepData?.practiceSessions?.length) {
+        const convertedPracticeSessions = prepData.practiceSessions.map((ps) => {
+          const oldId = ps.id;
+          const newId = !isValidUUID(oldId) ? ensureUUID(oldId) : oldId;
+          const oldSessionId = ps.sessionId;
+          const newSessionId = prepMapping.get(oldSessionId) || oldSessionId;
+
+          return {
+            ...ps,
+            id: newId,
+            sessionId: newSessionId,
+          };
+        });
+
+        await interviewPrepService.practice.upsertMany(convertedPracticeSessions);
+        console.log(`Migrated ${convertedPracticeSessions.length} interview practice sessions`);
+      }
+    }
+  } catch (error) {
+    result.errors.push(`Interview Prep: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Interview prep migration error:', error);
+  }
+
   result.success = result.errors.length === 0;
   return result;
 }
@@ -422,9 +484,11 @@ export function clearMigratedLocalStorage(): void {
     STORAGE_KEYS.COMPANY_RESEARCH,
     STORAGE_KEYS.TECHNICAL_ANSWERS,
     STORAGE_KEYS.ANALYZED_JOBS,
+    STORAGE_KEYS.INTERVIEW_PREP,
     STORAGE_KEYS.LEGACY_PROFILE,
     STORAGE_KEYS.LEGACY_APPLICATIONS,
     STORAGE_KEYS.LEGACY_STORIES,
+    STORAGE_KEYS.LEGACY_INTERVIEW_PREP,
   ];
 
   keysToRemove.forEach((key) => {
@@ -454,6 +518,7 @@ export async function runFullMigration(
         companyResearch: 0,
         technicalAnswers: 0,
         analyzedJobs: 0,
+        interviewPrep: 0,
       },
       errors: [],
     };

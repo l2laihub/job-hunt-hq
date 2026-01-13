@@ -8,10 +8,11 @@ import { ResearchView } from './components/ResearchView';
 import { ExperienceBank } from './components/ExperienceBank';
 import { MockInterview } from './components/MockInterview';
 import { TechnicalAnswerGenerator } from './components/TechnicalAnswerGenerator';
+import { InterviewCopilot } from './components/InterviewCopilot';
 import { EnhancePage } from './src/app/routes/enhance';
 import { useAuth } from './src/lib/supabase';
 import { interviewNotesService } from './src/services/database';
-import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic, Zap, Sparkles } from 'lucide-react';
+import { Layout, Plus, PieChart, Briefcase, Archive, CheckCircle, XCircle, User, Globe, Book, Mic, Zap, Sparkles, Headphones } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -40,7 +41,7 @@ export default function App() {
   console.log('[App] User:', user?.id, 'Email:', user?.email);
 
   // State with Lazy Initialization from LocalStorage to prevent overwriting on mount
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview' | 'answers' | 'enhance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analyzer' | 'profile' | 'research' | 'stories' | 'interview' | 'copilot' | 'answers' | 'enhance'>('dashboard');
   
   const [applications, setApplications] = useState<JobApplication[]>(() => {
     try {
@@ -267,6 +268,16 @@ export default function App() {
               Mock Interview
             </button>
             <button
+              onClick={() => setActiveTab('copilot')}
+              className={cn(
+                "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === 'copilot' ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <Headphones className="w-3 h-3" />
+              Copilot
+            </button>
+            <button
               onClick={() => setActiveTab('answers')}
               className={cn(
                 "px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
@@ -404,6 +415,14 @@ export default function App() {
         {activeTab === 'interview' && (
           <MockInterview
             profile={profile}
+            applications={applications}
+          />
+        )}
+
+        {activeTab === 'copilot' && (
+          <InterviewCopilot
+            profile={profile}
+            stories={stories}
             applications={applications}
           />
         )}

@@ -10,6 +10,8 @@ export { technicalAnswersService } from './technical-answers';
 export { analyzedJobsService } from './analyzed-jobs';
 export { enhancementsService } from './enhancements';
 export { interviewNotesService } from './interview-notes';
+export { interviewPrepService } from './interview-prep';
+export { copilotSessionsService } from './copilot-sessions';
 
 // Type converters
 export * from './types';
@@ -23,6 +25,8 @@ import { technicalAnswersService } from './technical-answers';
 import { analyzedJobsService } from './analyzed-jobs';
 import { enhancementsService } from './enhancements';
 import { interviewNotesService } from './interview-notes';
+import { interviewPrepService } from './interview-prep';
+import { copilotSessionsService } from './copilot-sessions';
 
 export const db = {
   profiles: profilesService,
@@ -33,4 +37,6 @@ export const db = {
   analyzedJobs: analyzedJobsService,
   enhancements: enhancementsService,
   interviewNotes: interviewNotesService,
+  interviewPrep: interviewPrepService,
+  copilotSessions: copilotSessionsService,
 };

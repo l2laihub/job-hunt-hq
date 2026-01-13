@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, Schema, LiveServerMessage, Modality } from "@google/genai";
-import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation, InterviewNote, NextStepPrep, InterviewQuestionAsked } from "../types";
+import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation, InterviewNote, NextStepPrep, InterviewQuestionAsked, TechnicalAnswer } from "../types";
+import type { PredictedQuestion, QuickReference } from "@/src/types/interview-prep";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -1328,4 +1329,375 @@ export const processInterviewRecording = async (
     console.error("Interview Recording Processing Failed:", error);
     throw error;
   }
+};
+
+// ============================================
+// INTERVIEW COPILOT AI FUNCTIONS
+// ============================================
+
+import { CopilotQuestionType, CopilotSuggestion, CopilotStoryMatch } from "../types";
+
+// Schema for question detection
+const questionDetectionSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    isQuestion: { type: Type.BOOLEAN },
+    question: { type: Type.STRING, description: "The cleaned up question text" },
+    questionType: {
+      type: Type.STRING,
+      enum: ['behavioral', 'technical', 'situational', 'experience', 'motivation', 'culture-fit', 'clarifying', 'follow-up', 'general']
+    },
+    confidence: { type: Type.NUMBER, description: "Confidence 0-100 that this is an interview question" },
+    context: { type: Type.STRING, description: "Brief context about what the question is asking" }
+  },
+  required: ['isQuestion', 'confidence']
+};
+
+// Schema for copilot suggestion
+const copilotSuggestionSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    matchedStories: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          storyIndex: { type: Type.INTEGER, description: "Index in the stories array" },
+          storyTitle: { type: Type.STRING },
+          relevance: { type: Type.NUMBER, description: "Relevance score 0-100" },
+          keyPoints: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3-5 bullet points to mention from this story" },
+          openingLine: { type: Type.STRING, description: "Suggested opening sentence" }
+        },
+        required: ['storyIndex', 'storyTitle', 'relevance', 'keyPoints']
+      }
+    },
+    keyPoints: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "5-7 concise talking points to include in answer"
+    },
+    starResponse: {
+      type: Type.OBJECT,
+      properties: {
+        situation: { type: Type.STRING, description: "1-2 sentence situation setup" },
+        task: { type: Type.STRING, description: "1 sentence describing your responsibility" },
+        action: { type: Type.STRING, description: "2-3 sentences on what you did" },
+        result: { type: Type.STRING, description: "1-2 sentences on outcome with metrics if possible" }
+      },
+      required: ['situation', 'task', 'action', 'result']
+    },
+    anticipatedFollowUps: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "2-3 likely follow-up questions"
+    },
+    warnings: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Things to avoid saying or doing"
+    }
+  },
+  required: ['keyPoints', 'matchedStories']
+};
+
+/**
+ * Detect if a transcript chunk contains an interview question
+ * Uses AI for more nuanced detection beyond regex patterns
+ */
+export const detectInterviewQuestion = async (
+  transcript: string,
+  recentContext?: string
+): Promise<{
+  isQuestion: boolean;
+  question?: string;
+  questionType?: CopilotQuestionType;
+  confidence: number;
+  context?: string;
+}> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  const prompt = `
+    Analyze this transcript from a live interview. Determine if the interviewer is asking a question.
+
+    ${recentContext ? `## Recent Context\n${recentContext}\n\n` : ''}
+    ## Current Transcript
+    "${transcript}"
+
+    ## Instructions
+    1. Determine if this is an interview question (not small talk, not the candidate speaking)
+    2. If it's a question, identify the type and clean up the question text
+    3. Consider that interviews often have:
+       - Behavioral questions ("Tell me about a time...")
+       - Technical questions ("How would you...")
+       - Situational questions ("What would you do if...")
+       - Experience questions ("Have you worked with...")
+       - Follow-up questions on previous answers
+
+    Be accurate - false positives are worse than missed questions.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: questionDetectionSchema,
+        thinkingConfig: { thinkingBudget: 512 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    const result = JSON.parse(jsonText);
+    return {
+      isQuestion: result.isQuestion,
+      question: result.question,
+      questionType: result.questionType as CopilotQuestionType,
+      confidence: result.confidence,
+      context: result.context
+    };
+  } catch (error) {
+    console.error("Question Detection Failed:", error);
+    // Return safe default on error
+    return { isQuestion: false, confidence: 0 };
+  }
+};
+
+/**
+ * Generate a suggestion for answering an interview question
+ * Uses profile, stories, and job context to provide personalized guidance
+ */
+export const generateCopilotSuggestion = async (
+  question: string,
+  questionType: CopilotQuestionType,
+  profile: UserProfile,
+  stories: Experience[],
+  jobContext?: {
+    company?: string;
+    role?: string;
+    jdHighlights?: string[];
+    companyResearch?: CompanyResearch;
+    // Enhanced context from Interview Prep and Answer Prep
+    preparedQuestions?: PredictedQuestion[];
+    quickReference?: QuickReference;
+    technicalAnswers?: TechnicalAnswer[];
+  }
+): Promise<Omit<CopilotSuggestion, 'id' | 'questionId' | 'generatedAt' | 'generationTimeMs'>> => {
+  if (!ai) throw new Error("Gemini API Key is missing.");
+
+  // Build profile context
+  const profileContext = `
+## Candidate Profile
+Name: ${profile.name}
+Headline: ${profile.headline}
+Years Experience: ${profile.yearsExperience}
+Technical Skills: ${profile.technicalSkills.slice(0, 15).join(', ')}
+Soft Skills: ${profile.softSkills.slice(0, 10).join(', ') || 'Not specified'}
+
+## Recent Roles
+${profile.recentRoles.slice(0, 3).map(r =>
+  `- ${r.title} at ${r.company} (${r.duration}): ${r.highlights.slice(0, 2).join('; ')}`
+).join('\n')}
+
+## Key Achievements
+${profile.keyAchievements.slice(0, 3).map(a =>
+  `- ${a.description}${a.metrics ? ` (${a.metrics})` : ''}`
+).join('\n')}
+`;
+
+  // Build stories context
+  const storiesContext = stories.length > 0 ? `
+## Available STAR Stories (use index to reference)
+${stories.map((s, i) => `
+[${i}] "${s.title}" (Tags: ${s.tags.join(', ')})
+- Situation: ${s.star.situation.slice(0, 150)}...
+- Result: ${s.star.result.slice(0, 100)}...
+- Metrics: ${s.metrics.primary || 'None'}
+`).join('\n')}
+` : '(No stories available - suggest creating some based on experience)';
+
+  // Build job context
+  const jobContextStr = jobContext?.company ? `
+## Job Context
+Company: ${jobContext.company}
+Role: ${jobContext.role}
+${jobContext.jdHighlights ? `Key Requirements: ${jobContext.jdHighlights.join(', ')}` : ''}
+${jobContext.companyResearch ? `Company Culture: ${jobContext.companyResearch.engineeringCulture?.notes || 'Unknown'}` : ''}
+` : '';
+
+  // Build prepared questions context (from Interview Prep)
+  const preparedQuestionsContext = jobContext?.preparedQuestions?.length ? `
+## Prepared Interview Questions
+You have prepared answers for these similar questions. Use them if relevant:
+${jobContext.preparedQuestions.slice(0, 10).map((q, i) => `
+[PQ${i}] "${q.question}" (${q.category}, ${q.likelihood} likelihood)
+${q.suggestedApproach ? `- Suggested approach: ${q.suggestedApproach.slice(0, 200)}...` : ''}
+${q.matchedStoryId ? `- Has linked story` : ''}
+${q.matchedAnswerId ? `- Has prepared answer` : ''}
+`).join('\n')}
+` : '';
+
+  // Build quick reference context
+  const quickRefContext = jobContext?.quickReference ? `
+## Quick Reference (Interview Day Notes)
+${jobContext.quickReference.elevatorPitch ? `Elevator Pitch: ${jobContext.quickReference.elevatorPitch}` : ''}
+${jobContext.quickReference.talkingPoints?.length ? `Key Talking Points:\n${jobContext.quickReference.talkingPoints.slice(0, 5).map(tp => `- ${tp}`).join('\n')}` : ''}
+${jobContext.quickReference.companyFacts?.length ? `Company Facts:\n${jobContext.quickReference.companyFacts.slice(0, 3).map(f => `- ${f}`).join('\n')}` : ''}
+` : '';
+
+  // Build technical answers context (from Answer Prep)
+  const technicalAnswersContext = jobContext?.technicalAnswers?.length ? `
+## Prepared Technical Answers
+You have these prepared technical answers. Use them if the question is related:
+${jobContext.technicalAnswers.slice(0, 8).map((a, i) => `
+[TA${i}] Q: "${a.question}" (${a.questionType})
+- Answer summary: ${a.answer.narrative.slice(0, 300)}...
+- Key points: ${a.answer.bulletPoints.slice(0, 3).join('; ')}
+${a.followUps?.length ? `- Prepared follow-ups: ${a.followUps.slice(0, 2).map(f => f.question).join('; ')}` : ''}
+`).join('\n')}
+` : '';
+
+  const prompt = `
+    You are an Interview Copilot helping a candidate answer a question in real-time.
+    Generate a quick, actionable suggestion they can use RIGHT NOW while speaking.
+
+    IMPORTANT: The candidate has prepared answers and stories. PRIORITIZE using their prepared content
+    when relevant - this ensures consistency and uses their practiced responses.
+
+    ${profileContext}
+    ${storiesContext}
+    ${jobContextStr}
+    ${preparedQuestionsContext}
+    ${quickRefContext}
+    ${technicalAnswersContext}
+
+    ## Question Being Asked
+    Type: ${questionType}
+    Question: "${question}"
+
+    ## Your Task
+    Generate a CONCISE response guide that the candidate can glance at while answering:
+
+    1. **Check Prepared Content First**:
+       - If a prepared question [PQ#] or technical answer [TA#] closely matches this question, USE THAT CONTENT as the primary source
+       - Adapt the prepared answer to fit the exact question asked
+       - If no prepared content matches, generate a new answer using stories and profile
+
+    2. **Matched Stories**: Find the 1-3 most relevant STAR stories. Include specific talking points from each.
+
+    3. **Key Points**: 5-7 bullet points they should mention. Keep each under 15 words.
+       - Be specific (use numbers, names, technologies)
+       - Focus on impact and results
+       - Include relevant soft skills demonstrated
+       - If using prepared content, include its key points
+
+    4. **STAR Response** (if behavioral/situational): Write a complete but concise STAR response using the best story.
+       - If a prepared answer exists, incorporate its approach
+
+    5. **Anticipated Follow-ups**: 2-3 likely follow-up questions to prepare for.
+       - If the prepared answer has follow-ups, include those
+
+    6. **Warnings**: Things to avoid (don't badmouth, don't ramble, etc.)
+
+    Remember: This is for REAL-TIME use. Keep everything scannable and actionable.
+    ALWAYS prefer using prepared content when available - the candidate has practiced it!
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: copilotSuggestionSchema,
+        thinkingConfig: { thinkingBudget: 1024 }
+      }
+    });
+
+    if (!response.text) throw new Error("No response from Gemini");
+
+    let jsonText = response.text || "{}";
+    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
+
+    const result = JSON.parse(jsonText);
+
+    // Map story indices to actual story data
+    const matchedStories: CopilotStoryMatch[] = (result.matchedStories || []).map((m: any) => {
+      const story = stories[m.storyIndex];
+      return {
+        storyId: story?.id || 'unknown',
+        storyTitle: m.storyTitle || story?.title || 'Unknown Story',
+        relevance: m.relevance,
+        keyPoints: m.keyPoints || [],
+        openingLine: m.openingLine
+      };
+    }).filter((m: CopilotStoryMatch) => m.storyId !== 'unknown');
+
+    return {
+      questionText: question,
+      questionType,
+      matchedStories,
+      keyPoints: result.keyPoints || [],
+      starResponse: result.starResponse,
+      anticipatedFollowUps: result.anticipatedFollowUps,
+      warnings: result.warnings
+    };
+  } catch (error) {
+    console.error("Copilot Suggestion Generation Failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Quick question type classification (faster than full detection)
+ * Use for initial categorization before full AI analysis
+ */
+export const classifyQuestionType = (questionText: string): CopilotQuestionType => {
+  const text = questionText.toLowerCase();
+
+  // Behavioral patterns
+  if (/tell me about a time|describe a situation|give me an example|have you ever|when was the last time/.test(text)) {
+    return 'behavioral';
+  }
+
+  // Technical patterns
+  if (/how would you (implement|design|build|solve)|what is|what are|explain|how does|what's the difference/.test(text)) {
+    return 'technical';
+  }
+
+  // Situational patterns
+  if (/what would you do if|imagine that|suppose|how would you handle/.test(text)) {
+    return 'situational';
+  }
+
+  // Experience patterns
+  if (/have you (worked with|used|built|deployed)|what experience|how many years/.test(text)) {
+    return 'experience';
+  }
+
+  // Motivation patterns
+  if (/why (do you want|are you interested|did you apply)|what motivates|what are you looking for/.test(text)) {
+    return 'motivation';
+  }
+
+  // Culture fit patterns
+  if (/work style|team|collaborate|conflict|disagree|feedback/.test(text)) {
+    return 'culture-fit';
+  }
+
+  // Follow-up patterns
+  if (/can you (elaborate|explain more|give another example)|what about|and then|how did that/.test(text)) {
+    return 'follow-up';
+  }
+
+  // Clarifying patterns
+  if (/what do you mean|could you clarify|can you repeat/.test(text)) {
+    return 'clarifying';
+  }
+
+  return 'general';
 };

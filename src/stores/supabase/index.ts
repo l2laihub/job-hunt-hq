@@ -30,6 +30,12 @@ export { useSupabaseEnhancementsStore } from './enhancements';
 // Technical Answers store
 export { useSupabaseTechnicalAnswersStore } from './technical-answers';
 
+// Interview Prep store
+export { useSupabaseInterviewPrepStore } from './interview-prep';
+
+// Copilot Sessions store
+export { useSupabaseCopilotSessionsStore } from './copilot-sessions';
+
 // Re-export database services for direct access
 export { db } from '@/src/services/database';
 

@@ -9,10 +9,12 @@ export const STORAGE_KEYS = {
   TECHNICAL_ANSWERS: 'jhq:technical-answers:v1',
   ANALYZED_JOBS: 'jhq:analyzed-jobs:v1',
   COMPANY_RESEARCH: 'jhq:company-research:v1',
+  INTERVIEW_PREP: 'jhq:interview-prep:v1',
   // Legacy keys for migration
   LEGACY_APPLICATIONS: 'jobhunt-hq-applications',
   LEGACY_PROFILE: 'jobhunt-hq-profile',
   LEGACY_STORIES: 'jobhunt-hq-experiences',
+  LEGACY_INTERVIEW_PREP: 'prepprly:interview-prep:v1',
 } as const;
 
 // Application Status Config

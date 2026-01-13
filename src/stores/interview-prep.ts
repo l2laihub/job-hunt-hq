@@ -10,10 +10,8 @@ import type {
   QuickReference,
 } from '@/src/types';
 import { generateId } from '@/src/lib/utils';
-import { createSyncedStorage } from '@/src/lib/storage-sync';
-
-// Storage key
-const STORAGE_KEY = 'prepprly:interview-prep:v1';
+import { STORAGE_KEYS } from '@/src/lib/constants';
+import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
 /**
  * Generate default checklist items based on interview type
@@ -433,7 +431,7 @@ export const useInterviewPrepStore = create<InterviewPrepState>()(
       },
     }),
     {
-      name: STORAGE_KEY,
+      name: STORAGE_KEYS.INTERVIEW_PREP,
       storage: createJSONStorage(() => createSyncedStorage()),
       partialize: (state) => ({
         sessions: state.sessions,
@@ -442,6 +440,47 @@ export const useInterviewPrepStore = create<InterviewPrepState>()(
     }
   )
 );
+
+// Set up cross-tab sync for interview prep store
+let interviewPrepSyncUnsubscribe: (() => void) | null = null;
+
+export function initInterviewPrepSync(): void {
+  if (interviewPrepSyncUnsubscribe) return;
+
+  interviewPrepSyncUnsubscribe = setupStoreSync<InterviewPrepState>(
+    STORAGE_KEYS.INTERVIEW_PREP,
+    (updates) => useInterviewPrepStore.setState(updates),
+    () => ['sessions', 'practiceSessions']
+  );
+}
+
+export function destroyInterviewPrepSync(): void {
+  if (interviewPrepSyncUnsubscribe) {
+    interviewPrepSyncUnsubscribe();
+    interviewPrepSyncUnsubscribe = null;
+  }
+}
+
+// Migration helper for legacy data
+export function migrateLegacyInterviewPrep(): void {
+  const legacyData = localStorage.getItem(STORAGE_KEYS.LEGACY_INTERVIEW_PREP);
+  if (legacyData && !localStorage.getItem(STORAGE_KEYS.INTERVIEW_PREP)) {
+    try {
+      const parsed = JSON.parse(legacyData);
+      // The legacy storage format has a 'state' wrapper from Zustand persist
+      const sessions = parsed?.state?.sessions || [];
+      const practiceSessions = parsed?.state?.practiceSessions || [];
+      if (sessions.length > 0 || practiceSessions.length > 0) {
+        useInterviewPrepStore.getState().importSessions(sessions);
+        // Set practice sessions directly
+        useInterviewPrepStore.setState({ practiceSessions });
+        console.log(`Migrated ${sessions.length} interview prep sessions from legacy storage`);
+      }
+    } catch (error) {
+      console.error('Failed to migrate legacy interview prep:', error);
+    }
+  }
+}
 
 // Export helper for checking if session exists
 export function hasSessionForApplication(applicationId: string): boolean {

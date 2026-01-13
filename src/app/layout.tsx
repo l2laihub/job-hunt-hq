@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Target,
+  Headphones,
 } from 'lucide-react';
 import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
@@ -39,6 +40,7 @@ const navItems = [
   { to: '/interview-prep', label: 'Interview Prep', icon: Target },
   { to: '/answers', label: 'Answer Prep', icon: Zap },
   { to: '/mock-interview', label: 'Mock Interview', icon: Mic },
+  { to: '/copilot', label: 'Interview Copilot', icon: Headphones },
   // Tools
   { to: '/enhance', label: 'Enhance', icon: Sparkles },
 ];

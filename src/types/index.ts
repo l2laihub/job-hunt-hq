@@ -1163,3 +1163,233 @@ export const INTERVIEW_OUTCOME_CONFIG: Record<InterviewOutcome, { label: string;
 
 // Re-export interview prep types
 export * from './interview-prep';
+
+// ============================================
+// INTERVIEW COPILOT TYPES
+// ============================================
+
+// Copilot question types detected from transcript
+export type CopilotQuestionType =
+  | 'behavioral'
+  | 'technical'
+  | 'situational'
+  | 'experience'
+  | 'motivation'
+  | 'culture-fit'
+  | 'clarifying'
+  | 'follow-up'
+  | 'general';
+
+// A detected question from the interview
+export interface DetectedQuestion {
+  id: string;
+  text: string;
+  type: CopilotQuestionType;
+  confidence: number;           // 0-100 confidence this is a question
+  detectedAt: string;           // ISO timestamp
+  transcript: string;           // The full transcript context
+}
+
+// A matched story from Experience Bank
+export interface CopilotStoryMatch {
+  storyId: string;
+  storyTitle: string;
+  relevance: number;            // 0-100 relevance score
+  keyPoints: string[];          // Bullet points to mention
+  openingLine?: string;         // Suggested opening
+}
+
+// The AI-generated suggestion for answering
+export interface CopilotSuggestion {
+  id: string;
+  questionId: string;
+  questionText: string;
+  questionType: CopilotQuestionType;
+
+  // Matched stories from Experience Bank
+  matchedStories: CopilotStoryMatch[];
+
+  // Key talking points (concise, speakable)
+  keyPoints: string[];
+
+  // Structured STAR response if applicable
+  starResponse?: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+  };
+
+  // Follow-up questions to anticipate
+  anticipatedFollowUps?: string[];
+
+  // Things to avoid saying
+  warnings?: string[];
+
+  // Generation metadata
+  generatedAt: string;
+  generationTimeMs: number;
+}
+
+// A transcript entry in the copilot session
+export interface CopilotTranscriptEntry {
+  id: string;
+  speaker: 'interviewer' | 'user' | 'unknown';
+  text: string;
+  timestamp: string;
+  isQuestion?: boolean;
+  questionId?: string;          // Link to DetectedQuestion if this is a question
+}
+
+// Copilot session state
+export type CopilotSessionStatus =
+  | 'idle'
+  | 'listening'
+  | 'processing'
+  | 'error';
+
+// Full copilot session
+export interface CopilotSession {
+  id: string;
+  applicationId?: string;       // Optional link to job application
+
+  // Session state
+  status: CopilotSessionStatus;
+  startedAt: string;
+  endedAt?: string;
+
+  // Transcript and questions
+  transcript: CopilotTranscriptEntry[];
+  detectedQuestions: DetectedQuestion[];
+  suggestions: CopilotSuggestion[];
+
+  // Context used for generation
+  contextUsed: {
+    profileSummary: string;
+    storyCount: number;
+    applicationContext?: {
+      company: string;
+      role: string;
+      jdHighlights?: string[];
+    };
+    // Interview Prep and Answer Prep context
+    preparedQuestionsCount?: number;
+    technicalAnswersCount?: number;
+  };
+
+  // Session stats
+  stats: {
+    questionsDetected: number;
+    suggestionsGenerated: number;
+    avgResponseTimeMs: number;
+  };
+}
+
+// Copilot settings
+export interface CopilotSettings {
+  // Audio settings
+  sensitivity: 'low' | 'medium' | 'high';  // Question detection sensitivity
+
+  // Display settings
+  autoExpandSuggestions: boolean;
+  showTranscript: boolean;
+  compactMode: boolean;
+
+  // Generation settings
+  maxStoriesPerSuggestion: number;
+  includeStar: boolean;
+  includeFollowUps: boolean;
+}
+
+// Default copilot settings
+export const DEFAULT_COPILOT_SETTINGS: CopilotSettings = {
+  sensitivity: 'medium',
+  autoExpandSuggestions: true,
+  showTranscript: true,
+  compactMode: false,
+  maxStoriesPerSuggestion: 3,
+  includeStar: true,
+  includeFollowUps: true,
+};
+
+// Helper to create a new copilot session
+export function createCopilotSession(applicationId?: string): CopilotSession {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    applicationId,
+    status: 'idle',
+    startedAt: now,
+    transcript: [],
+    detectedQuestions: [],
+    suggestions: [],
+    contextUsed: {
+      profileSummary: '',
+      storyCount: 0,
+    },
+    stats: {
+      questionsDetected: 0,
+      suggestionsGenerated: 0,
+      avgResponseTimeMs: 0,
+    },
+  };
+}
+
+// ============================================================================
+// Copilot Session History Types
+// ============================================================================
+
+// Feedback for a specific question/answer pair
+export interface CopilotQuestionFeedback {
+  questionId: string;
+  rating: 1 | 2 | 3 | 4 | 5;      // 1-5 star rating
+  wasHelpful: boolean;
+  usedSuggestion: boolean;        // Did user use the suggested answer?
+  notes?: string;                 // Optional notes about this Q&A
+}
+
+// Overall session feedback
+export interface CopilotSessionFeedback {
+  overallRating: 1 | 2 | 3 | 4 | 5;
+  interviewOutcome?: 'passed' | 'failed' | 'pending' | 'unknown';
+  whatWorkedWell?: string;
+  whatToImprove?: string;
+  questionFeedback: CopilotQuestionFeedback[];
+  submittedAt: string;
+}
+
+// A saved copilot session for history
+export interface SavedCopilotSession {
+  id: string;
+  userId?: string;                // For Supabase RLS
+  profileId?: string;             // Link to profile used
+  applicationId?: string;         // Link to job application
+
+  // Session metadata
+  title: string;                  // Auto-generated or user-provided title
+  company?: string;               // Company name (cached from application)
+  role?: string;                  // Role name (cached from application)
+
+  // Session timing
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+
+  // Session content (from CopilotSession)
+  transcript: CopilotTranscriptEntry[];
+  detectedQuestions: DetectedQuestion[];
+  suggestions: CopilotSuggestion[];
+
+  // Context that was used
+  contextUsed: CopilotSession['contextUsed'];
+
+  // Session stats
+  stats: CopilotSession['stats'];
+
+  // User feedback (optional, can be added later)
+  feedback?: CopilotSessionFeedback;
+
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+}

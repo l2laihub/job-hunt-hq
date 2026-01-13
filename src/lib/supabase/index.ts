@@ -13,4 +13,6 @@ export type {
   PracticeSessionRow,
   AnalyzedJobRow,
   InterviewNoteRow,
+  InterviewPrepSessionRow,
+  InterviewPracticeSessionRow,
 } from './types';
