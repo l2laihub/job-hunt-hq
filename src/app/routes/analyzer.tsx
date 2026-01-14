@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useUIStore,
   toast,
@@ -127,6 +127,7 @@ export const AnalyzerPage: React.FC = () => {
     incrementQuestionCopyCount,
     toggleFavorite,
     setTopicDetails,
+    setSelectedJobId: setGlobalSelectedJobId,
   } = useAnalyzedJobs();
 
   // Filter analyzed jobs by active profile
@@ -137,8 +138,21 @@ export const AnalyzerPage: React.FC = () => {
 
   // View state
   const [view, setView] = useState<ViewType>('analyze');
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobIdLocal] = useState<string | null>(null);
   const [resultTab, setResultTab] = useState<ResultTab>('overview');
+
+  // Sync selected job ID with global store for AI assistant context
+  const setSelectedJobId = useCallback((id: string | null) => {
+    setSelectedJobIdLocal(id);
+    setGlobalSelectedJobId(id);
+  }, [setGlobalSelectedJobId]);
+
+  // Clear global selected job when leaving the page
+  useEffect(() => {
+    return () => {
+      setGlobalSelectedJobId(null);
+    };
+  }, [setGlobalSelectedJobId]);
 
   // Analysis state
   const [jdText, setJdText] = useState('');

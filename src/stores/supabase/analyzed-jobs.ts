@@ -22,6 +22,10 @@ interface AnalyzedJobsState {
   isLoading: boolean;
   error: string | null;
 
+  // Currently selected job (for context awareness across app)
+  selectedJobId: string | null;
+  setSelectedJobId: (id: string | null) => void;
+
   // Data fetching
   fetchJobs: () => Promise<void>;
 
@@ -79,6 +83,11 @@ export const useSupabaseAnalyzedJobsStore = create<AnalyzedJobsState>()((set, ge
   jobs: [],
   isLoading: false,
   error: null,
+  selectedJobId: null,
+
+  setSelectedJobId: (id) => {
+    set({ selectedJobId: id });
+  },
 
   fetchJobs: async () => {
     set({ isLoading: true, error: null });

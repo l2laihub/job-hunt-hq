@@ -1164,6 +1164,9 @@ export const INTERVIEW_OUTCOME_CONFIG: Record<InterviewOutcome, { label: string;
 // Re-export interview prep types
 export * from './interview-prep';
 
+// Re-export assistant types
+export * from './assistant';
+
 // ============================================
 // INTERVIEW COPILOT TYPES
 // ============================================

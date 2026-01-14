@@ -19,6 +19,10 @@ interface AnalyzedJobsState {
   jobs: AnalyzedJob[];
   isLoading: boolean;
 
+  // Currently selected job (for context awareness across app)
+  selectedJobId: string | null;
+  setSelectedJobId: (id: string | null) => void;
+
   // CRUD
   addJob: (job: Partial<AnalyzedJob>, profileId?: string) => AnalyzedJob;
   updateJob: (id: string, updates: Partial<AnalyzedJob>) => void;
@@ -74,6 +78,11 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
     (set, get) => ({
       jobs: [],
       isLoading: false,
+      selectedJobId: null,
+
+      setSelectedJobId: (id) => {
+        set({ selectedJobId: id });
+      },
 
       addJob: (partial, profileId) => {
         const now = new Date().toISOString();

@@ -208,14 +208,18 @@ export function useAnalyzedJobs() {
 
   // Supabase store
   const supabaseJobs = useSupabaseAnalyzedJobsStore((s) => s.jobs);
+  const supabaseSelectedJobId = useSupabaseAnalyzedJobsStore((s) => s.selectedJobId);
   const supabaseStore = useSupabaseAnalyzedJobsStore();
 
   // Legacy localStorage store
   const legacyJobs = useAnalyzedJobsStore((s) => s.jobs);
+  const legacySelectedJobId = useAnalyzedJobsStore((s) => s.selectedJobId);
   const legacyStore = useAnalyzedJobsStore();
 
   return useMemo(() => ({
     jobs: useSupabase ? supabaseJobs : legacyJobs,
+    selectedJobId: useSupabase ? supabaseSelectedJobId : legacySelectedJobId,
+    setSelectedJobId: useSupabase ? supabaseStore.setSelectedJobId : legacyStore.setSelectedJobId,
     addJob: useSupabase ? supabaseStore.addJob : legacyStore.addJob,
     updateJob: useSupabase ? supabaseStore.updateJob : legacyStore.updateJob,
     deleteJob: useSupabase ? supabaseStore.deleteJob : legacyStore.deleteJob,
@@ -246,8 +250,10 @@ export function useAnalyzedJobs() {
   }), [
     useSupabase,
     supabaseJobs,
+    supabaseSelectedJobId,
     supabaseStore,
     legacyJobs,
+    legacySelectedJobId,
     legacyStore,
   ]);
 }

@@ -28,6 +28,7 @@ export { useEnhancementsStore } from './enhancements';
 export { useCompanyResearchStore } from './company-research';
 export { useInterviewPrepStore, hasSessionForApplication, migrateLegacyInterviewPrep } from './interview-prep';
 export { useUIStore, toast, type ModalType, type Toast } from './ui';
+export { useAssistantStore, useAssistantHasMessages, useAssistantName } from './assistant';
 
 // Initialize all stores and run migrations
 export function initializeStores(): void {

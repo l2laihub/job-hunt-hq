@@ -25,6 +25,7 @@ import { ToastContainer, Button } from '@/src/components/ui';
 import { ApplicationModal } from '@/src/components/applications';
 import { ProfileSwitcher } from '@/src/components/profile';
 import { UserMenu } from '@/src/components/auth';
+import { AIAssistant } from '@/src/components/ai-assistant';
 import { useDataExport } from '@/src/hooks';
 
 const navItems = [
@@ -301,6 +302,9 @@ export const AppLayout: React.FC = () => {
 
       {/* Application Modal */}
       <ApplicationModal />
+
+      {/* AI Assistant Sidebar */}
+      <AIAssistant />
 
       {/* Hidden file input for import */}
       <input

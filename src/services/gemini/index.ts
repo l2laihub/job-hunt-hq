@@ -31,6 +31,16 @@ export { generateSkillsRoadmap } from './skills-roadmap';
 export { generateApplicationAnswer, generateBatchApplicationAnswers } from './application-questions';
 export { categorizeSkills, suggestSkillsForCategory } from './categorize-skills';
 
+// AI Assistant
+export {
+  generateAssistantResponse,
+  generateAssistantResponseStream,
+  generateContextSuggestions,
+  ASSISTANT_NAME,
+  type GenerateAssistantResponseParams,
+  type AssistantResponseMetadata,
+} from './ai-assistant';
+
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';
 
