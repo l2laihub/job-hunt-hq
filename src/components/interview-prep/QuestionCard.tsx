@@ -25,10 +25,13 @@ import {
   Star,
   RefreshCw,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Dialog } from '@/src/components/ui';
 import { GenerateAnswerModal } from './GenerateAnswerModal';
 import { generateNarrative, isGeminiAvailable } from '@/src/services/gemini';
+import { evaluateInterviewResponse, type ResponseEvaluation } from '@/src/services/gemini/evaluate-response';
+import { ScoreDisplay, StarAdherenceDisplay } from '@/src/components/interview/QuestionFeedback';
 
 interface QuestionCardProps {
   question: PredictedQuestion;
@@ -105,6 +108,12 @@ const PracticeModal: React.FC<{
   const [selfRating, setSelfRating] = useState(0);
   const [showReference, setShowReference] = useState(false);
 
+  // AI Feedback state
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evaluation, setEvaluation] = useState<ResponseEvaluation | null>(null);
+  const [evaluationError, setEvaluationError] = useState<string | null>(null);
+  const [showFeedbackDetails, setShowFeedbackDetails] = useState(false);
+
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -168,6 +177,11 @@ const PracticeModal: React.FC<{
       setIsPaused(false);
       setSelfRating(0);
       setShowReference(false);
+      // Reset AI feedback state
+      setEvaluation(null);
+      setEvaluationError(null);
+      setIsEvaluating(false);
+      setShowFeedbackDetails(false);
       recognitionRef.current?.stop();
       if (timerRef.current) clearInterval(timerRef.current);
     }
@@ -187,6 +201,45 @@ const PracticeModal: React.FC<{
     }
     setIsRecording(!isRecording);
   }, [isRecording]);
+
+  // Handle AI feedback request
+  const handleGetFeedback = useCallback(async () => {
+    if (!transcript.trim()) {
+      toast.error('No response', 'Record your answer first');
+      return;
+    }
+
+    if (!isGeminiAvailable()) {
+      toast.error('AI not available', 'Configure your Gemini API key to get AI feedback');
+      return;
+    }
+
+    setIsEvaluating(true);
+    setEvaluationError(null);
+
+    try {
+      // Build prepared answer from story STAR content
+      const preparedAnswer = [
+        story.star?.situation,
+        story.star?.task,
+        story.star?.action,
+        story.star?.result,
+      ].filter(Boolean).join('\n\n');
+
+      const result = await evaluateInterviewResponse(
+        question,
+        transcript,
+        preparedAnswer || undefined
+      );
+
+      setEvaluation(result);
+    } catch (error) {
+      console.error('Evaluation failed:', error);
+      setEvaluationError('Failed to get feedback. Please try again.');
+    } finally {
+      setIsEvaluating(false);
+    }
+  }, [transcript, story, question]);
 
   const handleFinish = () => {
     recognitionRef.current?.stop();
@@ -311,6 +364,214 @@ const PracticeModal: React.FC<{
                   </button>
                 ))}
               </div>
+            </Card>
+
+            {/* AI Feedback Section */}
+            <Card className="p-4">
+              <h4 className="text-sm font-semibold text-gray-400 mb-3">AI Feedback</h4>
+
+              {/* Initial state - Get Feedback button */}
+              {!evaluation && !isEvaluating && !evaluationError && (
+                <div className="text-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGetFeedback}
+                    disabled={!transcript.trim() || !isGeminiAvailable()}
+                    className="w-full"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Get AI Feedback
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Optional - Get detailed feedback on your response
+                  </p>
+                </div>
+              )}
+
+              {/* Loading state */}
+              {isEvaluating && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin mr-2" />
+                  <span className="text-sm text-gray-400">Analyzing your response...</span>
+                </div>
+              )}
+
+              {/* Error state */}
+              {evaluationError && !isEvaluating && (
+                <div className="p-3 bg-red-900/20 border border-red-800/30 rounded-lg">
+                  <p className="text-sm text-red-400 mb-2">{evaluationError}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleGetFeedback}
+                    className="w-full"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </Button>
+                </div>
+              )}
+
+              {/* Feedback display */}
+              {evaluation && (
+                <div className="space-y-3">
+                  {/* Score Row */}
+                  <div className="flex items-center justify-between">
+                    <ScoreDisplay score={evaluation.score} size="sm" />
+                    <span className="text-sm text-gray-400">
+                      {evaluation.score >= 8 ? 'Excellent!' :
+                       evaluation.score >= 6 ? 'Good job!' :
+                       evaluation.score >= 4 ? 'Keep practicing' : 'Needs work'}
+                    </span>
+                  </div>
+
+                  {/* STAR Adherence (for behavioral questions) */}
+                  {question.category === 'behavioral' && (
+                    <div className="pt-2 border-t border-gray-800">
+                      <p className="text-xs text-gray-500 mb-2">STAR Method</p>
+                      <StarAdherenceDisplay starAdherence={evaluation.starAdherence} />
+                    </div>
+                  )}
+
+                  {/* Main Feedback */}
+                  <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3">
+                    <p className="text-sm text-gray-200">{evaluation.feedback}</p>
+                  </div>
+
+                  {/* Expandable Details */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFeedbackDetails(!showFeedbackDetails)}
+                    className="w-full"
+                  >
+                    {showFeedbackDetails ? (
+                      <>
+                        <ChevronUp className="w-4 h-4 mr-1" />
+                        Hide Details
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4 mr-1" />
+                        Show Details
+                      </>
+                    )}
+                  </Button>
+
+                  {showFeedbackDetails && (
+                    <div className="space-y-3 pt-2">
+                      {/* Strengths */}
+                      {evaluation.strengths.length > 0 && (
+                        <div className="bg-green-900/10 border border-green-800/30 rounded-lg p-3">
+                          <h5 className="text-xs font-medium text-green-400 mb-2 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Strengths
+                          </h5>
+                          <ul className="space-y-1">
+                            {evaluation.strengths.map((s, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
+                                <span className="text-green-400 mt-0.5">•</span>
+                                {s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Areas to Improve */}
+                      {evaluation.weaknesses.length > 0 && (
+                        <div className="bg-yellow-900/10 border border-yellow-800/30 rounded-lg p-3">
+                          <h5 className="text-xs font-medium text-yellow-400 mb-2 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            To Improve
+                          </h5>
+                          <ul className="space-y-1">
+                            {evaluation.weaknesses.map((w, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
+                                <span className="text-yellow-400 mt-0.5">•</span>
+                                {w}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Tips */}
+                      {evaluation.improvementTips.length > 0 && (
+                        <div className="bg-purple-900/10 border border-purple-800/30 rounded-lg p-3">
+                          <h5 className="text-xs font-medium text-purple-400 mb-2 flex items-center gap-1">
+                            <Lightbulb className="w-3 h-3" />
+                            Tips
+                          </h5>
+                          <ul className="space-y-1">
+                            {evaluation.improvementTips.map((tip, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
+                                <span className="text-purple-400">{i + 1}.</span>
+                                {tip}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Key Points Comparison */}
+                      {evaluation.preparedAnswerComparison && (
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-400">Similarity to reference</span>
+                            <span className={cn(
+                              'font-medium',
+                              evaluation.preparedAnswerComparison.similarity >= 70
+                                ? 'text-green-400'
+                                : evaluation.preparedAnswerComparison.similarity >= 40
+                                ? 'text-yellow-400'
+                                : 'text-red-400'
+                            )}>
+                              {evaluation.preparedAnswerComparison.similarity}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full transition-all',
+                                evaluation.preparedAnswerComparison.similarity >= 70
+                                  ? 'bg-green-500'
+                                  : evaluation.preparedAnswerComparison.similarity >= 40
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              )}
+                              style={{ width: `${evaluation.preparedAnswerComparison.similarity}%` }}
+                            />
+                          </div>
+
+                          {evaluation.preparedAnswerComparison.keyPointsMissed.length > 0 && (
+                            <div className="pt-2">
+                              <p className="text-xs text-red-400 mb-1">Key points missed:</p>
+                              <ul className="space-y-1">
+                                {evaluation.preparedAnswerComparison.keyPointsMissed.slice(0, 3).map((point, i) => (
+                                  <li key={i} className="text-xs text-gray-400 flex items-start gap-1">
+                                    <span className="text-red-400">•</span>
+                                    {point}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Follow-up Question */}
+                      {evaluation.suggestedFollowUp && (
+                        <div className="bg-gray-800/30 rounded-lg p-3">
+                          <h5 className="text-xs font-medium text-gray-400 mb-1">Likely Follow-up</h5>
+                          <p className="text-xs text-gray-300 italic">"{evaluation.suggestedFollowUp}"</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           </div>
 

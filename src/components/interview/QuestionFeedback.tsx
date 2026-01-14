@@ -450,3 +450,6 @@ export const QuestionFeedbackCompact: React.FC<{
 };
 
 export default QuestionFeedback;
+
+// Export reusable sub-components for use in other contexts (e.g., PracticeModal)
+export { ScoreDisplay, StarAdherenceDisplay, CollapsibleSection, KeyPointsComparison };

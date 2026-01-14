@@ -86,6 +86,19 @@ export interface QuickReference {
 }
 
 /**
+ * AI evaluation result saved with practice session
+ */
+export interface PracticeAIEvaluation {
+  score: number; // 1-10
+  starScore: number; // 0-4
+  strengths: string[];
+  weaknesses: string[];
+  feedback: string;
+  improvementTips: string[];
+  similarity?: number; // 0-100% if prepared answer was compared
+}
+
+/**
  * Practice session record
  */
 export interface PrepPracticeSession {
@@ -99,6 +112,9 @@ export interface PrepPracticeSession {
   audioBlob?: string; // Base64 encoded
   audioMimeType?: string;
   createdAt: string;
+  // AI-powered evaluation (optional)
+  aiEvaluation?: PracticeAIEvaluation;
+  transcript?: string; // User's response transcript
 }
 
 /**
