@@ -13,6 +13,7 @@ export { interviewNotesService } from './interview-notes';
 export { interviewPrepService } from './interview-prep';
 export { copilotSessionsService } from './copilot-sessions';
 export { assistantChatsService } from './assistant-chats';
+export { topicResearchService } from './topic-research';
 
 // Type converters
 export * from './types';
@@ -29,6 +30,7 @@ import { interviewNotesService } from './interview-notes';
 import { interviewPrepService } from './interview-prep';
 import { copilotSessionsService } from './copilot-sessions';
 import { assistantChatsService } from './assistant-chats';
+import { topicResearchService } from './topic-research';
 
 export const db = {
   profiles: profilesService,
@@ -42,4 +44,5 @@ export const db = {
   interviewPrep: interviewPrepService,
   copilotSessions: copilotSessionsService,
   assistantChats: assistantChatsService,
+  topicResearch: topicResearchService,
 };

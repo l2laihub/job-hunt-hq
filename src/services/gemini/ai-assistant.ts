@@ -499,6 +499,160 @@ export async function* generateAssistantResponseStream(
 }
 
 // ============================================
+// RESEARCH-ENHANCED RESPONSE
+// ============================================
+
+/**
+ * Build research context for system prompt
+ */
+function buildResearchContext(research: { type: string; data: unknown; sources?: Array<{ url: string; title?: string }> }): string {
+  if (!research) return '';
+
+  const { type, data, sources } = research;
+  let researchSummary = `\n## Research Results (${type})\n`;
+
+  // Add type-specific summary
+  switch (type) {
+    case 'salary': {
+      const salaryData = data as {
+        role: string;
+        rangeEstimate: { low: number; median: number; high: number; currency: string };
+        marketTrend: string;
+        factors?: string[];
+        summary: string;
+      };
+      researchSummary += `**Role:** ${salaryData.role}
+**Salary Range:** ${salaryData.rangeEstimate.currency}${salaryData.rangeEstimate.low.toLocaleString()} - ${salaryData.rangeEstimate.currency}${salaryData.rangeEstimate.high.toLocaleString()}
+**Median:** ${salaryData.rangeEstimate.currency}${salaryData.rangeEstimate.median.toLocaleString()}
+**Market Trend:** ${salaryData.marketTrend}
+**Key Factors:** ${salaryData.factors?.slice(0, 4).join(', ') || 'Various factors'}
+**Summary:** ${salaryData.summary}
+`;
+      break;
+    }
+    case 'industry': {
+      const industryData = data as {
+        industry: string;
+        currentTrends: Array<{ trend: string; impact: string }>;
+        marketOutlook: string;
+        skillsInDemand: string[];
+        summary: string;
+      };
+      researchSummary += `**Industry:** ${industryData.industry}
+**Market Outlook:** ${industryData.marketOutlook}
+**Key Trends:** ${industryData.currentTrends?.slice(0, 3).map((t) => t.trend).join(', ') || 'Multiple trends identified'}
+**In-Demand Skills:** ${industryData.skillsInDemand?.slice(0, 5).join(', ') || 'Various skills'}
+**Summary:** ${industryData.summary}
+`;
+      break;
+    }
+    case 'technical': {
+      const techData = data as {
+        topic: string;
+        category: string;
+        overview: string;
+        keyFeatures: string[];
+        marketAdoption: string;
+        summary: string;
+      };
+      researchSummary += `**Topic:** ${techData.topic}
+**Category:** ${techData.category}
+**Market Adoption:** ${techData.marketAdoption}
+**Key Features:** ${techData.keyFeatures?.slice(0, 4).join(', ') || 'Multiple features'}
+**Overview:** ${techData.overview?.slice(0, 300)}${techData.overview?.length > 300 ? '...' : ''}
+`;
+      break;
+    }
+    case 'interview': {
+      const interviewData = data as {
+        company?: string;
+        role?: string;
+        interviewProcess: { stages: string[] };
+        difficulty: string;
+        tips: string[];
+        summary: string;
+      };
+      researchSummary += `**Company:** ${interviewData.company || 'General'}
+**Role:** ${interviewData.role || 'Various'}
+**Process:** ${interviewData.interviewProcess?.stages?.join(' → ') || 'Multiple stages'}
+**Difficulty:** ${interviewData.difficulty}
+**Key Tips:** ${interviewData.tips?.slice(0, 3).join('; ') || 'Various tips'}
+**Summary:** ${interviewData.summary}
+`;
+      break;
+    }
+  }
+
+  // Add sources if available
+  if (sources && sources.length > 0) {
+    researchSummary += `\n**Sources:** ${sources.slice(0, 3).map((s) => s.title || s.url).join(', ')}`;
+  }
+
+  return researchSummary;
+}
+
+/**
+ * Generate assistant response with research context
+ */
+export async function generateAssistantResponseWithResearch(
+  params: GenerateAssistantResponseParams & {
+    research: { type: string; data: unknown; sources?: Array<{ url: string; title?: string }> };
+  }
+): Promise<{ content: string; metadata: AssistantResponseMetadata }> {
+  requireGemini();
+
+  const { message, context, conversationHistory, profile: passedProfile, research } = params;
+  const startTime = Date.now();
+
+  const profile = passedProfile || context?.profile || null;
+
+  // Build the system prompt with research context included
+  const baseSystemPrompt = buildSystemPrompt(context, profile, conversationHistory);
+  const researchContext = buildResearchContext(research);
+
+  const systemPrompt = `${baseSystemPrompt}
+
+${researchContext}
+
+## IMPORTANT: Research Results Available
+I have just performed a web search and found the research results above. You MUST use this research data to provide a comprehensive, fact-based response. Reference specific numbers, trends, and insights from the research in your answer.`;
+
+  const contents = [
+    { role: 'user' as const, parts: [{ text: `[SYSTEM CONTEXT - Use this information to personalize your response]\n\n${systemPrompt}\n\n---\n\nNow respond to the following user message using the research results provided:` }] },
+    { role: 'model' as const, parts: [{ text: 'I understand. I have access to the user profile, job context, and the research results from web search. I will use this to give a comprehensive, data-backed response. What would you like to know?' }] },
+    { role: 'user' as const, parts: [{ text: message }] },
+  ];
+
+  const result = await geminiClient!.models.generateContent({
+    model: DEFAULT_MODEL,
+    contents,
+    config: {
+      thinkingConfig: { thinkingBudget: DEFAULT_THINKING_BUDGET },
+      temperature: 0.7, // Slightly lower for more factual responses with research
+    },
+  });
+
+  const responseContent = result.text || 'I apologize, but I was unable to generate a response. Please try again.';
+  const generationTimeMs = Date.now() - startTime;
+
+  const metadata: AssistantResponseMetadata = {
+    generationTimeMs,
+    contextUsed: {
+      profileSummary: !!profile,
+      applicationData: !!(context?.application || context?.analyzedJob),
+      companyResearch: !!context?.companyResearch,
+      storyIds: context?.stories?.map((s) => s.id),
+      prepSession: !!context?.prepSession,
+    },
+  };
+
+  return {
+    content: responseContent,
+    metadata,
+  };
+}
+
+// ============================================
 // QUICK RESPONSE HELPERS
 // ============================================
 

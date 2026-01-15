@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Library,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAssistantStore } from '@/src/stores';
@@ -20,12 +21,14 @@ import { ASSISTANT_NAME } from '@/src/types/assistant';
 interface AssistantHeaderProps {
   onNewChat: () => void;
   onShowHistory: () => void;
+  onShowResearchBank: () => void;
   hasMessages: boolean;
 }
 
 export const AssistantHeader: React.FC<AssistantHeaderProps> = ({
   onNewChat,
   onShowHistory,
+  onShowResearchBank,
   hasMessages,
 }) => {
   const {
@@ -83,6 +86,19 @@ export const AssistantHeader: React.FC<AssistantHeaderProps> = ({
             title="Chat history"
           >
             <History className="w-4 h-4" />
+          </button>
+
+          {/* Research Bank */}
+          <button
+            onClick={onShowResearchBank}
+            className={cn(
+              'p-2 rounded-lg',
+              'text-gray-400 hover:text-white hover:bg-gray-800',
+              'transition-colors'
+            )}
+            title="Research bank"
+          >
+            <Library className="w-4 h-4" />
           </button>
 
           {/* Minimize */}

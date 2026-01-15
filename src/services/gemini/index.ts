@@ -35,11 +35,16 @@ export { categorizeSkills, suggestSkillsForCategory } from './categorize-skills'
 export {
   generateAssistantResponse,
   generateAssistantResponseStream,
+  generateAssistantResponseWithResearch,
   generateContextSuggestions,
   ASSISTANT_NAME,
   type GenerateAssistantResponseParams,
   type AssistantResponseMetadata,
 } from './ai-assistant';
+
+// Topic Research
+export { classifyResearchIntent, shouldPerformResearch } from './classify-research';
+export { researchTopic, generateResearchSummary, clearResearchCache } from './topic-research';
 
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';

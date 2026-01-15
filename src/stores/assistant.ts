@@ -16,8 +16,15 @@ import type {
 } from '@/src/types/assistant';
 import { createAssistantMessage, createAssistantChat, ASSISTANT_NAME } from '@/src/types/assistant';
 import { assistantChatsService } from '@/src/services/database';
-import { generateAssistantResponse } from '@/src/services/gemini';
+import {
+  generateAssistantResponse,
+  generateAssistantResponseWithResearch,
+  classifyResearchIntent,
+  shouldPerformResearch,
+  researchTopic,
+} from '@/src/services/gemini';
 import { supabase } from '@/src/lib/supabase';
+import { useTopicResearchStore } from './topic-research';
 
 // ============================================
 // STATE TYPES
@@ -210,7 +217,7 @@ export const useAssistantStore = create<AssistantState>()(
       },
 
       sendMessage: async (content, profile, contextOverride) => {
-        const { currentChat, currentContext, currentChatId } = get();
+        const { currentChat, currentContext } = get();
         // Use the passed context if provided, otherwise fall back to store context
         const contextToUse = contextOverride !== undefined ? contextOverride : currentContext;
 
@@ -241,18 +248,83 @@ export const useAssistantStore = create<AssistantState>()(
         });
 
         try {
-          // Generate AI response
-          const { content: responseContent, metadata } = await generateAssistantResponse({
-            message: content,
-            context: contextToUse,
-            conversationHistory: chat.messages,
-            profile,
-          });
+          // Step 1: Classify if message needs research
+          const classification = await classifyResearchIntent(content, contextToUse);
+          const needsResearch = shouldPerformResearch(classification, 70);
 
-          // Create assistant message
+          let responseContent: string;
+          let metadata: { generationTimeMs: number; contextUsed: Record<string, unknown> };
+          let researchUsed: { id: string; type: string; savedToBank: boolean } | undefined;
+
+          if (needsResearch && classification.researchType) {
+            // Step 2: Perform grounded research
+            try {
+              const research = await researchTopic(
+                classification.researchType,
+                classification.extractedQuery,
+                {
+                  company: contextToUse?.application?.company || contextToUse?.companyResearch?.companyName,
+                  role: contextToUse?.application?.role,
+                  profile: profile && 'metadata' in profile ? profile : undefined,
+                  applicationId: contextToUse?.applicationId,
+                  analyzedJobId: contextToUse?.analyzedJob?.id,
+                }
+              );
+
+              // Step 3: Save to research bank (localStorage)
+              const topicResearchStore = useTopicResearchStore.getState();
+              const savedResearch = topicResearchStore.addResearch(research);
+
+              researchUsed = {
+                id: savedResearch.id,
+                type: research.type,
+                savedToBank: true,
+              };
+
+              // Step 4: Generate response with research context
+              const result = await generateAssistantResponseWithResearch({
+                message: content,
+                context: contextToUse,
+                conversationHistory: chat.messages,
+                profile,
+                research: {
+                  type: research.type,
+                  data: research.data,
+                  sources: research.sources,
+                },
+              });
+
+              responseContent = result.content;
+              metadata = result.metadata;
+            } catch (researchError) {
+              // Research failed, fall back to regular response
+              console.warn('Research failed, falling back to regular response:', researchError);
+              const result = await generateAssistantResponse({
+                message: content,
+                context: contextToUse,
+                conversationHistory: chat.messages,
+                profile,
+              });
+              responseContent = result.content;
+              metadata = result.metadata;
+            }
+          } else {
+            // Regular conversation flow (no research needed)
+            const result = await generateAssistantResponse({
+              message: content,
+              context: contextToUse,
+              conversationHistory: chat.messages,
+              profile,
+            });
+            responseContent = result.content;
+            metadata = result.metadata;
+          }
+
+          // Create assistant message with research metadata if applicable
           const assistantMessage = createAssistantMessage('assistant', responseContent, {
             generationTimeMs: metadata.generationTimeMs,
             contextUsed: metadata.contextUsed,
+            ...(researchUsed && { researchUsed }),
           });
 
           // Update local state

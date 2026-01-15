@@ -1190,3 +1190,277 @@ export const resumeEnhancementSchema: Schema = {
   },
   required: ['analysis', 'suggestions', 'enhancedProfile'],
 };
+
+// ============================================
+// TOPIC RESEARCH SCHEMAS
+// ============================================
+
+// Research Classification schema - determines if a message needs research
+export const researchClassificationSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    needsResearch: {
+      type: Type.BOOLEAN,
+      description: 'Whether this message warrants a web search for current information',
+    },
+    researchType: {
+      type: Type.STRING,
+      enum: ['salary', 'industry', 'technical', 'interview'],
+      description: 'Type of research needed (null if needsResearch is false)',
+    },
+    confidence: {
+      type: Type.NUMBER,
+      description: 'Confidence score 0-100 that research is needed',
+    },
+    extractedQuery: {
+      type: Type.STRING,
+      description: 'Refined search query extracted from the message',
+    },
+    reasoning: {
+      type: Type.STRING,
+      description: 'Brief explanation of the classification decision',
+    },
+  },
+  required: ['needsResearch', 'confidence', 'extractedQuery', 'reasoning'],
+};
+
+// Salary Research schema
+export const salaryResearchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    role: { type: Type.STRING, description: 'The role/job title researched' },
+    location: { type: Type.STRING, description: 'Geographic location for salary data' },
+    experienceLevel: { type: Type.STRING, description: 'Experience level (junior, mid, senior, etc.)' },
+    rangeEstimate: {
+      type: Type.OBJECT,
+      properties: {
+        low: { type: Type.NUMBER, description: 'Lower end of salary range' },
+        median: { type: Type.NUMBER, description: 'Median salary' },
+        high: { type: Type.NUMBER, description: 'Upper end of salary range' },
+        currency: { type: Type.STRING, description: 'Currency code (USD, EUR, etc.)' },
+      },
+      required: ['low', 'median', 'high', 'currency'],
+    },
+    factors: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Factors that affect salary for this role',
+    },
+    byCompanySize: {
+      type: Type.OBJECT,
+      properties: {
+        startup: { type: Type.STRING },
+        midsize: { type: Type.STRING },
+        enterprise: { type: Type.STRING },
+      },
+    },
+    negotiationTips: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Tips for salary negotiation',
+    },
+    marketTrend: {
+      type: Type.STRING,
+      enum: ['increasing', 'stable', 'decreasing'],
+      description: 'Current market trend for this role',
+    },
+    comparison: {
+      type: Type.OBJECT,
+      properties: {
+        vsUserTarget: { type: Type.STRING, enum: ['above', 'within', 'below'] },
+        notes: { type: Type.STRING },
+      },
+    },
+    summary: { type: Type.STRING, description: 'Overall salary assessment summary' },
+  },
+  required: ['role', 'rangeEstimate', 'factors', 'marketTrend', 'summary'],
+};
+
+// Industry Research schema
+export const industryResearchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    industry: { type: Type.STRING, description: 'The industry researched' },
+    currentTrends: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          trend: { type: Type.STRING },
+          impact: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+          description: { type: Type.STRING },
+        },
+        required: ['trend', 'impact', 'description'],
+      },
+      description: 'Current trends in the industry',
+    },
+    emergingTech: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Emerging technologies in this industry',
+    },
+    marketOutlook: {
+      type: Type.STRING,
+      enum: ['growing', 'stable', 'contracting'],
+      description: 'Overall market outlook',
+    },
+    keyPlayers: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Key companies in this industry',
+    },
+    skillsInDemand: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Most in-demand skills',
+    },
+    challenges: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Current challenges in the industry',
+    },
+    opportunities: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Current opportunities',
+    },
+    timeframe: { type: Type.STRING, description: 'Timeframe of analysis (e.g., 2024-2025)' },
+    summary: { type: Type.STRING, description: 'Overall industry assessment' },
+  },
+  required: ['industry', 'currentTrends', 'marketOutlook', 'skillsInDemand', 'summary'],
+};
+
+// Technical Research schema
+export const technicalResearchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    topic: { type: Type.STRING, description: 'The technical topic researched' },
+    category: {
+      type: Type.STRING,
+      enum: ['framework', 'language', 'concept', 'tool', 'methodology', 'other'],
+    },
+    overview: { type: Type.STRING, description: 'Overview of the topic' },
+    keyFeatures: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Key features or characteristics',
+    },
+    useCases: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Common use cases',
+    },
+    prosAndCons: {
+      type: Type.OBJECT,
+      properties: {
+        pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+        cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['pros', 'cons'],
+    },
+    alternatives: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          comparison: { type: Type.STRING },
+        },
+        required: ['name', 'comparison'],
+      },
+      description: 'Alternative technologies',
+    },
+    learningResources: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          type: { type: Type.STRING, enum: ['course', 'book', 'tutorial', 'documentation', 'other'] },
+          name: { type: Type.STRING },
+          url: { type: Type.STRING },
+          difficulty: { type: Type.STRING, enum: ['beginner', 'intermediate', 'advanced'] },
+        },
+        required: ['type', 'name'],
+      },
+    },
+    interviewRelevance: {
+      type: Type.OBJECT,
+      properties: {
+        commonQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        keyPointsToKnow: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['commonQuestions', 'keyPointsToKnow'],
+    },
+    marketAdoption: {
+      type: Type.STRING,
+      enum: ['mainstream', 'growing', 'niche', 'emerging', 'declining'],
+    },
+    summary: { type: Type.STRING, description: 'Overall technical assessment' },
+  },
+  required: ['topic', 'category', 'overview', 'keyFeatures', 'prosAndCons', 'interviewRelevance', 'summary'],
+};
+
+// Interview Research schema
+export const interviewResearchSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    company: { type: Type.STRING, description: 'Company name if specific' },
+    role: { type: Type.STRING, description: 'Role if specific' },
+    interviewProcess: {
+      type: Type.OBJECT,
+      properties: {
+        stages: { type: Type.ARRAY, items: { type: Type.STRING } },
+        typicalDuration: { type: Type.STRING },
+        format: { type: Type.STRING },
+      },
+      required: ['stages'],
+    },
+    commonQuestions: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          category: { type: Type.STRING, enum: ['behavioral', 'technical', 'situational', 'culture', 'other'] },
+          tips: { type: Type.STRING },
+        },
+        required: ['question', 'category'],
+      },
+    },
+    technicalTopics: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Technical topics commonly covered',
+    },
+    companyValues: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+    whatTheyLookFor: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'What interviewers typically look for',
+    },
+    redFlags: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Things to avoid in the interview',
+    },
+    tips: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'General interview tips',
+    },
+    recentInsights: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Recent insights from Glassdoor, Blind, etc.',
+    },
+    difficulty: {
+      type: Type.STRING,
+      enum: ['easy', 'medium', 'hard'],
+    },
+    summary: { type: Type.STRING, description: 'Overall interview prep summary' },
+  },
+  required: ['interviewProcess', 'commonQuestions', 'whatTheyLookFor', 'tips', 'difficulty', 'summary'],
+};

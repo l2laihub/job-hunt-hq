@@ -11,6 +11,7 @@ import type {
   UserProfileWithMeta,
 } from './index';
 import type { InterviewPrepSession } from './interview-prep';
+import type { TopicResearchType } from './topic-research';
 
 // ============================================
 // CONTEXT TYPES
@@ -91,6 +92,13 @@ export interface AssistantMessage {
   // Error state
   isError?: boolean;
   errorMessage?: string;
+
+  // Research metadata (when research was used to generate response)
+  researchUsed?: {
+    id: string;
+    type: TopicResearchType;
+    savedToBank: boolean;
+  };
 }
 
 // ============================================
@@ -343,25 +351,25 @@ export const CONTEXT_SUGGESTIONS: Record<AssistantContextType, string[]> = {
   general: [
     'Help me improve my resume',
     'What should I focus on in my job search?',
-    'How can I prepare for interviews?',
-    'Review my career goals',
+    'Research salary trends for my target role',
+    'What are the industry trends in tech?',
   ],
   application: [
     'How well do I fit this role?',
-    'What should I highlight in my application?',
-    'Help me prepare for the interview',
+    'Research salary range for this role',
+    'Interview tips for this company',
     'What questions should I ask them?',
   ],
   'interview-prep': [
     'What are the most likely questions?',
     'Help me practice answering questions',
-    'Review my readiness for this interview',
-    'What should I research about the company?',
+    'Research interview process at this company',
+    'What technical topics should I prepare?',
   ],
   'company-research': [
     'What are the red flags I should watch for?',
     'How does this company compare to others?',
-    'What questions should I ask about culture?',
+    'Research interview process here',
     'Is this a good company to work for?',
   ],
   story: [
@@ -373,13 +381,13 @@ export const CONTEXT_SUGGESTIONS: Record<AssistantContextType, string[]> = {
   profile: [
     'How can I improve my headline?',
     'What skills should I highlight?',
-    'Help me write better achievements',
+    'Research in-demand skills for my roles',
     'Review my profile completeness',
   ],
   enhancement: [
     'What are the most important changes?',
     'How can I improve my ATS score?',
-    'Help me tailor this for the role',
-    'What keywords am I missing?',
+    'Research keywords for this role',
+    'What skills am I missing?',
   ],
 };

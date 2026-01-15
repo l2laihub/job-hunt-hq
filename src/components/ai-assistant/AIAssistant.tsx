@@ -16,6 +16,7 @@ import { InputArea } from './InputArea';
 import { QuickActions } from './QuickActions';
 import { AssistantTrigger } from './AssistantTrigger';
 import { ChatHistory } from './ChatHistory';
+import { ResearchBank } from './ResearchBank';
 
 export const AIAssistant: React.FC = () => {
   const {
@@ -37,6 +38,7 @@ export const AIAssistant: React.FC = () => {
   } = useAssistantStore();
 
   const [showHistory, setShowHistory] = useState(false);
+  const [showResearchBank, setShowResearchBank] = useState(false);
   const context = useAssistantContext();
   const { activeProfile: profile } = useProfileData();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,6 +83,7 @@ export const AIAssistant: React.FC = () => {
   const handleNewChat = async () => {
     await startNewChat(context);
     setShowHistory(false);
+    setShowResearchBank(false);
   };
 
   // Handle quick action click
@@ -131,7 +134,14 @@ export const AIAssistant: React.FC = () => {
       {/* Header */}
       <AssistantHeader
         onNewChat={handleNewChat}
-        onShowHistory={() => setShowHistory(true)}
+        onShowHistory={() => {
+          setShowHistory(true);
+          setShowResearchBank(false);
+        }}
+        onShowResearchBank={() => {
+          setShowResearchBank(true);
+          setShowHistory(false);
+        }}
         hasMessages={(currentChat?.messages.length ?? 0) > 0}
       />
 
@@ -186,6 +196,13 @@ export const AIAssistant: React.FC = () => {
             onDelete={deleteChat}
             onPin={handlePinChat}
             onClose={() => setShowHistory(false)}
+          />
+        )}
+
+        {/* Research Bank (overlay) */}
+        {showResearchBank && (
+          <ResearchBank
+            onClose={() => setShowResearchBank(false)}
           />
         )}
       </div>
