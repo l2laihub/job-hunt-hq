@@ -46,6 +46,21 @@ export {
 export { classifyResearchIntent, shouldPerformResearch } from './classify-research';
 export { researchTopic, generateResearchSummary, clearResearchCache } from './topic-research';
 
+// Preference Learning
+export {
+  parsePreferences,
+  mightContainPreferences,
+  isCorrection,
+  parseCorrection,
+  type ParsePreferencesResult,
+} from './preference-parser';
+export {
+  buildPreferencePrompt,
+  buildCompactPreferencePrompt,
+  hasSignificantPreferences,
+  getPreferenceSummary,
+} from './preference-builder';
+
 // Cache utilities
 export { aiCache, cacheKeys } from './cache';
 

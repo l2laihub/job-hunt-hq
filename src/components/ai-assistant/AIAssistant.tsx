@@ -6,9 +6,10 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/src/lib/utils';
-import { useAssistantStore } from '@/src/stores';
+import { useAssistantStore, usePreferencesStore } from '@/src/stores';
 import { useAssistantContext, useProfileData } from '@/src/hooks';
 import { ASSISTANT_NAME } from '@/src/types/assistant';
+import type { FeedbackType, PreferenceCategory } from '@/src/types/preferences';
 import { AssistantHeader } from './AssistantHeader';
 import { ContextPanel } from './ContextPanel';
 import { MessageList } from './MessageList';
@@ -17,6 +18,8 @@ import { QuickActions } from './QuickActions';
 import { AssistantTrigger } from './AssistantTrigger';
 import { ChatHistory } from './ChatHistory';
 import { ResearchBank } from './ResearchBank';
+import { PreferenceSettings } from './PreferenceSettings';
+import { FeedbackToast } from './FeedbackToast';
 
 export const AIAssistant: React.FC = () => {
   const {
@@ -39,6 +42,7 @@ export const AIAssistant: React.FC = () => {
 
   const [showHistory, setShowHistory] = useState(false);
   const [showResearchBank, setShowResearchBank] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const context = useAssistantContext();
   const { activeProfile: profile } = useProfileData();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -84,6 +88,7 @@ export const AIAssistant: React.FC = () => {
     await startNewChat(context);
     setShowHistory(false);
     setShowResearchBank(false);
+    setShowSettings(false);
   };
 
   // Handle quick action click
@@ -103,6 +108,45 @@ export const AIAssistant: React.FC = () => {
   // Handle pin toggle
   const handlePinChat = async (chatId: string) => {
     await pinChat(chatId);
+  };
+
+  // Handle feedback submission
+  const handleFeedback = async (
+    messageId: string,
+    rating: 'positive' | 'negative',
+    feedbackType?: FeedbackType
+  ) => {
+    if (!currentChatId) return;
+
+    // Find the user message that led to this assistant response
+    const messageIndex = currentChat?.messages.findIndex((m) => m.id === messageId) ?? -1;
+    let userQuery = '';
+    if (messageIndex > 0 && currentChat?.messages) {
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        if (currentChat.messages[i].role === 'user') {
+          userQuery = currentChat.messages[i].content;
+          break;
+        }
+      }
+    }
+
+    const contextType = (context.type === 'profile' ? 'general' : context.type) as PreferenceCategory;
+
+    try {
+      const preferencesStore = usePreferencesStore.getState();
+      await preferencesStore.submitFeedback({
+        messageId,
+        chatId: currentChatId,
+        rating,
+        feedbackType,
+        context: {
+          userQuery,
+          category: contextType,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+    }
   };
 
   // If closed, show only the trigger button
@@ -137,10 +181,17 @@ export const AIAssistant: React.FC = () => {
         onShowHistory={() => {
           setShowHistory(true);
           setShowResearchBank(false);
+          setShowSettings(false);
         }}
         onShowResearchBank={() => {
           setShowResearchBank(true);
           setShowHistory(false);
+          setShowSettings(false);
+        }}
+        onShowSettings={() => {
+          setShowSettings(true);
+          setShowHistory(false);
+          setShowResearchBank(false);
         }}
         hasMessages={(currentChat?.messages.length ?? 0) > 0}
       />
@@ -158,6 +209,9 @@ export const AIAssistant: React.FC = () => {
             messages={currentChat.messages}
             isLoading={isLoading}
             messagesEndRef={messagesEndRef}
+            chatId={currentChatId ?? undefined}
+            contextType={(context.type === 'profile' ? 'general' : context.type) as PreferenceCategory}
+            onFeedback={handleFeedback}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -205,6 +259,17 @@ export const AIAssistant: React.FC = () => {
             onClose={() => setShowResearchBank(false)}
           />
         )}
+
+        {/* Preference Settings (overlay) */}
+        {showSettings && (
+          <PreferenceSettings
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
+
+        {/* Feedback Toast */}
+        <FeedbackToast />
       </div>
 
       {/* Input Area */}

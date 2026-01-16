@@ -22,9 +22,12 @@ import {
   classifyResearchIntent,
   shouldPerformResearch,
   researchTopic,
+  mightContainPreferences,
 } from '@/src/services/gemini';
 import { supabase } from '@/src/lib/supabase';
 import { useTopicResearchStore } from './topic-research';
+import { usePreferencesStore } from './preferences';
+import { processMessageForLearning } from '@/src/services/preference-learning';
 
 // ============================================
 // STATE TYPES
@@ -248,6 +251,19 @@ export const useAssistantStore = create<AssistantState>()(
         });
 
         try {
+          // Step 0: Get user preferences for personalization
+          const preferencesStore = usePreferencesStore.getState();
+          const preferences = preferencesStore.getPreferencesForContext(
+            contextToUse?.type || 'general'
+          );
+
+          // Step 0.5: Check for preference statements in user message (async, non-blocking)
+          if (mightContainPreferences(content)) {
+            processMessageForLearning(content, contextToUse?.type || 'general').catch((err) => {
+              console.warn('Failed to process message for learning:', err);
+            });
+          }
+
           // Step 1: Classify if message needs research
           const classification = await classifyResearchIntent(content, contextToUse);
           const needsResearch = shouldPerformResearch(classification, 70);
@@ -281,12 +297,13 @@ export const useAssistantStore = create<AssistantState>()(
                 savedToBank: true,
               };
 
-              // Step 4: Generate response with research context
+              // Step 4: Generate response with research context and preferences
               const result = await generateAssistantResponseWithResearch({
                 message: content,
                 context: contextToUse,
                 conversationHistory: chat.messages,
                 profile,
+                preferences,
                 research: {
                   type: research.type,
                   data: research.data,
@@ -304,6 +321,7 @@ export const useAssistantStore = create<AssistantState>()(
                 context: contextToUse,
                 conversationHistory: chat.messages,
                 profile,
+                preferences,
               });
               responseContent = result.content;
               metadata = result.metadata;
@@ -315,6 +333,7 @@ export const useAssistantStore = create<AssistantState>()(
               context: contextToUse,
               conversationHistory: chat.messages,
               profile,
+              preferences,
             });
             responseContent = result.content;
             metadata = result.metadata;

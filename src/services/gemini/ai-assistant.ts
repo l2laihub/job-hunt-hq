@@ -17,6 +17,7 @@ import type {
   Experience,
   JDAnalysis,
   FTEAnalysis,
+  UserPreference,
 } from '@/src/types';
 import type { InterviewPrepSession } from '@/src/types/interview-prep';
 import type {
@@ -25,6 +26,7 @@ import type {
   createAssistantMessage,
   ASSISTANT_NAME,
 } from '@/src/types/assistant';
+import { buildPreferencePrompt } from './preference-builder';
 
 // Re-export for convenience
 export { ASSISTANT_NAME } from '@/src/types/assistant';
@@ -38,6 +40,7 @@ export interface GenerateAssistantResponseParams {
   context: AssistantContext | null;
   conversationHistory: AssistantMessage[];
   profile: UserProfileWithMeta | UserProfile | null;
+  preferences?: UserPreference[];
 }
 
 export interface AssistantResponseMetadata {
@@ -336,7 +339,8 @@ ${formattedHistory}
 function buildSystemPrompt(
   context: AssistantContext | null,
   profile: UserProfileWithMeta | UserProfile | null,
-  conversationHistory: AssistantMessage[]
+  conversationHistory: AssistantMessage[],
+  preferences?: UserPreference[]
 ): string {
   const profileSummary = buildProfileSummary(profile);
   const applicationContext = buildApplicationContext(
@@ -347,6 +351,11 @@ function buildSystemPrompt(
   const prepContext = buildInterviewPrepContext(context?.prepSession);
   const storiesContext = buildStoriesContext(context?.stories);
   const conversationContext = buildConversationContext(conversationHistory);
+
+  // Build preference prompt if preferences are provided
+  const preferencesPrompt = preferences && preferences.length > 0
+    ? buildPreferencePrompt(preferences, context?.type || 'general')
+    : '';
 
   return `You are Prep, an AI career coach assistant for Prepprly - a job search and interview preparation app.
 
@@ -367,6 +376,8 @@ You help job seekers with:
 - Use markdown formatting for readability (bold, bullets, headers)
 
 ${profileSummary}
+
+${preferencesPrompt}
 
 ${applicationContext}
 
@@ -404,15 +415,15 @@ export async function generateAssistantResponse(
 ): Promise<{ content: string; metadata: AssistantResponseMetadata }> {
   requireGemini();
 
-  const { message, context, conversationHistory, profile: passedProfile } = params;
+  const { message, context, conversationHistory, profile: passedProfile, preferences } = params;
   const startTime = Date.now();
 
   // Use passed profile, but fall back to context profile if passed profile is null
   // This handles race conditions where context.profile might be populated but direct profile isn't
   const profile = passedProfile || context?.profile || null;
 
-  // Build the system prompt with all context
-  const systemPrompt = buildSystemPrompt(context, profile, conversationHistory);
+  // Build the system prompt with all context and preferences
+  const systemPrompt = buildSystemPrompt(context, profile, conversationHistory, preferences);
 
   // Build the contents with system context prepended as a "model" message for reliability
   // This ensures the model sees the context even if systemInstruction isn't working properly
@@ -467,10 +478,10 @@ export async function* generateAssistantResponseStream(
 ): AsyncGenerator<string, void, unknown> {
   requireGemini();
 
-  const { message, context, conversationHistory, profile } = params;
+  const { message, context, conversationHistory, profile, preferences } = params;
 
-  // Build the system prompt with all context
-  const systemPrompt = buildSystemPrompt(context, profile, conversationHistory);
+  // Build the system prompt with all context and preferences
+  const systemPrompt = buildSystemPrompt(context, profile, conversationHistory, preferences);
 
   // Build the contents with system context prepended for reliable context injection
   const contents = [
@@ -601,13 +612,13 @@ export async function generateAssistantResponseWithResearch(
 ): Promise<{ content: string; metadata: AssistantResponseMetadata }> {
   requireGemini();
 
-  const { message, context, conversationHistory, profile: passedProfile, research } = params;
+  const { message, context, conversationHistory, profile: passedProfile, preferences, research } = params;
   const startTime = Date.now();
 
   const profile = passedProfile || context?.profile || null;
 
-  // Build the system prompt with research context included
-  const baseSystemPrompt = buildSystemPrompt(context, profile, conversationHistory);
+  // Build the system prompt with research context and preferences included
+  const baseSystemPrompt = buildSystemPrompt(context, profile, conversationHistory, preferences);
   const researchContext = buildResearchContext(research);
 
   const systemPrompt = `${baseSystemPrompt}

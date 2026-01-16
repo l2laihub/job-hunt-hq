@@ -1,22 +1,65 @@
 /**
  * Message Bubble
  *
- * Renders an individual chat message with markdown support.
+ * Renders an individual chat message with markdown support and feedback buttons.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ThumbsUp, ThumbsDown, ChevronDown } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import type { AssistantMessage } from '@/src/types/assistant';
+import type { FeedbackType, PreferenceCategory } from '@/src/types/preferences';
 import { ASSISTANT_NAME } from '@/src/types/assistant';
 
 interface MessageBubbleProps {
   message: AssistantMessage;
+  chatId?: string;
+  userQuery?: string;
+  contextType?: PreferenceCategory;
+  onFeedback?: (
+    messageId: string,
+    rating: 'positive' | 'negative',
+    feedbackType?: FeedbackType
+  ) => void;
+  feedbackGiven?: 'positive' | 'negative' | null;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+// Feedback type options for negative feedback
+const FEEDBACK_OPTIONS: { value: FeedbackType; label: string }[] = [
+  { value: 'too_long', label: 'Too long' },
+  { value: 'too_short', label: 'Too short' },
+  { value: 'not_helpful', label: 'Not helpful' },
+  { value: 'wrong_tone', label: 'Wrong tone' },
+  { value: 'too_generic', label: 'Too generic' },
+  { value: 'too_technical', label: 'Too technical' },
+  { value: 'not_technical_enough', label: 'Not technical enough' },
+  { value: 'off_topic', label: 'Off topic' },
+];
+
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  onFeedback,
+  feedbackGiven,
+}) => {
   const isUser = message.role === 'user';
   const isError = message.isError;
+  const [showFeedbackOptions, setShowFeedbackOptions] = useState(false);
+  const [localFeedback, setLocalFeedback] = useState<'positive' | 'negative' | null>(null);
+
+  // Use prop feedback if available, otherwise use local state
+  const currentFeedback = feedbackGiven ?? localFeedback;
+
+  const handleFeedback = (rating: 'positive' | 'negative', feedbackType?: FeedbackType) => {
+    setLocalFeedback(rating);
+    setShowFeedbackOptions(false);
+    onFeedback?.(message.id, rating, feedbackType);
+  };
+
+  const handleThumbsDown = () => {
+    if (currentFeedback === 'negative') return; // Already negative
+    setShowFeedbackOptions(true);
+  };
 
   return (
     <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
@@ -180,12 +223,79 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           </div>
         )}
 
-        {/* Generation time */}
-        {message.generationTimeMs && (
-          <div className="mt-2 text-xs text-gray-500">
-            Generated in {(message.generationTimeMs / 1000).toFixed(1)}s
-          </div>
-        )}
+        {/* Generation time and feedback */}
+        <div className="mt-2 flex items-center justify-between">
+          {message.generationTimeMs && (
+            <div className="text-xs text-gray-500">
+              Generated in {(message.generationTimeMs / 1000).toFixed(1)}s
+            </div>
+          )}
+
+          {/* Feedback buttons - only for assistant messages */}
+          {!isUser && !isError && onFeedback && (
+            <div className="flex items-center gap-1">
+              {/* Thumbs up */}
+              <button
+                onClick={() => handleFeedback('positive')}
+                disabled={currentFeedback !== null}
+                className={cn(
+                  'p-1.5 rounded-md transition-colors',
+                  currentFeedback === 'positive'
+                    ? 'text-green-400 bg-green-500/20'
+                    : currentFeedback === null
+                    ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700'
+                    : 'text-gray-600 cursor-not-allowed'
+                )}
+                title="Helpful"
+              >
+                <ThumbsUp className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Thumbs down */}
+              <div className="relative">
+                <button
+                  onClick={handleThumbsDown}
+                  disabled={currentFeedback !== null}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors',
+                    currentFeedback === 'negative'
+                      ? 'text-red-400 bg-red-500/20'
+                      : currentFeedback === null
+                      ? 'text-gray-500 hover:text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-600 cursor-not-allowed'
+                  )}
+                  title="Not helpful"
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Feedback type dropdown */}
+                {showFeedbackOptions && (
+                  <div className="absolute right-0 bottom-full mb-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg py-1 z-10">
+                    <div className="px-3 py-1.5 text-xs text-gray-400 border-b border-gray-700">
+                      What was wrong?
+                    </div>
+                    {FEEDBACK_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleFeedback('negative', option.value)}
+                        className="w-full px-3 py-1.5 text-left text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handleFeedback('negative')}
+                      className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-gray-700 transition-colors border-t border-gray-700"
+                    >
+                      Skip feedback type
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

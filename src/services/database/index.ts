@@ -14,6 +14,7 @@ export { interviewPrepService } from './interview-prep';
 export { copilotSessionsService } from './copilot-sessions';
 export { assistantChatsService } from './assistant-chats';
 export { topicResearchService } from './topic-research';
+export { preferencesService, messageFeedbackService } from './preferences';
 
 // Type converters
 export * from './types';
@@ -31,6 +32,7 @@ import { interviewPrepService } from './interview-prep';
 import { copilotSessionsService } from './copilot-sessions';
 import { assistantChatsService } from './assistant-chats';
 import { topicResearchService } from './topic-research';
+import { preferencesService, messageFeedbackService } from './preferences';
 
 export const db = {
   profiles: profilesService,
@@ -45,4 +47,6 @@ export const db = {
   copilotSessions: copilotSessionsService,
   assistantChats: assistantChatsService,
   topicResearch: topicResearchService,
+  preferences: preferencesService,
+  messageFeedback: messageFeedbackService,
 };

@@ -233,6 +233,31 @@ export interface ApplicationRecommendation {
   actionItems: string[];  // What to do next based on verdict
 }
 
+// Categorized Skills for Enhanced Display
+export type SkillImportance = 'critical' | 'important' | 'bonus';
+
+export interface SkillMatchItem {
+  skill: string;
+  isMatched: boolean;
+  importance: SkillImportance;
+}
+
+export interface CategorizedSkills {
+  mustHave: SkillMatchItem[];
+  niceToHave: SkillMatchItem[];
+}
+
+// Quick Decision Helper
+export interface QuickTake {
+  verdict: RecommendationVerdict;
+  confidence: number;
+  headline: string;           // 10-15 word summary
+  whyApply: string[];         // 2-3 reasons TO apply
+  whyPass: string[];          // 2-3 concerns/reasons to hesitate
+  nextAction: string;         // Single clear action
+  timeToDecide?: string;      // Urgency indicator (e.g., "Apply within 2 days")
+}
+
 // Base JD Analysis
 export interface BaseJDAnalysis {
   fitScore: number;
@@ -252,6 +277,10 @@ export interface BaseJDAnalysis {
     jobWorkStyle: 'remote' | 'hybrid' | 'onsite' | 'unknown';
     notes?: string;
   };
+
+  // Enhanced display fields (optional for backward compatibility)
+  categorizedSkills?: CategorizedSkills;
+  quickTake?: QuickTake;
 }
 
 // Full-time Employee Analysis
@@ -686,6 +715,9 @@ export interface AnalyzedJob {
   id: string;
   jobDescription: string;
   type: AnalyzedJobType;
+
+  // Content hash for duplicate detection
+  contentHash?: string;
 
   // Basic extracted info
   company?: string;
@@ -1166,6 +1198,9 @@ export * from './interview-prep';
 
 // Re-export assistant types
 export * from './assistant';
+
+// Re-export preference types
+export * from './preferences';
 
 // ============================================
 // INTERVIEW COPILOT TYPES

@@ -7,22 +7,50 @@ import React from 'react';
 import { cn } from '@/src/lib/utils';
 import { MessageBubble } from './MessageBubble';
 import type { AssistantMessage } from '@/src/types/assistant';
+import type { FeedbackType, PreferenceCategory } from '@/src/types/preferences';
 
 interface MessageListProps {
   messages: AssistantMessage[];
   isLoading: boolean;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  chatId?: string;
+  contextType?: PreferenceCategory;
+  onFeedback?: (
+    messageId: string,
+    rating: 'positive' | 'negative',
+    feedbackType?: FeedbackType
+  ) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
   isLoading,
   messagesEndRef,
+  chatId,
+  contextType,
+  onFeedback,
 }) => {
+  // Get the previous user message for context when providing feedback
+  const getUserQueryForMessage = (index: number): string | undefined => {
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        return messages[i].content;
+      }
+    }
+    return undefined;
+  };
+
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-      {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} />
+      {messages.map((message, index) => (
+        <MessageBubble
+          key={message.id}
+          message={message}
+          chatId={chatId}
+          contextType={contextType}
+          userQuery={getUserQueryForMessage(index)}
+          onFeedback={onFeedback}
+        />
       ))}
 
       {/* Loading indicator */}
