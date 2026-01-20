@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useUIStore, toast } from '@/src/stores';
 import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useApplications } from '@/src/hooks/useAppData';
@@ -12,15 +12,22 @@ import {
   PieChart,
   CheckCircle,
   XCircle,
+  MinusCircle,
   Trash2,
   MoreVertical,
   Globe,
   Calendar,
   DollarSign,
   Building,
+  Clock,
 } from 'lucide-react';
-import { Button, Badge, ScoreBadge, ConfirmDialog, Card } from '@/src/components/ui';
+import { Button, Badge, ScoreBadge, ConfirmDialog } from '@/src/components/ui';
 import { DashboardEmptyState } from '@/src/components/shared';
+import {
+  DashboardFiltersComponent,
+  defaultFilters,
+  type DashboardFilters,
+} from '@/src/components/dashboard';
 import { useNavigate } from 'react-router-dom';
 
 const statusIcons: Record<ApplicationStatus, React.ReactNode> = {
@@ -28,7 +35,25 @@ const statusIcons: Record<ApplicationStatus, React.ReactNode> = {
   applied: <Briefcase className="w-4 h-4" />,
   interviewing: <PieChart className="w-4 h-4" />,
   offer: <CheckCircle className="w-4 h-4" />,
+  passed: <MinusCircle className="w-4 h-4" />,
   rejected: <XCircle className="w-4 h-4" />,
+};
+
+// Helper function to check if an application is stale (>14 days in applied status)
+const isStale = (app: JobApplication, staleDays: number = 14): boolean => {
+  if (app.status !== 'applied' || !app.dateApplied) return false;
+  const daysSince = Math.floor(
+    (Date.now() - new Date(app.dateApplied).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return daysSince >= staleDays;
+};
+
+// Helper function to get days since applied
+const getDaysSinceApplied = (app: JobApplication): number | null => {
+  if (!app.dateApplied) return null;
+  return Math.floor(
+    (Date.now() - new Date(app.dateApplied).getTime()) / (1000 * 60 * 60 * 24)
+  );
 };
 
 export const DashboardPage: React.FC = () => {
@@ -37,7 +62,7 @@ export const DashboardPage: React.FC = () => {
   // Use unified hook that switches between Supabase and localStorage
   const { applications: allApplications, moveApplication, deleteApplication } = useApplications();
   // Filter applications by active profile
-  const applications = useMemo(() => {
+  const profileApplications = useMemo(() => {
     if (!activeProfileId) return allApplications;
     return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
@@ -45,6 +70,71 @@ export const DashboardPage: React.FC = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<JobApplication | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
+
+  // Search function
+  const searchApplication = useCallback(
+    (app: JobApplication, query: string): boolean => {
+      if (!query.trim()) return true;
+      const lowerQuery = query.toLowerCase();
+
+      if (app.company.toLowerCase().includes(lowerQuery)) return true;
+      if (app.role.toLowerCase().includes(lowerQuery)) return true;
+      if (app.notes?.toLowerCase().includes(lowerQuery)) return true;
+
+      return false;
+    },
+    []
+  );
+
+  // Fit score filter function
+  const matchesFitScore = useCallback(
+    (app: JobApplication, range: DashboardFilters['fitScoreRange']): boolean => {
+      if (range === 'all') return true;
+
+      const score = app.analysis?.fitScore;
+
+      switch (range) {
+        case 'high':
+          return score !== undefined && score >= 8;
+        case 'medium':
+          return score !== undefined && score >= 5 && score < 8;
+        case 'low':
+          return score !== undefined && score < 5;
+        case 'unanalyzed':
+          return score === undefined;
+        default:
+          return true;
+      }
+    },
+    []
+  );
+
+  // Apply all filters
+  const applications = useMemo(() => {
+    return profileApplications.filter((app) => {
+      // Search filter
+      if (!searchApplication(app, filters.searchQuery)) return false;
+
+      // Type filter
+      if (filters.types.length > 0 && !filters.types.includes(app.type as 'fulltime' | 'freelance')) {
+        return false;
+      }
+
+      // Source filter
+      if (filters.sources.length > 0 && !filters.sources.includes(app.source)) {
+        return false;
+      }
+
+      // Fit score filter
+      if (!matchesFitScore(app, filters.fitScoreRange)) return false;
+
+      // Stale filter
+      if (filters.staleOnly && !isStale(app)) return false;
+
+      return true;
+    });
+  }, [profileApplications, filters, searchApplication, matchesFitScore]);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('applicationId', id);
@@ -89,7 +179,8 @@ export const DashboardPage: React.FC = () => {
     navigate(`/research?company=${encodeURIComponent(app.company)}`);
   };
 
-  if (applications.length === 0) {
+  // Show empty state only when there are no applications at all (not just filtered out)
+  if (profileApplications.length === 0) {
     return (
       <div className="h-full flex items-center justify-center p-6">
         <DashboardEmptyState onAddApplication={handleAddApplication} />
@@ -98,9 +189,9 @@ export const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="h-full p-6">
+    <div className="h-full p-6 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-white">Applications</h2>
         <Button
           variant="primary"
@@ -111,8 +202,18 @@ export const DashboardPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* Filters */}
+      <div className="mb-4">
+        <DashboardFiltersComponent
+          filters={filters}
+          onFiltersChange={setFilters}
+          totalCount={profileApplications.length}
+          filteredCount={applications.length}
+        />
+      </div>
+
       {/* Kanban Board */}
-      <div className="flex gap-4 h-[calc(100%-4rem)] overflow-x-auto pb-4 snap-x">
+      <div className="flex gap-4 flex-1 min-h-0 overflow-x-auto pb-4 snap-x">
         {APPLICATION_STATUSES.map((col) => {
           const columnApps = applications.filter((a) => a.status === col.id);
 
@@ -144,6 +245,7 @@ export const DashboardPage: React.FC = () => {
                     key={app.id}
                     application={app}
                     isDragging={draggedId === app.id}
+                    daysSinceApplied={getDaysSinceApplied(app)}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onClick={() => handleEditApplication(app)}
@@ -181,6 +283,7 @@ export const DashboardPage: React.FC = () => {
 interface JobCardProps {
   application: JobApplication;
   isDragging: boolean;
+  daysSinceApplied: number | null;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDragEnd: () => void;
   onClick: () => void;
@@ -191,6 +294,7 @@ interface JobCardProps {
 const JobCard: React.FC<JobCardProps> = ({
   application,
   isDragging,
+  daysSinceApplied,
   onDragStart,
   onDragEnd,
   onClick,
@@ -198,6 +302,7 @@ const JobCard: React.FC<JobCardProps> = ({
   onResearch,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const isStaleApp = application.status === 'applied' && daysSinceApplied !== null && daysSinceApplied >= 14;
 
   return (
     <div
@@ -209,9 +314,20 @@ const JobCard: React.FC<JobCardProps> = ({
         'bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-blue-500/50',
         'rounded-lg p-4 cursor-pointer transition-all shadow-sm hover:shadow-md',
         'group relative flex flex-col gap-3',
-        isDragging && 'opacity-50 scale-95'
+        isDragging && 'opacity-50 scale-95',
+        isStaleApp && 'border-l-2 border-l-amber-500'
       )}
     >
+      {/* Stale Indicator */}
+      {isStaleApp && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <span className="flex items-center gap-1 bg-amber-900/80 text-amber-300 text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-amber-700">
+            <Clock className="w-3 h-3" />
+            {daysSinceApplied}d
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start">
         <h3 className="font-semibold text-gray-100 truncate pr-2 flex-1">

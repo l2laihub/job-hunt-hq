@@ -226,6 +226,18 @@ Provide a COMPREHENSIVE analysis including:
 
 9. **Actionable Next Steps**: Based on your verdict, what should the candidate do?
 
+10. **Categorized Skills Assessment**: Organize all required skills into two categories:
+    - **Must-Have Skills**: Required/essential skills that are deal-breakers if missing. For each skill, indicate if the candidate has it (isMatched) and its importance (critical/important/bonus).
+    - **Nice-to-Have Skills**: Preferred/bonus skills that are beneficial but not required. Same format as must-have.
+    Order skills by importance within each category.
+
+11. **Quick Take Summary**: Generate an immediate decision helper with:
+    - **headline**: A single sentence (10-15 words max) capturing the core verdict
+    - **whyApply**: 2-3 concise reasons TO apply (even if verdict is "consider" or "pass" - there are always some positives)
+    - **whyPass**: 2-3 concerns or reasons to hesitate
+    - **nextAction**: ONE specific, actionable step the candidate should take TODAY
+    - **timeToDecide**: If the role seems competitive or time-sensitive, mention urgency (e.g., "Apply within 2 days")
+
 Be honest and direct. If this isn't a good fit, say so clearly and explain why. The candidate's time is valuable.`;
 
   // Select appropriate schema based on job type

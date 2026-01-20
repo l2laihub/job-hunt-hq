@@ -116,17 +116,20 @@ export const AIAssistant: React.FC = () => {
     rating: 'positive' | 'negative',
     feedbackType?: FeedbackType
   ) => {
-    if (!currentChatId) return;
+    if (!currentChatId || !currentChat?.messages) return;
 
-    // Find the user message that led to this assistant response
-    const messageIndex = currentChat?.messages.findIndex((m) => m.id === messageId) ?? -1;
+    // Find the message and the user query that led to it
+    const messageIndex = currentChat.messages.findIndex((m) => m.id === messageId);
+    if (messageIndex < 0) return;
+
+    const message = currentChat.messages[messageIndex];
+    const messagePreview = message.content;
+
     let userQuery = '';
-    if (messageIndex > 0 && currentChat?.messages) {
-      for (let i = messageIndex - 1; i >= 0; i--) {
-        if (currentChat.messages[i].role === 'user') {
-          userQuery = currentChat.messages[i].content;
-          break;
-        }
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (currentChat.messages[i].role === 'user') {
+        userQuery = currentChat.messages[i].content;
+        break;
       }
     }
 
@@ -134,16 +137,15 @@ export const AIAssistant: React.FC = () => {
 
     try {
       const preferencesStore = usePreferencesStore.getState();
-      await preferencesStore.submitFeedback({
+      await preferencesStore.submitFeedback(
         messageId,
-        chatId: currentChatId,
+        currentChatId,
         rating,
-        feedbackType,
-        context: {
-          userQuery,
-          category: contextType,
-        },
-      });
+        messagePreview,
+        userQuery,
+        contextType,
+        feedbackType
+      );
     } catch (error) {
       console.error('Failed to submit feedback:', error);
     }

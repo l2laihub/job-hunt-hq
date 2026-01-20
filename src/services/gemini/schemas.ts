@@ -157,6 +157,51 @@ const compensationFitSchema: Schema = {
   required: ['salaryInRange', 'assessment'],
 };
 
+// Categorized Skills schema for enhanced skills display
+const skillMatchItemSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    skill: { type: Type.STRING, description: 'The skill name' },
+    isMatched: { type: Type.BOOLEAN, description: 'Whether the candidate has this skill' },
+    importance: { type: Type.STRING, enum: ['critical', 'important', 'bonus'], description: 'How important this skill is for the role' },
+  },
+  required: ['skill', 'isMatched', 'importance'],
+};
+
+const categorizedSkillsSchema: Schema = {
+  type: Type.OBJECT,
+  description: 'Skills categorized by priority for clearer display',
+  properties: {
+    mustHave: {
+      type: Type.ARRAY,
+      items: skillMatchItemSchema,
+      description: 'Required/essential skills that are deal-breakers if missing. Order by importance.',
+    },
+    niceToHave: {
+      type: Type.ARRAY,
+      items: skillMatchItemSchema,
+      description: 'Preferred/bonus skills that are beneficial but not required. Order by importance.',
+    },
+  },
+  required: ['mustHave', 'niceToHave'],
+};
+
+// Quick Take schema for immediate decision helper
+const quickTakeSchema: Schema = {
+  type: Type.OBJECT,
+  description: 'A quick summary to help candidates make immediate decisions',
+  properties: {
+    verdict: { type: Type.STRING, enum: ['strong-apply', 'apply', 'consider', 'upskill-first', 'pass'] },
+    confidence: { type: Type.NUMBER, description: '0-100 confidence in this recommendation' },
+    headline: { type: Type.STRING, description: 'A single sentence (10-15 words) capturing the core verdict' },
+    whyApply: { type: Type.ARRAY, items: { type: Type.STRING }, description: '2-3 concise reasons TO apply' },
+    whyPass: { type: Type.ARRAY, items: { type: Type.STRING }, description: '2-3 concerns or reasons to hesitate' },
+    nextAction: { type: Type.STRING, description: 'ONE specific, actionable step the candidate should take' },
+    timeToDecide: { type: Type.STRING, description: 'Urgency indicator if applicable (e.g., "Apply within 2 days")' },
+  },
+  required: ['verdict', 'confidence', 'headline', 'whyApply', 'whyPass', 'nextAction'],
+};
+
 // FTE Analysis schema
 export const fteAnalysisSchema: Schema = {
   type: Type.OBJECT,
@@ -179,8 +224,11 @@ export const fteAnalysisSchema: Schema = {
     dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
     skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
     workStyleMatch: workStyleMatchSchema,
+    // Enhanced display fields
+    categorizedSkills: categorizedSkillsSchema,
+    quickTake: quickTakeSchema,
   },
-  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
+  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
 };
 
 // Freelance Analysis schema
@@ -215,8 +263,11 @@ export const freelanceAnalysisSchema: Schema = {
     dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
     skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
     workStyleMatch: workStyleMatchSchema,
+    // Enhanced display fields
+    categorizedSkills: categorizedSkillsSchema,
+    quickTake: quickTakeSchema,
   },
-  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
+  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
 };
 
 // Contract Analysis schema
@@ -245,8 +296,11 @@ export const contractAnalysisSchema: Schema = {
     dealBreakerMatches: { type: Type.ARRAY, items: dealBreakerMatchSchema },
     skillGapsDetailed: { type: Type.ARRAY, items: skillGapDetailSchema },
     workStyleMatch: workStyleMatchSchema,
+    // Enhanced display fields
+    categorizedSkills: categorizedSkillsSchema,
+    quickTake: quickTakeSchema,
   },
-  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch'],
+  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
 };
 
 // Experience/STAR schema

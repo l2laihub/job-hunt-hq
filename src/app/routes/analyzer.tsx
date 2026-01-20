@@ -23,7 +23,9 @@ import { TopicStudyCard } from '@/src/components/topic-study-card';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
 import { AnalysisResultView } from '@/components/AnalysisResultView';
+import { DuplicateWarningDialog } from '@/src/components/analyzer';
 import { cn, formatDate, parseMarkdown, coverLetterToHtml } from '@/src/lib/utils';
+import { hashJD } from '@/src/lib/jd-hash';
 import { JOB_TYPES, COVER_LETTER_STYLES } from '@/src/lib/constants';
 import type {
   JDAnalysis,
@@ -177,6 +179,10 @@ export const AnalyzerPage: React.FC = () => {
   const [isGeneratingAnswer, setIsGeneratingAnswer] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
 
+  // Duplicate detection state
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateJob, setDuplicateJob] = useState<AnalyzedJob | null>(null);
+
   // Application questions state
   const [questionInput, setQuestionInput] = useState('');
   const [characterLimit, setCharacterLimit] = useState<number>(500);
@@ -217,12 +223,8 @@ export const AnalyzerPage: React.FC = () => {
   }, [analyzedJobs, historySearch]);
 
   // Handle analyze - always get fresh results to ensure latest profile/prompt changes are used
-  const handleAnalyze = async () => {
-    if (!jdText.trim()) {
-      toast.error('Missing job description', 'Please paste a job description to analyze');
-      return;
-    }
-
+  // Perform the actual analysis (called directly or after duplicate warning)
+  const performAnalysis = async () => {
     setIsAnalyzing(true);
     try {
       // Run analysis and job info extraction in parallel for better performance
@@ -255,6 +257,50 @@ export const AnalyzerPage: React.FC = () => {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAnalyze = async () => {
+    if (!jdText.trim()) {
+      toast.error('Missing job description', 'Please paste a job description to analyze');
+      return;
+    }
+
+    // Check for duplicate analysis
+    const contentHash = hashJD(jdText);
+    const existingJob = analyzedJobs.find((job) => job.contentHash === contentHash);
+
+    if (existingJob) {
+      setDuplicateJob(existingJob);
+      setShowDuplicateWarning(true);
+      return;
+    }
+
+    // No duplicate found, proceed with analysis
+    await performAnalysis();
+  };
+
+  // Handle viewing existing analysis from duplicate warning
+  const handleViewExistingAnalysis = () => {
+    if (duplicateJob) {
+      setSelectedJobId(duplicateJob.id);
+      setView('detail');
+      setResultTab('overview');
+      setShowDuplicateWarning(false);
+      setDuplicateJob(null);
+    }
+  };
+
+  // Handle re-analyzing despite duplicate
+  const handleReanalyzeDuplicate = async () => {
+    setShowDuplicateWarning(false);
+    setDuplicateJob(null);
+    await performAnalysis();
+  };
+
+  // Cancel duplicate warning
+  const handleCancelDuplicate = () => {
+    setShowDuplicateWarning(false);
+    setDuplicateJob(null);
   };
 
   // Save analysis
@@ -1978,6 +2024,17 @@ export const AnalyzerPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Duplicate Warning Dialog */}
+      {duplicateJob && (
+        <DuplicateWarningDialog
+          isOpen={showDuplicateWarning}
+          existingJob={duplicateJob}
+          onViewExisting={handleViewExistingAnalysis}
+          onReanalyze={handleReanalyzeDuplicate}
+          onCancel={handleCancelDuplicate}
+        />
+      )}
     </div>
   );
 };

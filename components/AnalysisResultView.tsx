@@ -1,5 +1,6 @@
 import React from 'react';
 import { JDAnalysis, FTEAnalysis, FreelanceAnalysis, RecommendationVerdict, GapSeverity } from '../types';
+import { QuickTakeCard, SkillsComparisonCard } from '@/src/components/analyzer';
 import {
   Brain,
   CheckCircle,
@@ -339,8 +340,12 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
 
   const renderFreelanceResult = (data: FreelanceAnalysis) => (
     <div className="space-y-6">
-      {/* Recommendation Banner - Top Priority */}
-      {renderRecommendationBanner()}
+      {/* Quick Take - Immediate Decision Helper */}
+      <QuickTakeCard
+        quickTake={data.quickTake}
+        recommendation={data.recommendation}
+        fitScore={data.fitScore}
+      />
 
       {/* Deal Breakers Alert (if any) */}
       {renderDealBreakers()}
@@ -378,6 +383,13 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
 
       {/* Career Alignment */}
       {renderCareerAlignment()}
+
+      {/* Enhanced Skills Comparison */}
+      <SkillsComparisonCard
+        categorizedSkills={data.categorizedSkills}
+        matchedSkills={data.matchedSkills || []}
+        missingSkills={data.missingSkills || []}
+      />
 
       {/* Skill Gap Analysis */}
       {renderSkillGapsDetailed()}
@@ -462,8 +474,12 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
 
   const renderFTEResult = (data: FTEAnalysis) => (
     <div className="space-y-6">
-      {/* Recommendation Banner - Top Priority */}
-      {renderRecommendationBanner()}
+      {/* Quick Take - Immediate Decision Helper */}
+      <QuickTakeCard
+        quickTake={data.quickTake}
+        recommendation={data.recommendation}
+        fitScore={data.fitScore}
+      />
 
       {/* Deal Breakers Alert (if any) */}
       {renderDealBreakers()}
@@ -496,29 +512,12 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
       {/* Career Alignment */}
       {renderCareerAlignment()}
 
-      {/* Skills Match Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-gray-800/30 rounded-xl border border-gray-700/50">
-          <h3 className="text-sm font-semibold text-green-400 mb-3 flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" /> You Have
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {data.matchedSkills?.map((skill, index) => (
-              <span key={`matched-${index}-${skill}`} className="px-2 py-1 bg-green-900/30 text-green-300 rounded text-xs border border-green-800">{skill}</span>
-            ))}
-          </div>
-        </div>
-        <div className="p-4 bg-gray-800/30 rounded-xl border border-gray-700/50">
-          <h3 className="text-sm font-semibold text-red-400 mb-3 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Missing / Gaps
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {data.missingSkills?.map((skill, index) => (
-              <span key={`missing-${index}-${skill}`} className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs border border-red-800">{skill}</span>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Enhanced Skills Comparison */}
+      <SkillsComparisonCard
+        categorizedSkills={data.categorizedSkills}
+        matchedSkills={data.matchedSkills || []}
+        missingSkills={data.missingSkills || []}
+      />
 
       {/* Detailed Skill Gap Analysis */}
       {renderSkillGapsDetailed()}

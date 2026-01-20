@@ -1,5 +1,5 @@
 // Application Status
-export type ApplicationStatus = 'wishlist' | 'applied' | 'interviewing' | 'offer' | 'rejected';
+export type ApplicationStatus = 'wishlist' | 'applied' | 'interviewing' | 'offer' | 'passed' | 'rejected';
 
 // Achievement type for profile
 export interface Achievement {

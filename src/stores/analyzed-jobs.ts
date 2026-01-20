@@ -14,6 +14,7 @@ import type {
 import { STORAGE_KEYS } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
 import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
+import { hashJD } from '@/src/lib/jd-hash';
 
 interface AnalyzedJobsState {
   jobs: AnalyzedJob[];
@@ -64,6 +65,7 @@ interface AnalyzedJobsState {
   getFavorites: () => AnalyzedJob[];
   searchJobs: (query: string) => AnalyzedJob[];
   getRecentJobs: (limit?: number) => AnalyzedJob[];
+  findByContentHash: (hash: string) => AnalyzedJob | undefined;
 
   // Profile-filtered queries
   getJobsByProfile: (profileId: string) => AnalyzedJob[];
@@ -86,10 +88,12 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
 
       addJob: (partial, profileId) => {
         const now = new Date().toISOString();
+        const jobDescription = partial.jobDescription || '';
         const newJob: AnalyzedJob = {
           id: generateId(),
-          jobDescription: partial.jobDescription || '',
+          jobDescription,
           type: partial.type || 'fulltime',
+          contentHash: hashJD(jobDescription),
           company: partial.company,
           role: partial.role,
           location: partial.location,
@@ -418,6 +422,10 @@ export const useAnalyzedJobsStore = create<AnalyzedJobsState>()(
           .jobs.slice()
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, limit);
+      },
+
+      findByContentHash: (hash) => {
+        return get().jobs.find((job) => job.contentHash === hash);
       },
 
       getJobsByProfile: (profileId) => {
