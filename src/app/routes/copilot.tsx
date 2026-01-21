@@ -1,9 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  useInterviewPrepStore,
-  useTechnicalAnswersStore,
-} from '@/src/stores';
-import { useProfile, useApplications, useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
+import { useProfile, useApplications, useStories, useUnifiedActiveProfileId, useInterviewPrep, useTechnicalAnswers } from '@/src/hooks/useAppData';
 import { InterviewCopilot } from '@/components/InterviewCopilot';
 
 export const CopilotPage: React.FC = () => {
@@ -11,8 +7,8 @@ export const CopilotPage: React.FC = () => {
   const { profile } = useProfile();
   const { applications: allApplications } = useApplications();
   const { stories: allStories } = useStories();
-  const allInterviewPrepSessions = useInterviewPrepStore((s) => s.sessions);
-  const allTechnicalAnswers = useTechnicalAnswersStore((s) => s.answers);
+  const { sessions: allInterviewPrepSessions } = useInterviewPrep();
+  const { answers: allTechnicalAnswers } = useTechnicalAnswers();
 
   // Filter applications by active profile
   const applications = useMemo(() => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInterviewPrepStore, toast } from '@/src/stores';
+import { toast } from '@/src/stores';
+import { useInterviewPrep } from '@/src/hooks/useAppData';
 import { Button, Card, Badge } from '@/src/components/ui';
 import { cn, formatTime } from '@/src/lib/utils';
 import type { InterviewPrepSession, PredictedQuestion, PracticeMode, PrepPracticeSession } from '@/src/types';
@@ -384,7 +385,7 @@ const PastSessions: React.FC<{ sessions: PrepPracticeSession[] }> = ({ sessions 
 // Main practice panel
 export const PracticePanel: React.FC<PracticePanelProps> = ({ session }) => {
   const navigate = useNavigate();
-  const { addPracticeSession, getPracticeSessions, recordQuestionPractice } = useInterviewPrepStore();
+  const { addPracticeSession, getPracticeSessions, recordQuestionPractice } = useInterviewPrep();
 
   const [mode, setMode] = useState<PracticeMode>('quick');
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());

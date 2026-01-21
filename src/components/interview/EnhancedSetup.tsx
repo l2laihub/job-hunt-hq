@@ -1,6 +1,5 @@
 import React, { useMemo, useCallback, useState } from 'react';
-import { useInterviewPrepStore } from '@/src/stores';
-import { useUnifiedActiveProfileId, useApplications } from '@/src/hooks/useAppData';
+import { useUnifiedActiveProfileId, useApplications, useInterviewPrep } from '@/src/hooks/useAppData';
 import { Button, Card, CardHeader, CardContent, Select, Badge } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import type {
@@ -213,7 +212,7 @@ const CategoryFilter: React.FC<{
 
 export const EnhancedSetup: React.FC<EnhancedSetupProps> = ({ onStartInterview }) => {
   const activeProfileId = useUnifiedActiveProfileId();
-  const allSessions = useInterviewPrepStore((s) => s.sessions);
+  const { sessions: allSessions } = useInterviewPrep();
   const { applications: allApplications } = useApplications();
 
   // Filter by active profile - be lenient with profile matching

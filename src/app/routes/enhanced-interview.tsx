@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  useApplicationStore,
-  useCurrentProfile,
-  useInterviewPrepStore,
-  toast,
-} from '@/src/stores';
-import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
+import { useCurrentProfile, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId, useApplications, useInterviewPrep } from '@/src/hooks/useAppData';
 import { Button, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
 import { EnhancedSetup, QuestionFeedback, InterviewSummary } from '@/src/components/interview';
 import { cn, formatTime } from '@/src/lib/utils';
@@ -45,8 +40,8 @@ export const EnhancedInterviewPage: React.FC = () => {
   const navigate = useNavigate();
   const activeProfileId = useUnifiedActiveProfileId();
   const profile = useCurrentProfile();
-  const allApplications = useApplicationStore((s) => s.applications);
-  const { getSessionById, addPracticeSession, recordQuestionPractice } = useInterviewPrepStore();
+  const { applications: allApplications } = useApplications();
+  const { getSessionById, addPracticeSession, recordQuestionPractice } = useInterviewPrep();
 
   // Filter by profile
   const applications = useMemo(() => {

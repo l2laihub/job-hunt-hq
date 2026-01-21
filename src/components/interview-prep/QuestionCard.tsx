@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useInterviewPrepStore, toast } from '@/src/stores';
+import { toast } from '@/src/stores';
+import { useInterviewPrep } from '@/src/hooks/useAppData';
 import { Button, Card, Badge, Select } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import type { PredictedQuestion, Experience, QuestionCategory, LikelihoodLevel, UserProfile, JDAnalysis, CompanyResearch } from '@/src/types';
@@ -1264,7 +1265,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   company,
   role,
 }) => {
-  const { markQuestionPrepared, recordQuestionPractice } = useInterviewPrepStore();
+  const { markQuestionPrepared, recordQuestionPractice } = useInterviewPrep();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showStorySelect, setShowStorySelect] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);

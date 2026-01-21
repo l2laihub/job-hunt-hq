@@ -11,6 +11,7 @@ import {
   useSupabaseAnalyzedJobsStore,
   useSupabaseEnhancementsStore,
   useSupabaseTechnicalAnswersStore,
+  useSupabaseInterviewPrepStore,
   useSupabaseActiveProfile,
   useSupabaseCurrentProfile,
   useSupabaseActiveProfileId,
@@ -25,6 +26,7 @@ import { useCompanyResearchStore } from '@/src/stores/company-research';
 import { useAnalyzedJobsStore } from '@/src/stores/analyzed-jobs';
 import { useEnhancementsStore } from '@/src/stores/enhancements';
 import { useTechnicalAnswersStore } from '@/src/stores/technical-answers';
+import { useInterviewPrepStore } from '@/src/stores/interview-prep';
 
 /**
  * Hook to get the appropriate data based on Supabase configuration
@@ -330,6 +332,61 @@ export function useTechnicalAnswers() {
     supabasePracticeSessions,
     supabaseStore,
     legacyAnswers,
+    legacyPracticeSessions,
+    legacyStore,
+  ]);
+}
+
+/**
+ * Hook for interview prep data and actions
+ * Automatically switches between Supabase and localStorage based on auth state
+ */
+export function useInterviewPrep() {
+  const { user } = useAuth();
+  const configured = isSupabaseConfigured();
+  const useSupabase = configured && !!user;
+
+  // Supabase store
+  const supabaseSessions = useSupabaseInterviewPrepStore((s) => s.sessions);
+  const supabasePracticeSessions = useSupabaseInterviewPrepStore((s) => s.practiceSessions);
+  const supabaseStore = useSupabaseInterviewPrepStore();
+
+  // Legacy localStorage store
+  const legacySessions = useInterviewPrepStore((s) => s.sessions);
+  const legacyPracticeSessions = useInterviewPrepStore((s) => s.practiceSessions);
+  const legacyStore = useInterviewPrepStore();
+
+  return useMemo(() => ({
+    sessions: useSupabase ? supabaseSessions : legacySessions,
+    practiceSessions: useSupabase ? supabasePracticeSessions : legacyPracticeSessions,
+    isLoading: useSupabase ? supabaseStore.isLoading : legacyStore.isLoading,
+    createSession: useSupabase ? supabaseStore.createSession : legacyStore.createSession,
+    getSession: useSupabase ? supabaseStore.getSession : legacyStore.getSession,
+    getSessionById: useSupabase ? supabaseStore.getSessionById : legacyStore.getSessionById,
+    updateSession: useSupabase ? supabaseStore.updateSession : legacyStore.updateSession,
+    deleteSession: useSupabase ? supabaseStore.deleteSession : legacyStore.deleteSession,
+    updateChecklistItem: useSupabase ? supabaseStore.updateChecklistItem : legacyStore.updateChecklistItem,
+    addChecklistItem: useSupabase ? supabaseStore.addChecklistItem : legacyStore.addChecklistItem,
+    removeChecklistItem: useSupabase ? supabaseStore.removeChecklistItem : legacyStore.removeChecklistItem,
+    setPredictedQuestions: useSupabase ? supabaseStore.setPredictedQuestions : legacyStore.setPredictedQuestions,
+    markQuestionPrepared: useSupabase ? supabaseStore.markQuestionPrepared : legacyStore.markQuestionPrepared,
+    recordQuestionPractice: useSupabase ? supabaseStore.recordQuestionPractice : legacyStore.recordQuestionPractice,
+    setQuickReference: useSupabase ? supabaseStore.setQuickReference : legacyStore.setQuickReference,
+    addPracticeSession: useSupabase ? supabaseStore.addPracticeSession : legacyStore.addPracticeSession,
+    getPracticeSessions: useSupabase ? supabaseStore.getPracticeSessions : legacyStore.getPracticeSessions,
+    calculateReadiness: useSupabase ? supabaseStore.calculateReadiness : legacyStore.calculateReadiness,
+    getSessionsByProfile: useSupabase ? supabaseStore.getSessionsByProfile : legacyStore.getSessionsByProfile,
+    getUpcomingSessions: useSupabase ? supabaseStore.getUpcomingSessions : legacyStore.getUpcomingSessions,
+    getSessionsForApplication: useSupabase ? supabaseStore.getSessionsForApplication : legacyStore.getSessionsForApplication,
+    importSessions: useSupabase ? supabaseStore.importSessions : legacyStore.importSessions,
+    exportSessions: useSupabase ? supabaseStore.exportSessions : legacyStore.exportSessions,
+    isUsingSupabase: useSupabase,
+  }), [
+    useSupabase,
+    supabaseSessions,
+    supabasePracticeSessions,
+    supabaseStore,
+    legacySessions,
     legacyPracticeSessions,
     legacyStore,
   ]);

@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  useInterviewPrepStore,
-  toast,
-} from '@/src/stores';
-import { useApplications, useStories, useUnifiedActiveProfileId, useProfile } from '@/src/hooks/useAppData';
+import { toast } from '@/src/stores';
+import { useApplications, useStories, useUnifiedActiveProfileId, useProfile, useInterviewPrep } from '@/src/hooks/useAppData';
 import {
   predictInterviewQuestions,
   generateQuickRefFromSession,
@@ -416,14 +413,17 @@ export const InterviewPrepPage: React.FC = () => {
   const { applications: allApplications } = useApplications();
   const { stories: allStories } = useStories();
 
-  // Use separate selectors to ensure proper subscription to state changes
-  const sessions = useInterviewPrepStore((state) => state.sessions);
-  const createSession = useInterviewPrepStore((state) => state.createSession);
-  const getSession = useInterviewPrepStore((state) => state.getSession);
-  const updateSession = useInterviewPrepStore((state) => state.updateSession);
-  const deleteSession = useInterviewPrepStore((state) => state.deleteSession);
-  const setPredictedQuestions = useInterviewPrepStore((state) => state.setPredictedQuestions);
-  const setQuickReference = useInterviewPrepStore((state) => state.setQuickReference);
+  // Use the unified interview prep hook for Supabase/localStorage switching
+  const interviewPrepStore = useInterviewPrep();
+  const {
+    sessions,
+    createSession,
+    getSession,
+    updateSession,
+    deleteSession,
+    setPredictedQuestions,
+    setQuickReference,
+  } = interviewPrepStore;
 
   // Filter by active profile
   const applications = useMemo(() => {
@@ -472,7 +472,7 @@ export const InterviewPrepPage: React.FC = () => {
       // Get the current session from the store to ensure we have the latest data
       // Don't rely on closure's session which may be stale
       const currentStoreSession = selectedAppId
-        ? useInterviewPrepStore.getState().sessions.find(s => s.applicationId === selectedAppId)
+        ? sessions.find(s => s.applicationId === selectedAppId)
         : undefined;
 
       // Use targetSession (passed directly), or current store session, or closure session as fallback
@@ -512,7 +512,7 @@ export const InterviewPrepPage: React.FC = () => {
         setIsGenerating(false);
       }
     },
-    [session, profile, applications, stories, setPredictedQuestions, selectedAppId]
+    [session, profile, applications, stories, setPredictedQuestions, selectedAppId, sessions]
   );
 
   // Create new session

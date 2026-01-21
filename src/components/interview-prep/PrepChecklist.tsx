@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { useInterviewPrepStore, toast } from '@/src/stores';
+import { toast } from '@/src/stores';
+import { useInterviewPrep } from '@/src/hooks/useAppData';
 import { Button, Card, Badge, Input } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
 import type { InterviewPrepSession, PrepChecklistItem, PrepItemStatus, JobApplication, PrepCategory, PrepPriority } from '@/src/types';
@@ -189,7 +190,7 @@ const AddItemForm: React.FC<{
 
 // Main checklist component
 export const PrepChecklist: React.FC<PrepChecklistProps> = ({ session, application }) => {
-  const { updateChecklistItem, addChecklistItem, removeChecklistItem } = useInterviewPrepStore();
+  const { updateChecklistItem, addChecklistItem, removeChecklistItem } = useInterviewPrep();
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<PrepCategory>>(
     new Set(['research', 'stories', 'technical', 'questions', 'logistics'])
