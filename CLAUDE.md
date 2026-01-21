@@ -35,7 +35,7 @@ The app uses a dual-path state management pattern:
 Both paths use the same TypeScript types from `src/types/index.ts`. The app auto-migrates localStorage data to Supabase when a user signs in for the first time.
 
 **Key stores:**
-- `useApplicationsStore` - Job applications with Kanban board statuses
+- `useApplicationStore` - Job applications with Kanban board statuses
 - `useProfileStore` - User profile with multi-profile support
 - `useStoriesStore` - STAR-formatted interview stories
 - `useAnalyzedJobsStore` - Analyzed job descriptions with generated content
@@ -60,16 +60,21 @@ Type-safe wrappers around Supabase queries with CRUD operations and real-time su
 
 ### AI Services (`src/services/gemini/`)
 
-All AI features use Google's Gemini API via `@google/genai`. Key services:
+All AI features use Google's Gemini API via `@google/genai`. The client is configured in `src/services/gemini/client.ts`:
+- Default model: `gemini-2.5-flash`
+- Live model (for real-time features): `gemini-2.5-flash-native-audio-preview-09-2025`
+
+Key services:
 - `analyze-jd.ts` - Job description analysis with fit scoring
 - `research-company.ts` - Company intelligence with grounded search
 - `generate-interview-answer.ts` - STAR/technical answer generation
 - `predict-questions.ts` - Interview question prediction
 - `resume-enhance.ts` - Resume optimization suggestions
+- `ai-assistant.ts` - Context-aware AI chat assistant
 
 The Gemini API key is exposed via Vite's `define`:
 ```ts
-process.env.GEMINI_API_KEY  // or process.env.API_KEY
+process.env.GEMINI_API_KEY  // or import.meta.env.VITE_GEMINI_API_KEY
 ```
 
 ### Routing
@@ -119,7 +124,22 @@ Three job types with different analysis schemas:
 - `freelance` - FreelanceAnalysis with bid suggestions, proposal angles
 - `contract` - ContractAnalysis with contract type, conversion potential
 
-### Environment Variables
+### Store Initialization
+
+Stores are initialized in `src/stores/index.ts` via `initializeStores()` which:
+1. Sets up cross-tab sync
+2. Runs legacy data migrations
+3. Initializes real-time subscriptions for each store
+
+### Authentication
+
+Auth is provided via `AuthProvider` in `src/lib/supabase/auth-context.tsx`:
+```tsx
+const { user, session, signIn, signUp, signOut } = useAuth();
+const { user, loading } = useRequireAuth(); // Protected routes
+```
+
+## Environment Variables
 
 Required in `.env.local`:
 ```env
@@ -132,8 +152,119 @@ GEMINI_API_KEY=your-gemini-api-key
 
 Schema migrations are in `supabase/migrations/`. All tables have RLS enabled with policies restricting access to `auth.uid() = user_id`.
 
-Key tables: `profiles`, `applications`, `stories`, `analyzed_jobs`, `technical_answers`, `company_research`
+Key tables: `profiles`, `applications`, `stories`, `analyzed_jobs`, `technical_answers`, `company_research`, `interview_prep_sessions`, `copilot_sessions`
 
 ## Legacy Code
 
-Root-level `components/`, `services/`, and `utils/` directories contain legacy code being migrated to `src/`. The legacy `App.tsx` at root is being phased out in favor of `src/main.tsx`.
+Root-level `components/`, `services/`, and `utils/` directories contain legacy code being migrated to `src/`. The legacy `App.tsx` at root is being phased out in favor of `src/main.tsx`. The root `types.ts` re-exports from `src/types/index.ts` for backwards compatibility.
+
+---
+
+## Agent Orchestration
+
+### Quick Reference
+
+| Command | Use For |
+|---------|---------|
+| `/feature [description]` | New features (full workflow) |
+| `/bugfix [description]` | Bug investigation and fix |
+| `/review-security` | Security & performance audit |
+| `/quickfix [description]` | Simple tasks (<15 min) |
+
+### Agent Delegation Rules
+
+When working on this project, automatically delegate to specialized agents:
+
+#### By File Type/Location
+[CUSTOMIZE: Update patterns to match your project structure]
+
+| Path Pattern | Agent |
+|--------------|-------|
+| `src/components/**/*.tsx` | `@frontend` |
+| `src/app/**/*.tsx` | `@frontend` or `@mobile-dev` |
+| `src/api/**`, `src/server/**` | `@backend` |
+| `**/migrations/**/*.sql` | `@database` |
+| `**/*.test.ts`, `**/*.spec.ts` | `@tester` |
+| `.github/workflows/**`, `**/Dockerfile` | `@devops` |
+
+#### By Task Type
+| Task | Agent Flow |
+|------|------------|
+| New feature | `@planner` → implementation agent → `@tester` → `@reviewer` |
+| Bug fix | `@debugger` → implementation agent → `@tester` → `@reviewer` |
+| API changes | `@api-designer` → `@backend` → `@tester` |
+| UI design | `@mobile-ui` → `@frontend` or `@mobile-dev` |
+| Performance issue | `@performance` → implementation agent |
+| Schema changes | `@database` → update types → test |
+| Deployment | `@deploy` (with `@security` review if needed) |
+| CI/CD changes | `@devops` |
+
+#### Security-Required Reviews
+
+Always run `@security` review when touching:
+- [ ] Authentication / authorization code
+- [ ] Password / token handling
+- [ ] Payment / billing code
+- [ ] User input handlers
+- [ ] Database queries with user-provided data
+- [ ] File uploads
+- [ ] API endpoints accepting external data
+- [ ] Third-party integrations
+
+#### Database Changes
+
+Always use `@database` agent when:
+- [ ] Creating/modifying tables
+- [ ] Adding/changing access policies
+- [ ] Writing migrations
+- [ ] Backfilling data
+- [ ] Adding indexes
+
+### Quality Gates
+
+Before merging ANY code:
+- [ ] `@reviewer` has approved
+- [ ] `@security` has reviewed (if applicable)
+- [ ] `@database` has reviewed migrations (if schema changed)
+- [ ] All tests pass
+- [ ] No TypeScript/lint errors
+- [ ] Types regenerated if schema changed
+- [ ] Documentation updated (if user-facing)
+
+### Project-Specific Notes
+
+[CUSTOMIZE: Add notes specific to your project]
+
+#### Critical Paths (Extra Care Required)
+- **[Path 1]**: [Why it needs extra care]
+- **[Path 2]**: [Why it needs extra care]
+
+#### Tech Stack Quick Reference
+[CUSTOMIZE: Fill in your actual tech stack]
+
+- **Frontend**: [e.g., React, Vue, Next.js]
+- **State**: [e.g., Redux, Zustand, React Query]
+- **Backend**: [e.g., Node.js, .NET, Supabase, Django]
+- **Database**: [e.g., PostgreSQL, MongoDB, Supabase]
+- **Payments**: [e.g., Stripe, PayPal] (if applicable)
+- **Hosting**: [e.g., Vercel, Netlify, AWS, Azure]
+
+#### Common Commands
+[CUSTOMIZE: Add your project's common commands]
+
+```bash
+# Development
+npm run dev           # Start dev server
+npm test              # Run tests
+npm run build         # Production build
+npm run lint          # Lint code
+npm run typecheck     # Type checking
+
+# Database (if applicable)
+# [Add your migration/seed commands]
+
+# Deployment (if applicable)
+# [Add your deploy commands]
+```
+
+---
