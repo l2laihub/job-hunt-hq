@@ -503,7 +503,7 @@ export const InterviewPrepPage: React.FC = () => {
           role: app.role,
         });
 
-        setPredictedQuestions(sess.id, questions);
+        await setPredictedQuestions(sess.id, questions);
         toast.success('Questions generated', `${questions.length} questions predicted`);
       } catch (error) {
         console.error('Failed to generate questions:', error);
@@ -517,13 +517,15 @@ export const InterviewPrepPage: React.FC = () => {
 
   // Create new session
   const handleCreateSession = useCallback(
-    (appId: string, type: InterviewStage) => {
-      const newSession = createSession(appId, type, activeProfileId ?? undefined);
+    async (appId: string, type: InterviewStage) => {
+      const newSession = await createSession(appId, type, activeProfileId ?? undefined);
       setSelectedAppId(appId);
       toast.success('Prep session created', 'Start by completing your checklist');
 
       // Auto-generate questions
-      handleGenerateQuestions(newSession);
+      if (newSession) {
+        handleGenerateQuestions(newSession);
+      }
     },
     [createSession, activeProfileId, handleGenerateQuestions]
   );
