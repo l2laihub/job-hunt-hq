@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useApplicationStore, useUIStore, toast } from '@/src/stores';
+import { useUIStore, toast } from '@/src/stores';
 import { useAuth } from '@/src/lib/supabase';
 import { useSupabaseActiveProfile, useSupabaseStoriesStore } from '@/src/stores/supabase';
+import { useApplications } from '@/src/hooks/useAppData';
 import type { JobApplication, ApplicationStatus, JDAnalysis } from '@/src/types';
 import { Dialog, Button, Input, Textarea, Select, Badge } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
@@ -59,8 +60,7 @@ export const ApplicationModal: React.FC = () => {
   const modalData = useUIStore((s) => s.modalData) as JobApplication | undefined;
   const closeModal = useUIStore((s) => s.closeModal);
 
-  const addApplication = useApplicationStore((s) => s.addApplication);
-  const updateApplication = useApplicationStore((s) => s.updateApplication);
+  const { addApplication, updateApplication } = useApplications();
 
   // Get auth and profile data for Interview Notes
   const { user } = useAuth();

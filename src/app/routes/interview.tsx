@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useApplicationStore, useStoriesStore, useCurrentProfile, toast } from '@/src/stores';
-import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
+import { useCurrentProfile, toast } from '@/src/stores';
+import { useUnifiedActiveProfileId, useApplications, useStories } from '@/src/hooks/useAppData';
 import { Button, Card, CardHeader, CardContent, Select, Badge, Abbr } from '@/src/components/ui';
 import { InterviewEmptyState } from '@/src/components/shared';
 import { cn } from '@/src/lib/utils';
@@ -44,13 +44,13 @@ const durations = [
 
 export const InterviewPage: React.FC = () => {
   const activeProfileId = useUnifiedActiveProfileId();
-  const allApplications = useApplicationStore((s) => s.applications);
+  const { applications: allApplications } = useApplications();
   // Filter applications by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
     return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
-  const allStories = useStoriesStore((s) => s.stories);
+  const { stories: allStories } = useStories();
   // Filter stories by active profile
   const stories = useMemo(() => {
     if (!activeProfileId) return allStories;

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useApplicationStore, toast } from '@/src/stores';
-import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
-import { useCompanyResearch } from '@/src/hooks/useAppData';
+import { toast } from '@/src/stores';
+import { useUnifiedActiveProfileId, useApplications, useCompanyResearch } from '@/src/hooks/useAppData';
 import { researchCompany } from '@/src/services/gemini';
 import { Button, Input, Card, CardHeader, CardContent, Badge } from '@/src/components/ui';
 import { ResearchEmptyState } from '@/src/components/shared';
@@ -31,13 +30,12 @@ import {
 export const ResearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const activeProfileId = useUnifiedActiveProfileId();
-  const allApplications = useApplicationStore((s) => s.applications);
+  const { applications: allApplications, setResearch: setAppResearch } = useApplications();
   // Filter applications by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
     return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
-  const setAppResearch = useApplicationStore((s) => s.setResearch);
 
   // Company research - unified hook (Supabase or localStorage)
   const {
