@@ -113,6 +113,26 @@ function sortRolesByDate<T extends { duration: string }>(roles: T[]): T[] {
 }
 
 /**
+ * Convert UserProfile to EnhancedProfile format for PDF generation
+ * Used when downloading resume without running enhancement
+ */
+function profileToEnhancedProfile(profile: UserProfile): EnhancedProfile {
+  return {
+    headline: profile.headline || profile.name || 'Professional',
+    // Use generatedSummary for resume, NOT currentSituation (which is for AI personalization)
+    summary: profile.generatedSummary || undefined,
+    technicalSkills: profile.technicalSkills || [],
+    softSkills: profile.softSkills || [],
+    recentRoles: (profile.recentRoles || []).map((role, i) => ({
+      ...role,
+      originalIndex: i,
+      enhancedHighlights: role.highlights || [],
+    })),
+    keyAchievements: profile.keyAchievements || [],
+  };
+}
+
+/**
  * Normalize skills by splitting grouped skills into individual items
  * Handles patterns like "Category: skill1, skill2" or "skill1, skill2, skill3"
  */
@@ -1151,7 +1171,7 @@ export const EnhancePage: React.FC = () => {
 
   // Use unified hooks that switch between Supabase and localStorage
   const { jobs: allAnalyzedJobs } = useAnalyzedJobs();
-  const { enhancements, addEnhancement, deleteEnhancement } = useEnhancements();
+  const { enhancements, addEnhancement, updateEnhancement, deleteEnhancement } = useEnhancements();
 
   // Filter analyzed jobs by active profile
   const analyzedJobs = useMemo(() => {
@@ -1283,17 +1303,28 @@ export const EnhancePage: React.FC = () => {
         role: selectedJob?.role,
       });
 
+      // Set enhancement state with result data immediately
       setEnhancement(result);
 
-      // Save to history
-      addEnhancement({
-        mode,
-        analysis: result.analysis,
-        suggestions: result.suggestions,
-        enhancedProfile: result.enhancedProfile,
-        jobId: selectedJob?.id,
-        jobTitle: selectedJob?.role,
-        companyName: selectedJob?.company,
+      // Save to history asynchronously and capture the id for later updates
+      // Use Promise.resolve to handle both sync (localStorage) and async (Supabase) stores
+      Promise.resolve(
+        addEnhancement({
+          mode,
+          analysis: result.analysis,
+          suggestions: result.suggestions,
+          enhancedProfile: result.enhancedProfile,
+          jobId: selectedJob?.id,
+          jobTitle: selectedJob?.role,
+          companyName: selectedJob?.company,
+        })
+      ).then((saved) => {
+        // Track the history id for later updates (e.g., when applying to profile)
+        if (saved?.id) {
+          setSelectedHistoryId(saved.id);
+        }
+      }).catch((err) => {
+        console.error('Failed to save enhancement to history:', err);
       });
 
       // If user chose to import and enhance, apply to profile after enhancement
@@ -1448,33 +1479,65 @@ export const EnhancePage: React.FC = () => {
   const handleApplyToProfile = () => {
     if (!enhancement) return;
 
-    updateProfile({ headline: enhancement.enhancedProfile.headline });
+    // Build a single update object with all changes to avoid race conditions
+    const profileUpdates: Partial<UserProfile> = {
+      headline: enhancement.enhancedProfile.headline,
+    };
+
+    // Save generated summary to profile
+    if (enhancement.enhancedProfile.summary) {
+      profileUpdates.generatedSummary = enhancement.enhancedProfile.summary;
+    }
 
     if (enhancement.enhancedProfile.technicalSkills.length > 0) {
       // Normalize skills to ensure they are individual items, not grouped
-      const normalizedTechnicalSkills = normalizeSkills(enhancement.enhancedProfile.technicalSkills);
-      updateProfile({ technicalSkills: normalizedTechnicalSkills });
+      profileUpdates.technicalSkills = normalizeSkills(enhancement.enhancedProfile.technicalSkills);
     }
+
     if (enhancement.enhancedProfile.softSkills.length > 0) {
-      const normalizedSoftSkills = normalizeSkills(enhancement.enhancedProfile.softSkills);
-      updateProfile({ softSkills: normalizedSoftSkills });
+      profileUpdates.softSkills = normalizeSkills(enhancement.enhancedProfile.softSkills);
     }
 
     if (enhancement.enhancedProfile.recentRoles.length > 0) {
-      const updatedRoles = enhancement.enhancedProfile.recentRoles.map((er) => ({
+      // Sort roles by date (most recent first) to match display order
+      const sortedRoles = sortRolesByDate(enhancement.enhancedProfile.recentRoles);
+      profileUpdates.recentRoles = sortedRoles.map((er) => ({
         company: er.company,
         title: er.title,
         duration: er.duration,
         highlights: er.enhancedHighlights,
       }));
-      updateProfile({ recentRoles: updatedRoles });
+    }
+
+    // Optionally include skill groups if user checked the option
+    if (saveSkillGroupsToProfile && jobSkillGroups.length > 0) {
+      profileUpdates.skillGroups = jobSkillGroups;
+    }
+
+    // Single atomic update - no race condition, preserves all other profile fields
+    updateProfile(profileUpdates);
+
+    // Save the applied state to enhancement history
+    const historyId = enhancement.id || selectedHistoryId;
+    if (historyId) {
+      const appliedIds = enhancement.suggestions
+        ?.filter((s) => s.applied)
+        .map((s) => s.id) || [];
+
+      updateEnhancement(historyId, {
+        appliedSuggestionIds: appliedIds,
+        enhancedProfile: enhancement.enhancedProfile,
+        suggestions: enhancement.suggestions,
+      });
     }
 
     toast.success('Profile updated', 'Enhanced content applied to your profile');
   };
 
   const handleDownload = (format: DownloadFormat) => {
-    if (!enhancement) return;
+    // Use enhanced profile if available, otherwise convert current profile
+    const enhancedData = enhancement?.enhancedProfile || profileToEnhancedProfile(profile);
+    const analysisData = enhancement?.analysis || null;
 
     const jobInfo = selectedJob
       ? { company: selectedJob.company, role: selectedJob.role }
@@ -1482,23 +1545,28 @@ export const EnhancePage: React.FC = () => {
 
     if (format === 'pdf') {
       downloadResumePDF({
-        enhanced: enhancement.enhancedProfile,
+        enhanced: enhancedData,
         profile,
-        analysis: enhancement.analysis,
+        analysis: analysisData || undefined,
         jobInfo,
         template: pdfTemplate,
-        includeScores: includeScoresInPDF,
+        includeScores: includeScoresInPDF && !!analysisData,
         jobSkillGroups: jobSkillGroups.length > 0 ? jobSkillGroups : undefined,
       });
       setShowDownloadMenu(false);
-      toast.success('PDF Generated', 'In print dialog, uncheck "Headers and footers" for clean output');
+      toast.success(
+        'PDF Generated',
+        enhancement
+          ? 'Using enhanced profile data'
+          : 'Using current profile data'
+      );
       return;
     }
 
     const content = generateResumeContent(
-      enhancement.enhancedProfile,
+      enhancedData,
       profile,
-      enhancement.analysis,
+      analysisData,
       format,
       jobInfo
     );
@@ -1536,16 +1604,18 @@ export const EnhancePage: React.FC = () => {
   };
 
   const handlePreviewPDF = () => {
-    if (!enhancement) return;
+    // Use enhanced profile if available, otherwise convert current profile
+    const enhancedData = enhancement?.enhancedProfile || profileToEnhancedProfile(profile);
+    const analysisData = enhancement?.analysis || null;
 
     const jobInfo = selectedJob
       ? { company: selectedJob.company, role: selectedJob.role }
       : undefined;
 
     previewResumeHTML({
-      enhanced: enhancement.enhancedProfile,
+      enhanced: enhancedData,
       profile,
-      analysis: enhancement.analysis,
+      analysis: analysisData || undefined,
       jobInfo,
       template: pdfTemplate,
       includeScores: includeScoresInPDF,
@@ -1553,15 +1623,15 @@ export const EnhancePage: React.FC = () => {
     });
   };
 
-  const appliedCount = enhancement?.suggestions.filter((s) => s.applied).length || 0;
-  const totalSuggestions = enhancement?.suggestions.length || 0;
+  const appliedCount = enhancement?.suggestions?.filter((s) => s.applied).length || 0;
+  const totalSuggestions = enhancement?.suggestions?.length || 0;
 
   const highImpactSuggestions =
-    enhancement?.suggestions.filter((s) => s.impact === 'high' && !s.applied) || [];
+    enhancement?.suggestions?.filter((s) => s.impact === 'high' && !s.applied) || [];
   const mediumImpactSuggestions =
-    enhancement?.suggestions.filter((s) => s.impact === 'medium' && !s.applied) || [];
+    enhancement?.suggestions?.filter((s) => s.impact === 'medium' && !s.applied) || [];
   const lowImpactSuggestions =
-    enhancement?.suggestions.filter((s) => s.impact === 'low' && !s.applied) || [];
+    enhancement?.suggestions?.filter((s) => s.impact === 'low' && !s.applied) || [];
 
   return (
     <div className="h-full overflow-y-auto">
@@ -1597,29 +1667,34 @@ export const EnhancePage: React.FC = () => {
               )}
             </Button>
 
-            {/* Download Button */}
-            {enhancement && (
-              <div className="relative">
-                <Button
-                  onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                  className="bg-blue-600 hover:bg-blue-500"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                  <ChevronDown className="w-4 h-4 ml-2" />
-                </Button>
+            {/* Download Button - Always visible */}
+            <div className="relative">
+              <Button
+                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                className="bg-blue-600 hover:bg-blue-500"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Resume
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
 
-                {showDownloadMenu && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setShowDownloadMenu(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                      <div className="p-3 border-b border-gray-700">
-                        <p className="text-sm font-medium text-gray-200">Download Resume</p>
-                        <p className="text-xs text-gray-500">Choose format and options</p>
-                      </div>
+              {showDownloadMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowDownloadMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="p-3 border-b border-gray-700">
+                      <p className="text-sm font-medium text-gray-200">Download Resume</p>
+                      <p className="text-xs text-gray-500">
+                        {enhancement ? (
+                          <span className="text-green-400">Using enhanced profile data</span>
+                        ) : (
+                          'Using current profile data'
+                        )}
+                      </p>
+                    </div>
 
                       {/* PDF Options */}
                       <div className="p-3 border-b border-gray-700 space-y-3">
@@ -1723,7 +1798,6 @@ export const EnhancePage: React.FC = () => {
                   </>
                 )}
               </div>
-            )}
           </div>
         </div>
 
@@ -2088,7 +2162,7 @@ export const EnhancePage: React.FC = () => {
         </Card>
 
         {/* Results */}
-        {enhancement && (
+        {enhancement && enhancement.analysis && (
           <>
             {/* Analysis Overview */}
             <AnalysisOverview analysis={enhancement.analysis} />

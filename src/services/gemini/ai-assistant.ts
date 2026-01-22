@@ -309,6 +309,98 @@ ${storySummaries}
 }
 
 /**
+ * Build question-specific context for question-detail type
+ */
+function buildQuestionContext(context: AssistantContext | null): string {
+  if (!context || context.type !== 'question-detail' || !context.currentQuestion) {
+    return '';
+  }
+
+  const q = context.currentQuestion;
+  let output = `
+## Current Interview Question
+**Question:** "${q.question}"
+**Category:** ${q.category}
+**Likelihood:** ${q.likelihood}
+**Difficulty:** ${q.difficulty}
+**Source:** ${q.source}
+`;
+
+  if (q.suggestedApproach) {
+    output += `**Suggested Approach:** ${q.suggestedApproach}\n`;
+  }
+
+  output += `**Status:** ${q.isPrepared ? 'Answer prepared' : 'Needs preparation'}\n`;
+
+  if (q.practiceCount > 0) {
+    output += `**Practice Sessions:** ${q.practiceCount}\n`;
+  }
+
+  // Include linked answer if available
+  if (context.currentQuestionAnswer?.story) {
+    const story = context.currentQuestionAnswer.story;
+    const metadata = context.currentQuestionAnswer.metadata;
+
+    output += `
+### Linked Answer
+**Title:** ${story.title}
+**Tags:** ${story.tags.join(', ')}
+`;
+
+    if (metadata) {
+      output += `**Answer Format:** ${metadata.answerFormat}\n`;
+      output += `**Question Type Detected:** ${metadata.detectedQuestionType}\n`;
+
+      if (metadata.narrative) {
+        // Truncate long narratives
+        const narrativeExcerpt = metadata.narrative.length > 800
+          ? metadata.narrative.substring(0, 800) + '...'
+          : metadata.narrative;
+        output += `\n**Narrative Answer:**\n${narrativeExcerpt}\n`;
+      }
+
+      if (metadata.keyTalkingPoints.length > 0) {
+        output += `\n**Key Talking Points:**\n`;
+        metadata.keyTalkingPoints.slice(0, 5).forEach((point) => {
+          output += `- ${point}\n`;
+        });
+      }
+
+      if (metadata.sections.length > 0) {
+        output += `\n**Structured Sections:**\n`;
+        metadata.sections.forEach((section) => {
+          output += `- **${section.label}:** ${section.content.substring(0, 200)}${section.content.length > 200 ? '...' : ''}\n`;
+        });
+      }
+    } else {
+      // Legacy STAR story
+      output += `
+**STAR Structure:**
+- **Situation:** ${story.star.situation}
+- **Task:** ${story.star.task}
+- **Action:** ${story.star.action}
+- **Result:** ${story.star.result}
+`;
+    }
+
+    if (story.metrics.primary) {
+      output += `**Key Metric:** ${story.metrics.primary}\n`;
+    }
+
+    if (story.coachingNotes) {
+      output += `**Coaching Notes:** ${story.coachingNotes}\n`;
+    }
+  }
+
+  // Include company and role for context
+  if (context.company || context.role) {
+    output += `\n**Target Position:** ${context.role || 'Not specified'} at ${context.company || 'Not specified'}\n`;
+  }
+
+  return output;
+}
+
+/**
  * Build conversation history for context
  */
 function buildConversationContext(history: AssistantMessage[]): string {
@@ -350,6 +442,7 @@ function buildSystemPrompt(
   );
   const prepContext = buildInterviewPrepContext(context?.prepSession);
   const storiesContext = buildStoriesContext(context?.stories);
+  const questionContext = buildQuestionContext(context);
   const conversationContext = buildConversationContext(conversationHistory);
 
   // Build preference prompt if preferences are provided
@@ -382,6 +475,8 @@ ${preferencesPrompt}
 ${applicationContext}
 
 ${prepContext}
+
+${questionContext}
 
 ${storiesContext}
 

@@ -9,8 +9,9 @@ import type {
   CompanyResearch,
   Experience,
   UserProfileWithMeta,
+  GeneratedAnswerMetadata,
 } from './index';
-import type { InterviewPrepSession } from './interview-prep';
+import type { InterviewPrepSession, PredictedQuestion } from './interview-prep';
 import type { TopicResearchType } from './topic-research';
 
 // ============================================
@@ -24,6 +25,7 @@ export type AssistantContextType =
   | 'general'           // No specific context, general career advice
   | 'application'       // Viewing/working on a specific job application
   | 'interview-prep'    // In interview prep mode for a specific application
+  | 'question-detail'   // Working on a specific interview question
   | 'company-research'  // Viewing company research
   | 'story'             // Working on a STAR story
   | 'profile'           // Editing profile
@@ -40,6 +42,7 @@ export interface AssistantContext {
   applicationId?: string;
   storyId?: string;
   prepSessionId?: string;
+  questionId?: string;
 
   // Loaded data (for display and prompt building)
   application?: JobApplication;
@@ -48,6 +51,17 @@ export interface AssistantContext {
   prepSession?: InterviewPrepSession;
   stories?: Experience[];
   profile?: UserProfileWithMeta;
+
+  // Question-specific context (for question-detail type)
+  currentQuestion?: PredictedQuestion;
+  currentQuestionAnswer?: {
+    story: Experience;
+    metadata?: GeneratedAnswerMetadata;
+  };
+
+  // Company and role context
+  company?: string;
+  role?: string;
 
   // Summary for display in UI
   summary: string;
@@ -365,6 +379,12 @@ export const CONTEXT_SUGGESTIONS: Record<AssistantContextType, string[]> = {
     'Help me practice answering questions',
     'Research interview process at this company',
     'What technical topics should I prepare?',
+  ],
+  'question-detail': [
+    'Generate an answer for this question',
+    'Help me improve my linked answer',
+    'What follow-up questions might I get?',
+    'Add a related question to my list',
   ],
   'company-research': [
     'What are the red flags I should watch for?',

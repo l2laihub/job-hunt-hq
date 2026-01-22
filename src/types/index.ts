@@ -168,6 +168,7 @@ export interface UserProfile {
   keyAchievements: Achievement[];
   recentRoles: Role[];
   currentSituation: string;
+  generatedSummary?: string;      // AI-generated professional summary for resume
   goals: string[];
   constraints: string[];
   activeProjects: Project[];
@@ -1002,6 +1003,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   keyAchievements: [],
   recentRoles: [],
   currentSituation: 'Looking for new opportunities',
+  generatedSummary: '',
   goals: [],
   constraints: [],
   activeProjects: [],

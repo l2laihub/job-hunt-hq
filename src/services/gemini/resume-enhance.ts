@@ -100,6 +100,7 @@ Analyze this resume/profile and provide:
 
 3. **Enhanced Profile**: Generate an optimized version with:
    - Improved headline
+   - Professional summary (2-4 sentences highlighting key strengths, experience level, and value proposition for ${targetRole || 'senior technical positions'})
    - Reordered skills by relevance to ${targetRole || 'senior technical positions'}
    - Enhanced experience bullets with stronger action verbs and quantified results
    - Optimized achievements
@@ -184,6 +185,7 @@ Analyze and optimize this resume specifically for this job:
 
 3. **Enhanced Profile**: Generate a job-optimized version with:
    - Tailored headline matching the job title
+   - Professional summary (2-4 sentences highlighting experience and fit for THIS specific role, incorporating key job requirements)
    - Experiences reordered by relevance to this job
    - Bullets enhanced with job-specific keywords
    - Skills reordered to match job requirements

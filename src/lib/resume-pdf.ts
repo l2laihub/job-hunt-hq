@@ -103,22 +103,22 @@ const templates = {
     border: '#e2e8f0',
   },
   modern: {
-    primary: '#7c3aed',
-    secondary: '#4c1d95',
-    accent: '#8b5cf6',
+    primary: '#0d9488',
+    secondary: '#115e59',
+    accent: '#14b8a6',
     background: '#ffffff',
     text: '#1f2937',
     muted: '#6b7280',
     border: '#e5e7eb',
   },
   minimal: {
-    primary: '#111827',
-    secondary: '#374151',
-    accent: '#111827',
+    primary: '#18181b',
+    secondary: '#3f3f46',
+    accent: '#52525b',
     background: '#ffffff',
-    text: '#111827',
-    muted: '#6b7280',
-    border: '#d1d5db',
+    text: '#18181b',
+    muted: '#71717a',
+    border: '#e4e4e7',
   },
   executive: {
     primary: '#0f172a',
@@ -360,7 +360,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${pdfTitle}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&family=Merriweather:wght@700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@700&display=swap');
 
     * {
       margin: 0;
@@ -374,13 +374,15 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     body {
-      font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 10pt;
-      line-height: 1.45;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
       color: ${colors.text};
       background: ${colors.background};
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      font-feature-settings: 'kern' 1, 'liga' 1;
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
@@ -413,10 +415,11 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .headline {
-      font-size: 11pt;
-      font-weight: 600;
+      font-size: 11.5pt;
+      font-weight: 500;
       color: ${colors.secondary};
-      line-height: 1.4;
+      line-height: 1.45;
+      letter-spacing: -0.1px;
     }
 
     .contact-row {
@@ -425,7 +428,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       align-items: center;
       gap: 20px;
       margin-top: 10px;
-      font-size: 9.5pt;
+      font-size: 10pt;
       color: ${colors.muted};
     }
 
@@ -479,7 +482,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .score-label {
-      font-size: 8pt;
+      font-size: 9pt;
       color: ${colors.muted};
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -495,9 +498,9 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .summary p {
-      font-size: 10pt;
+      font-size: 10.5pt;
       color: ${colors.secondary};
-      line-height: 1.55;
+      line-height: 1.6;
       font-style: italic;
     }
 
@@ -526,7 +529,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       font-weight: 700;
       color: ${colors.primary};
       text-transform: uppercase;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.2px;
     }
 
     /* Skills - Compact categorized layout */
@@ -547,7 +550,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .skill-category-name {
-      font-size: 9pt;
+      font-size: 9.5pt;
       font-weight: 600;
       color: ${colors.accent};
       margin-bottom: 4px;
@@ -567,15 +570,15 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     .skill-list {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 5px;
     }
 
     .skill-tag {
       display: inline-block;
       background: ${colors.primary}08;
       color: ${colors.secondary};
-      font-size: 8.5pt;
-      padding: 2px 8px;
+      font-size: 9.5pt;
+      padding: 3px 9px;
       border-radius: 3px;
       border: 1px solid ${colors.border};
     }
@@ -587,7 +590,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .soft-skills-title {
-      font-size: 9pt;
+      font-size: 9.5pt;
       font-weight: 600;
       color: ${colors.secondary};
       margin-bottom: 6px;
@@ -596,7 +599,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     .soft-skill-tag {
       display: inline-block;
       color: ${colors.muted};
-      font-size: 8.5pt;
+      font-size: 9.5pt;
       padding: 2px 6px;
       margin: 2px;
     }
@@ -628,39 +631,39 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .experience-title {
-      font-size: 11pt;
-      font-weight: 700;
+      font-size: 11.5pt;
+      font-weight: 600;
       color: ${colors.primary};
     }
 
     .experience-company {
-      font-size: 10pt;
+      font-size: 10.5pt;
       color: ${colors.accent};
-      font-weight: 600;
+      font-weight: 500;
     }
 
     .experience-duration {
-      font-size: 9pt;
+      font-size: 9.5pt;
       color: ${colors.muted};
       font-style: italic;
     }
 
     .experience-highlights {
-      margin-top: 4px;
-      padding-left: 14px;
+      margin-top: 5px;
+      padding-left: 16px;
       page-break-before: avoid;
     }
 
     .experience-highlights li {
-      font-size: 9.5pt;
+      font-size: 10pt;
       color: ${colors.text};
-      margin-bottom: 2px;
-      line-height: 1.4;
+      margin-bottom: 3px;
+      line-height: 1.5;
     }
 
     .experience-highlights li::marker {
       color: ${colors.accent};
-      font-size: 8pt;
+      font-size: 9pt;
     }
 
     /* Achievements */
@@ -678,13 +681,14 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .achievement-text {
-      font-size: 9pt;
+      font-size: 9.5pt;
       color: ${colors.text};
       font-weight: 500;
+      line-height: 1.45;
     }
 
     .achievement-metric {
-      font-size: 8.5pt;
+      font-size: 9pt;
       color: ${colors.accent};
       font-weight: 600;
       margin-top: 2px;
@@ -1099,32 +1103,66 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       margin-bottom: 10px;
     }
 
-    /* Skills */
+    /* Skills - Compact inline layout */
     .skills-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
     }
 
     .skill-tag {
       display: inline-block;
-      background: ${colors.primary}10;
-      color: ${colors.primary};
-      font-size: 9pt;
+      background: ${colors.primary}08;
+      color: ${colors.secondary};
+      font-size: 8.5pt;
       font-weight: 500;
-      padding: 4px 10px;
-      border-radius: 4px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid ${colors.border};
     }
 
     .skills-category {
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .skills-category-title {
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 600;
-      color: ${colors.secondary};
-      margin-bottom: 4px;
+      color: ${colors.accent};
+      margin-bottom: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .skills-category-title::before {
+      content: "";
+      width: 4px;
+      height: 4px;
+      background: ${colors.accent};
+      border-radius: 50%;
+    }
+
+    /* Compact skills container */
+    .skills-compact {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+
+    .skills-inline {
+      font-size: 8.5pt;
+      color: ${colors.text};
+      line-height: 1.5;
+    }
+
+    .skills-inline .skill-item {
+      display: inline;
+    }
+
+    .skills-inline .skill-item:not(:last-child)::after {
+      content: " • ";
+      color: ${colors.muted};
     }
 
     /* Experience */
@@ -1282,9 +1320,223 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
         display: none;
       }
     }
+
+    /* Modern Template - Teal accent with clean cards */
+    ${template === 'modern' ? `
+    .header {
+      background: linear-gradient(135deg, ${colors.primary}08, ${colors.accent}05);
+      padding: 16px 20px;
+      border-radius: 8px;
+      border-bottom: none;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      color: ${colors.primary};
+      border-bottom-color: ${colors.accent};
+      position: relative;
+    }
+
+    .section-title::after {
+      content: "";
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 40px;
+      height: 2px;
+      background: ${colors.accent};
+    }
+
+    .skill-tag {
+      background: ${colors.accent}15;
+      color: ${colors.primary};
+      border: none;
+      border-radius: 12px;
+      padding: 3px 10px;
+    }
+
+    .experience-item {
+      border-left: 2px solid ${colors.accent}30;
+      padding-left: 12px;
+      margin-left: 4px;
+    }
+
+    .summary {
+      background: ${colors.accent}08;
+      border-left-color: ${colors.accent};
+      border-radius: 8px;
+    }
+    ` : ''}
+
+    /* Minimal Template - Clean and basic */
+    ${template === 'minimal' ? `
+    .header {
+      border-bottom: 1px solid ${colors.border};
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+
+    .name {
+      font-size: 20pt;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .headline {
+      font-size: 10pt;
+      font-weight: 400;
+      color: ${colors.muted};
+    }
+
+    .contact-row {
+      margin-top: 8px;
+    }
+
+    .contact-icon {
+      display: none;
+    }
+
+    .contact-item {
+      font-size: 9pt;
+    }
+
+    .contact-item::before {
+      content: "•";
+      margin-right: 6px;
+      color: ${colors.muted};
+    }
+
+    .contact-item:first-child::before {
+      display: none;
+    }
+
+    .summary {
+      background: none;
+      border-left: none;
+      padding: 0;
+      margin-bottom: 14px;
+    }
+
+    .summary p {
+      font-style: normal;
+      color: ${colors.text};
+    }
+
+    .section {
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 10pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      border-bottom: 1px solid ${colors.text};
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    .skills-compact {
+      display: block;
+    }
+
+    .skills-category {
+      margin-bottom: 4px;
+    }
+
+    .skills-category-title {
+      font-size: 9pt;
+      font-weight: 600;
+      color: ${colors.text};
+      display: inline;
+    }
+
+    .skills-category-title::before {
+      display: none;
+    }
+
+    .skills-category-title::after {
+      content: ":";
+      margin-right: 6px;
+    }
+
+    .skills-grid {
+      display: inline;
+    }
+
+    .skill-tag {
+      display: inline;
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 9pt;
+      color: ${colors.text};
+      font-weight: 400;
+    }
+
+    .skill-tag:not(:last-child)::after {
+      content: ", ";
+    }
+
+    .experience-header {
+      margin-bottom: 2px;
+    }
+
+    .experience-title {
+      font-size: 10pt;
+    }
+
+    .experience-company {
+      font-size: 9pt;
+      color: ${colors.muted};
+      font-weight: 400;
+    }
+
+    .experience-company::before {
+      content: "| ";
+      color: ${colors.border};
+    }
+
+    .experience-duration {
+      font-size: 8.5pt;
+    }
+
+    .experience-highlights {
+      margin-top: 4px;
+      padding-left: 14px;
+    }
+
+    .experience-highlights li {
+      font-size: 9pt;
+      margin-bottom: 2px;
+    }
+
+    .experience-highlights li::marker {
+      color: ${colors.muted};
+      font-size: 6pt;
+    }
+
+    .achievement-item {
+      margin-bottom: 4px;
+      padding-left: 14px;
+    }
+
+    .achievement-item::before {
+      color: ${colors.muted};
+    }
+
+    .achievement-description {
+      font-size: 9pt;
+      font-weight: 400;
+    }
+
+    .achievement-metrics {
+      color: ${colors.muted};
+    }
+    ` : ''}
   </style>
 </head>
-<body>
+<body class="template-${template}">
   <div class="container">
     <!-- Header -->
     <header class="header">
@@ -1349,9 +1601,9 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       ${
         skillCategories
           ? `
-      <div>
+      <div class="skills-compact">
         ${Object.entries(skillCategories).map(([category, skills]) => `
-        <div class="skills-category" style="margin-bottom: 8px;">
+        <div class="skills-category">
           <div class="skills-category-title">${category}</div>
           <div class="skills-grid">
             ${skills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
@@ -1361,7 +1613,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
         ${
           enhanced.softSkills.length > 0
             ? `
-          <div class="skills-category" style="margin-top: 12px;">
+          <div class="skills-category">
             <div class="skills-category-title">Professional Skills</div>
             <div class="skills-grid">
               ${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
@@ -1373,7 +1625,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       </div>
       `
           : `
-      <div class="two-column">
+      <div class="skills-compact">
         <div class="skills-category">
           <div class="skills-category-title">Technical Skills</div>
           <div class="skills-grid">
@@ -1384,7 +1636,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
           enhanced.softSkills.length > 0
             ? `
           <div class="skills-category">
-            <div class="skills-category-title">Soft Skills</div>
+            <div class="skills-category-title">Professional Skills</div>
             <div class="skills-grid">
               ${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
             </div>

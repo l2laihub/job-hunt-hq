@@ -43,7 +43,7 @@ const navItems = [
   { to: '/mock-interview', label: 'Mock Interview', icon: Mic },
   { to: '/copilot', label: 'Interview Copilot', icon: Headphones },
   // Tools
-  { to: '/enhance', label: 'Enhance', icon: Sparkles },
+  { to: '/enhance', label: 'Resume Builder', icon: Sparkles },
 ];
 
 export const AppLayout: React.FC = () => {

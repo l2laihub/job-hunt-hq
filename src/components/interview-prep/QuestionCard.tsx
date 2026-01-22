@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { toast } from '@/src/stores';
-import { useInterviewPrep } from '@/src/hooks/useAppData';
+import { toast, useAssistantStore } from '@/src/stores';
+import { useInterviewPrep, useStories } from '@/src/hooks/useAppData';
 import { Button, Card, Badge, Select } from '@/src/components/ui';
 import { cn } from '@/src/lib/utils';
-import type { PredictedQuestion, Experience, QuestionCategory, LikelihoodLevel, UserProfile, JDAnalysis, CompanyResearch } from '@/src/types';
-import { QUESTION_CATEGORIES } from '@/src/types';
+import type { PredictedQuestion, Experience, QuestionCategory, LikelihoodLevel, UserProfile, JDAnalysis, CompanyResearch, AnswerFormatType, GeneratedAnswerMetadata } from '@/src/types';
+import { QUESTION_CATEGORIES, CONTEXT_SUGGESTIONS } from '@/src/types';
+import type { AssistantContext } from '@/src/types/assistant';
 import {
   CheckCircle,
   Circle,
@@ -27,10 +28,15 @@ import {
   RefreshCw,
   Loader2,
   AlertTriangle,
+  Wand2,
+  Send,
+  History,
+  Bot,
 } from 'lucide-react';
 import { Dialog } from '@/src/components/ui';
 import { GenerateAnswerModal } from './GenerateAnswerModal';
 import { generateNarrative, isGeminiAvailable } from '@/src/services/gemini';
+import { refineInterviewAnswer, type GeneratedInterviewAnswer } from '@/src/services/gemini/generate-interview-answer';
 import { evaluateInterviewResponse, type ResponseEvaluation } from '@/src/services/gemini/evaluate-response';
 import { ScoreDisplay, StarAdherenceDisplay } from '@/src/components/interview/QuestionFeedback';
 
@@ -632,6 +638,50 @@ const PracticeModal: React.FC<{
   );
 };
 
+// Quick suggestion chips by format type
+const REFINEMENT_SUGGESTIONS: Record<AnswerFormatType | 'general', string[]> = {
+  'STAR': [
+    'Make the result more quantifiable',
+    'Add more specific technical details',
+    'Make it more concise (under 2 minutes)',
+    'Emphasize leadership and initiative',
+    'Add team collaboration aspects',
+  ],
+  'Requirements-Design-Tradeoffs': [
+    'Add more scalability considerations',
+    'Include failure handling strategies',
+    'Deepen the tradeoff analysis',
+    'Add concrete numbers/estimates',
+    'Discuss monitoring and observability',
+  ],
+  'Explain-Example-Tradeoffs': [
+    'Add a more concrete example',
+    'Simplify the explanation',
+    'Add more technical depth',
+    'Include common misconceptions',
+    'Discuss when NOT to use this approach',
+  ],
+  'Approach-Implementation-Complexity': [
+    'Add time/space complexity analysis',
+    'Include edge case handling',
+    'Discuss alternative approaches',
+    'Add optimization opportunities',
+    'Make the implementation clearer',
+  ],
+  'general': [
+    'Make it more conversational',
+    'Add more specific metrics',
+    'Reduce length by 30%',
+    'Add more confidence/enthusiasm',
+  ],
+};
+
+// Refinement history entry
+interface RefinementHistoryEntry {
+  feedback: string;
+  timestamp: string;
+}
+
 // View Story Modal (read-only) with AI-generated narrative
 // Enhanced to show full generated answer content when available
 const ViewStoryModal: React.FC<{
@@ -639,12 +689,22 @@ const ViewStoryModal: React.FC<{
   onClose: () => void;
   question: PredictedQuestion;
   story: Experience;
-}> = ({ isOpen, onClose, question, story }) => {
+  company?: string;
+  role?: string;
+  onRefineComplete?: (updatedStory: Experience) => void;
+}> = ({ isOpen, onClose, question, story, company, role, onRefineComplete }) => {
   const [narrativeText, setNarrativeText] = useState<string>('');
   const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
   const [narrativeError, setNarrativeError] = useState<string | null>(null);
   const [showNarrative, setShowNarrative] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+
+  // Refinement state
+  const [showRefinementPanel, setShowRefinementPanel] = useState(false);
+  const [refinementFeedback, setRefinementFeedback] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+  const [refinementHistory, setRefinementHistory] = useState<RefinementHistoryEntry[]>([]);
+  const [showRefinementHistory, setShowRefinementHistory] = useState(false);
 
   // Check if this story has generated answer metadata
   const hasGeneratedMetadata = !!story.generatedAnswerMetadata;
@@ -709,8 +769,123 @@ const ViewStoryModal: React.FC<{
       setNarrativeError(null);
       setShowNarrative(true);
       setExpandedSections(new Set([0, 1, 2, 3, 4, 5]));
+      // Reset refinement state
+      setShowRefinementPanel(false);
+      setRefinementFeedback('');
+      setIsRefining(false);
+      setShowRefinementHistory(false);
+      // Don't reset refinementHistory - keep it for the session
     }
   }, [isOpen]);
+
+  // Handle refinement submission
+  const handleRefine = useCallback(async (feedback: string) => {
+    if (!metadata || !feedback.trim() || !company || !role) {
+      toast.error('Missing data', 'Cannot refine without complete context');
+      return;
+    }
+
+    if (!isGeminiAvailable()) {
+      toast.error('AI not available', 'Configure your Gemini API key to refine answers');
+      return;
+    }
+
+    setIsRefining(true);
+
+    try {
+      // Convert story metadata to GeneratedInterviewAnswer format
+      const currentAnswer: GeneratedInterviewAnswer = {
+        detectedQuestionType: metadata.detectedQuestionType,
+        answerFormat: metadata.answerFormat,
+        title: story.title,
+        sections: metadata.sections,
+        narrative: metadata.narrative,
+        bulletPoints: metadata.bulletPoints,
+        star: story.star,
+        metrics: story.metrics,
+        sources: metadata.sources,
+        tags: story.tags,
+        keyTalkingPoints: metadata.keyTalkingPoints,
+        deliveryTips: metadata.deliveryTips,
+        followUpQuestions: metadata.followUpQA,
+        coachingNotes: story.coachingNotes || '',
+        variations: story.variations,
+      };
+
+      const refinedAnswer = await refineInterviewAnswer({
+        currentAnswer,
+        refinementFeedback: feedback,
+        question: question.question,
+        company,
+        role,
+      });
+
+      // Convert refined answer back to Experience format
+      const updatedMetadata: GeneratedAnswerMetadata = {
+        detectedQuestionType: refinedAnswer.detectedQuestionType,
+        answerFormat: refinedAnswer.answerFormat,
+        sections: refinedAnswer.sections,
+        narrative: refinedAnswer.narrative,
+        bulletPoints: refinedAnswer.bulletPoints,
+        keyTalkingPoints: refinedAnswer.keyTalkingPoints,
+        deliveryTips: refinedAnswer.deliveryTips,
+        followUpQA: refinedAnswer.followUpQuestions,
+        sources: refinedAnswer.sources,
+      };
+
+      const updatedStory: Experience = {
+        ...story,
+        title: refinedAnswer.title,
+        star: refinedAnswer.star || story.star,
+        metrics: refinedAnswer.metrics,
+        tags: refinedAnswer.tags,
+        coachingNotes: refinedAnswer.coachingNotes,
+        variations: refinedAnswer.variations,
+        generatedAnswerMetadata: updatedMetadata,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add to refinement history
+      setRefinementHistory((prev) => [
+        ...prev,
+        {
+          feedback,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+
+      // Clear feedback input
+      setRefinementFeedback('');
+      setShowRefinementPanel(false);
+
+      // Notify parent to update store
+      if (onRefineComplete) {
+        onRefineComplete(updatedStory);
+      }
+
+      toast.success('Answer refined', 'Your answer has been updated based on your feedback');
+    } catch (error) {
+      console.error('Refinement failed:', error);
+      toast.error('Refinement failed', 'Failed to refine answer. Please try again.');
+    } finally {
+      setIsRefining(false);
+    }
+  }, [metadata, story, question.question, company, role, onRefineComplete]);
+
+  // Handle quick suggestion click
+  const handleQuickSuggestion = (suggestion: string) => {
+    // If there's existing feedback, append; otherwise set
+    if (refinementFeedback.trim()) {
+      setRefinementFeedback((prev) => `${prev}. ${suggestion}`);
+    } else {
+      setRefinementFeedback(suggestion);
+    }
+  };
+
+  // Get suggestions for current format
+  const currentSuggestions = metadata?.answerFormat
+    ? REFINEMENT_SUGGESTIONS[metadata.answerFormat] || REFINEMENT_SUGGESTIONS.general
+    : REFINEMENT_SUGGESTIONS.general;
 
   // Render enhanced view for generated answers with metadata
   if (hasGeneratedMetadata && metadata) {
@@ -1009,6 +1184,136 @@ const ViewStoryModal: React.FC<{
             </div>
           </div>
 
+          {/* Refinement Panel */}
+          {hasGeneratedMetadata && company && role && (
+            <div className="border-t border-gray-700 pt-4">
+              {/* Refinement Toggle Button */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant={showRefinementPanel ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowRefinementPanel(!showRefinementPanel)}
+                    disabled={isRefining}
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {showRefinementPanel ? 'Hide Refinement' : 'Refine Answer'}
+                  </Button>
+                  {refinementHistory.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowRefinementHistory(!showRefinementHistory)}
+                      className="text-gray-400"
+                    >
+                      <History className="w-4 h-4 mr-1" />
+                      {refinementHistory.length} refinement{refinementHistory.length !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Refinement History (collapsible) */}
+              {showRefinementHistory && refinementHistory.length > 0 && (
+                <Card className="p-4 mb-4 bg-gray-800/30">
+                  <h4 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Refinement History
+                  </h4>
+                  <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                    {refinementHistory.map((entry, i) => (
+                      <div
+                        key={i}
+                        className="text-xs bg-gray-800/50 rounded p-2 flex items-start gap-2"
+                      >
+                        <span className="text-gray-500 whitespace-nowrap">
+                          {new Date(entry.timestamp).toLocaleTimeString()}
+                        </span>
+                        <span className="text-gray-300">{entry.feedback}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Refinement Panel */}
+              {showRefinementPanel && (
+                <Card className="p-4 bg-gradient-to-br from-purple-900/20 to-blue-900/20 border-purple-800/30">
+                  <h4 className="text-sm font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                    <Wand2 className="w-4 h-4" />
+                    Refine Your Answer
+                  </h4>
+
+                  {/* Quick Suggestions */}
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-400 mb-2">Quick suggestions:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {currentSuggestions.map((suggestion, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handleQuickSuggestion(suggestion)}
+                          disabled={isRefining}
+                          className={cn(
+                            'px-3 py-1.5 text-xs rounded-full border transition-colors',
+                            'bg-gray-800 border-gray-700 text-gray-300',
+                            'hover:bg-purple-900/30 hover:border-purple-700 hover:text-purple-300',
+                            'disabled:opacity-50 disabled:cursor-not-allowed'
+                          )}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Feedback */}
+                  <div className="mb-4">
+                    <label className="block text-xs text-gray-400 mb-2">
+                      Custom feedback (or combine with suggestions above):
+                    </label>
+                    <textarea
+                      value={refinementFeedback}
+                      onChange={(e) => setRefinementFeedback(e.target.value)}
+                      placeholder="e.g., Make it more concise and add specific metrics about cost savings..."
+                      disabled={isRefining}
+                      className={cn(
+                        'w-full h-24 px-3 py-2 text-sm rounded-lg border resize-none',
+                        'bg-gray-800 border-gray-700 text-white placeholder-gray-500',
+                        'focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+                        'disabled:opacity-50'
+                      )}
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">
+                      AI will refine your answer while maintaining the same format
+                    </p>
+                    <Button
+                      onClick={() => handleRefine(refinementFeedback)}
+                      disabled={!refinementFeedback.trim() || isRefining}
+                      size="sm"
+                    >
+                      {isRefining ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Refining...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          Apply Refinement
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end pt-4 border-t border-gray-700">
             <Button onClick={onClose}>
@@ -1266,6 +1571,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   role,
 }) => {
   const { markQuestionPrepared, recordQuestionPractice } = useInterviewPrep();
+  const { updateStory } = useStories();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showStorySelect, setShowStorySelect] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -1339,6 +1645,41 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     onPractice?.(question.id);
     toast.success('Practice recorded!', `You rated yourself ${rating}/5 stars`);
   };
+
+  // Handle refinement complete - update story in store
+  const handleRefineComplete = useCallback((updatedStory: Experience) => {
+    updateStory(updatedStory.id, updatedStory);
+  }, [updateStory]);
+
+  // Handle opening AI assistant with question context
+  const { setContext: setAssistantContext, open: openAssistant, startNewChat } = useAssistantStore();
+
+  const handleAskAssistant = useCallback(async () => {
+    // Build question-specific context
+    const questionContext: AssistantContext = {
+      type: 'question-detail',
+      route: '/interview-prep',
+      applicationId: undefined, // Would need to pass from parent if needed
+      questionId: question.id,
+      prepSessionId: sessionId,
+      currentQuestion: question,
+      currentQuestionAnswer: matchedStory
+        ? {
+            story: matchedStory,
+            metadata: matchedStory.generatedAnswerMetadata,
+          }
+        : undefined,
+      company,
+      role,
+      summary: `Working on interview question: "${question.question.substring(0, 50)}..."`,
+      suggestions: CONTEXT_SUGGESTIONS['question-detail'],
+    };
+
+    // Set context and open assistant
+    setAssistantContext(questionContext);
+    await startNewChat(questionContext);
+    openAssistant();
+  }, [question, sessionId, matchedStory, company, role, setAssistantContext, startNewChat, openAssistant]);
 
   // Handle view story
   const handleViewStory = (e: React.MouseEvent) => {
@@ -1525,6 +1866,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               Practice with Voice
             </Button>
           )}
+
+          {/* Ask AI Assistant Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAskAssistant();
+            }}
+            className="w-full text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
+          >
+            <Bot className="w-4 h-4 mr-2" />
+            Ask AI Assistant
+          </Button>
         </div>
       )}
 
@@ -1550,6 +1905,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           onClose={() => setShowViewModal(false)}
           question={question}
           story={matchedStory}
+          company={company}
+          role={role}
+          onRefineComplete={handleRefineComplete}
         />
       )}
 

@@ -20,6 +20,10 @@ interface PredictQuestionsParams {
   interviewType: InterviewStage;
   company: string;
   role: string;
+  /** Existing questions to avoid duplicating (for "generate more" feature) */
+  existingQuestions?: PredictedQuestion[];
+  /** Number of questions to generate (default: 12-15 for initial, 5 for additional) */
+  count?: number;
 }
 
 interface PredictedQuestionRaw {
@@ -110,12 +114,31 @@ export async function predictInterviewQuestions(
   params: PredictQuestionsParams
 ): Promise<PredictedQuestion[]> {
   const ai = requireGemini();
-  const { profile, analysis, research, stories, interviewType, company, role } = params;
+  const { profile, analysis, research, stories, interviewType, company, role, existingQuestions, count } = params;
 
   const profileContext = buildProfileContext(profile);
   const storiesContext = buildStoriesContext(stories);
   const researchContext = buildResearchContext(research);
   const typeDescription = getInterviewTypeDescription(interviewType);
+
+  // Determine question count - default 12-15 for initial, 5 for additional
+  const isGeneratingMore = existingQuestions && existingQuestions.length > 0;
+  const questionCount = count ?? (isGeneratingMore ? 5 : 12);
+  const questionCountText = isGeneratingMore ? `${questionCount} additional` : `${questionCount}-${questionCount + 3}`;
+
+  // Build existing questions context for deduplication
+  const existingQuestionsContext = isGeneratingMore
+    ? `
+## IMPORTANT: Questions Already Asked
+The candidate already has the following questions prepared. DO NOT repeat or rephrase these questions.
+Generate COMPLETELY NEW and DIFFERENT questions that cover OTHER aspects of the interview.
+
+Existing questions to avoid:
+${existingQuestions!.map((q, i) => `${i + 1}. [${q.category}] ${q.question}`).join('\n')}
+
+You MUST generate questions that are distinctly different from all of the above.
+`
+    : '';
 
   const prompt = `You are an expert interview coach. Predict the specific questions this candidate will likely be asked in their upcoming interview.
 
@@ -141,9 +164,9 @@ ${researchContext}
 
 ## Available Stories (reference by index if relevant)
 ${storiesContext}
-
+${existingQuestionsContext}
 ## Your Task
-Predict 12-15 specific questions for a ${interviewType} interview at ${company} for the ${role} position.
+Predict ${questionCountText} specific questions for a ${interviewType} interview at ${company} for the ${role} position.${isGeneratingMore ? ' These must be DIFFERENT from the existing questions listed above.' : ''}
 
 For each question, provide:
 1. **question**: The exact question they're likely to ask

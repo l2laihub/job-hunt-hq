@@ -422,6 +422,7 @@ export const InterviewPrepPage: React.FC = () => {
     updateSession,
     deleteSession,
     setPredictedQuestions,
+    appendPredictedQuestions,
     setQuickReference,
   } = interviewPrepStore;
 
@@ -448,6 +449,7 @@ export const InterviewPrepPage: React.FC = () => {
   const [showNewSessionModal, setShowNewSessionModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
 
   // Set default selected app
   useEffect(() => {
@@ -513,6 +515,53 @@ export const InterviewPrepPage: React.FC = () => {
       }
     },
     [session, profile, applications, stories, setPredictedQuestions, selectedAppId, sessions]
+  );
+
+  // Generate more questions (appends to existing)
+  const handleGenerateMoreQuestions = useCallback(
+    async () => {
+      const currentStoreSession = selectedAppId
+        ? sessions.find(s => s.applicationId === selectedAppId)
+        : undefined;
+
+      const sess = currentStoreSession || session;
+
+      if (!sess || !profile) {
+        return;
+      }
+
+      const appId = sess.applicationId || selectedAppId;
+      const app = applications.find((a) => a.id === appId);
+
+      if (!app || !app.analysis) {
+        toast.error('Missing job analysis', 'Analyze the job description first');
+        return;
+      }
+
+      setIsGeneratingMore(true);
+      try {
+        const newQuestions = await predictInterviewQuestions({
+          profile,
+          analysis: app.analysis,
+          research: app.companyResearch,
+          stories,
+          interviewType: sess.interviewType,
+          company: app.company,
+          role: app.role,
+          existingQuestions: sess.predictedQuestions,
+          count: 5,
+        });
+
+        await appendPredictedQuestions(sess.id, newQuestions);
+        toast.success('Questions added', `${newQuestions.length} new questions generated`);
+      } catch (error) {
+        console.error('Failed to generate more questions:', error);
+        toast.error('Generation failed', 'Could not generate additional questions');
+      } finally {
+        setIsGeneratingMore(false);
+      }
+    },
+    [session, profile, applications, stories, appendPredictedQuestions, selectedAppId, sessions]
   );
 
   // Create new session
@@ -688,6 +737,8 @@ export const InterviewPrepPage: React.FC = () => {
                       stories={stories}
                       onGenerateQuestions={handleGenerateQuestions}
                       isGenerating={isGenerating}
+                      onGenerateMoreQuestions={handleGenerateMoreQuestions}
+                      isGeneratingMore={isGeneratingMore}
                       profile={profile}
                       analysis={selectedApp?.analysis}
                       research={selectedApp?.companyResearch}

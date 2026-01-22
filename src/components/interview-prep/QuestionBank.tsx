@@ -14,6 +14,7 @@ import {
   Search,
   SortAsc,
   SortDesc,
+  Plus,
 } from 'lucide-react';
 
 interface QuestionBankProps {
@@ -21,6 +22,8 @@ interface QuestionBankProps {
   stories: Experience[];
   onGenerateQuestions: () => Promise<void>;
   isGenerating: boolean;
+  onGenerateMoreQuestions?: () => Promise<void>;
+  isGeneratingMore?: boolean;
   // For answer generation
   profile?: UserProfile;
   analysis?: JDAnalysis;
@@ -37,6 +40,8 @@ export const QuestionBank: React.FC<QuestionBankProps> = ({
   stories,
   onGenerateQuestions,
   isGenerating,
+  onGenerateMoreQuestions,
+  isGeneratingMore,
   profile,
   analysis,
   research,
@@ -171,19 +176,36 @@ export const QuestionBank: React.FC<QuestionBankProps> = ({
             )}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onGenerateQuestions()}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            {onGenerateMoreQuestions && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => onGenerateMoreQuestions()}
+                disabled={isGeneratingMore || isGenerating}
+              >
+                {isGeneratingMore ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                <span className="ml-2">Generate More</span>
+              </Button>
             )}
-            <span className="ml-2">Refresh</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onGenerateQuestions()}
+              disabled={isGenerating || isGeneratingMore}
+            >
+              {isGenerating ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span className="ml-2">Refresh</span>
+            </Button>
+          </div>
         </div>
       </Card>
 

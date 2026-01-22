@@ -96,6 +96,7 @@ interface InterviewPrepState {
 
   // Question management
   setPredictedQuestions: (sessionId: string, questions: PredictedQuestion[]) => Promise<void>;
+  appendPredictedQuestions: (sessionId: string, questions: PredictedQuestion[]) => Promise<void>;
   markQuestionPrepared: (sessionId: string, questionId: string, storyId?: string, answerId?: string) => Promise<void>;
   recordQuestionPractice: (sessionId: string, questionId: string) => Promise<void>;
 
@@ -245,6 +246,23 @@ export const useSupabaseInterviewPrepStore = create<InterviewPrepState>()((set, 
 
   setPredictedQuestions: async (sessionId, questions) => {
     await get().updateSession(sessionId, { predictedQuestions: questions });
+
+    // Recalculate readiness
+    const readiness = get().calculateReadiness(sessionId);
+    await get().updateSession(sessionId, { readinessScore: readiness });
+  },
+
+  appendPredictedQuestions: async (sessionId, newQuestions) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) return;
+
+    // Merge new questions with existing, preserving state of existing questions
+    const existingIds = new Set(session.predictedQuestions.map((q) => q.id));
+    const uniqueNewQuestions = newQuestions.filter((q) => !existingIds.has(q.id));
+
+    await get().updateSession(sessionId, {
+      predictedQuestions: [...session.predictedQuestions, ...uniqueNewQuestions],
+    });
 
     // Recalculate readiness
     const readiness = get().calculateReadiness(sessionId);

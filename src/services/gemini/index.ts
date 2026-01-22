@@ -42,6 +42,23 @@ export {
   type AssistantResponseMetadata,
 } from './ai-assistant';
 
+// Assistant Action Handlers (for question-detail context)
+export {
+  assistantGenerateAnswer,
+  assistantRefineAnswer,
+  assistantAddQuestion,
+  assistantUpdateQuestion,
+  hasValidGeneratedMetadata,
+  type AssistantGenerateAnswerParams,
+  type AssistantGenerateAnswerResult,
+  type AssistantRefineAnswerParams,
+  type AssistantRefineAnswerResult,
+  type AssistantAddQuestionParams,
+  type AssistantAddQuestionResult,
+  type AssistantUpdateQuestionParams,
+  type AssistantUpdateQuestionResult,
+} from './assistant-actions';
+
 // Topic Research
 export { classifyResearchIntent, shouldPerformResearch } from './classify-research';
 export { researchTopic, generateResearchSummary, clearResearchCache } from './topic-research';

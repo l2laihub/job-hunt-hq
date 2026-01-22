@@ -640,8 +640,17 @@ export const ProfilePage: React.FC = () => {
               label="Current Situation"
               value={editedProfile.currentSituation}
               onChange={(e) => handleFieldChange('currentSituation', e.target.value)}
-              placeholder="Briefly describe your current career situation and what you're looking for..."
+              placeholder="Briefly describe your current career situation and what you're looking for (for AI personalization)..."
               rows={3}
+              hint="Used for AI recommendations, NOT shown on resume"
+            />
+            <Textarea
+              label="Professional Summary"
+              value={editedProfile.generatedSummary || ''}
+              onChange={(e) => handleFieldChange('generatedSummary', e.target.value)}
+              placeholder="A professional summary for your resume. This will appear at the top of your downloaded resume. Can be generated via Resume Builder."
+              rows={4}
+              hint="Shown on resume PDF - generate via Resume Builder or write your own"
             />
           </div>
         </ProfileSection>

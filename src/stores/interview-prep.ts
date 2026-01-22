@@ -93,6 +93,7 @@ interface InterviewPrepState {
 
   // Question management
   setPredictedQuestions: (sessionId: string, questions: PredictedQuestion[]) => void;
+  appendPredictedQuestions: (sessionId: string, questions: PredictedQuestion[]) => void;
   markQuestionPrepared: (sessionId: string, questionId: string, storyId?: string, answerId?: string) => void;
   recordQuestionPractice: (sessionId: string, questionId: string) => void;
 
@@ -232,6 +233,31 @@ export const useInterviewPrepStore = create<InterviewPrepState>()(
               ? {
                   ...s,
                   predictedQuestions: questions,
+                  updatedAt: new Date().toISOString(),
+                }
+              : s
+          ),
+        }));
+
+        // Recalculate readiness
+        const readiness = get().calculateReadiness(sessionId);
+        get().updateSession(sessionId, { readinessScore: readiness });
+      },
+
+      appendPredictedQuestions: (sessionId, newQuestions) => {
+        const session = get().sessions.find((s) => s.id === sessionId);
+        if (!session) return;
+
+        // Merge new questions with existing, preserving state of existing questions
+        const existingIds = new Set(session.predictedQuestions.map((q) => q.id));
+        const uniqueNewQuestions = newQuestions.filter((q) => !existingIds.has(q.id));
+
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  predictedQuestions: [...s.predictedQuestions, ...uniqueNewQuestions],
                   updatedAt: new Date().toISOString(),
                 }
               : s
