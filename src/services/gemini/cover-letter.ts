@@ -237,7 +237,7 @@ ${jobDescription.slice(0, 2000)}
 ## Analysis Summary
 Fit Score: ${analysis.fitScore}/10
 Matched Skills: ${matchedSkills.join(', ')}
-${analysis.analysisType === 'fulltime' || analysis.analysisType === 'contract' ? `Talking Points: ${analysis.talkingPoints.slice(0, 3).join('; ')}` : ''}
+${(analysis.analysisType === 'fulltime' || analysis.analysisType === 'contract') && analysis.talkingPoints?.length ? `Talking Points: ${analysis.talkingPoints.slice(0, 3).join('; ')}` : ''}
 
 ## Style Instructions
 ${styleInstructions}

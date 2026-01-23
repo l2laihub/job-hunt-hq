@@ -284,6 +284,27 @@ export const EditableList: React.FC<EditableListProps> = ({
           )}
         </div>
       ))}
+      {/* Input for adding new item */}
+      {!disabled && editingIndex === items.length && (
+        <div className="flex items-start gap-2">
+          {bulletStyle !== 'none' && (
+            <span className="text-gray-500 mt-0.5 min-w-[1rem]">{getBullet(items.length)}</span>
+          )}
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={handleSave}
+            className={cn(
+              'flex-1 bg-gray-800 border border-blue-500 rounded px-2 py-0.5 text-sm text-gray-200',
+              'focus:outline-none focus:ring-2 focus:ring-blue-500/50'
+            )}
+            placeholder={placeholder}
+          />
+        </div>
+      )}
       {!disabled && editingIndex === null && (
         <button
           onClick={() => {

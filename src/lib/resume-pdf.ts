@@ -532,82 +532,80 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       letter-spacing: 1.2px;
     }
 
-    /* Skills - Compact categorized layout */
+    /* Skills - Ultra-compact multi-column inline layout */
     .skills-container {
-      display: grid;
-      grid-template-columns: 3fr 2fr;
-      gap: 16px;
-    }
-
-    .skills-column {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      column-count: 2;
+      column-gap: 24px;
+      column-fill: balance;
     }
 
     .skill-category {
-      margin-bottom: 6px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 5px;
+      line-height: 1.4;
     }
 
     .skill-category-name {
-      font-size: 9.5pt;
+      font-size: 9pt;
       font-weight: 600;
       color: ${colors.accent};
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      display: inline;
     }
 
-    .skill-category-name::before {
-      content: "";
-      width: 4px;
-      height: 4px;
-      background: ${colors.accent};
-      border-radius: 50%;
+    .skill-category-name::after {
+      content: ": ";
     }
 
     .skill-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
+      display: inline;
     }
 
     .skill-tag {
-      display: inline-block;
-      background: ${colors.primary}08;
+      display: inline;
+      font-size: 9pt;
       color: ${colors.secondary};
-      font-size: 9.5pt;
-      padding: 3px 9px;
-      border-radius: 3px;
-      border: 1px solid ${colors.border};
+    }
+
+    .skill-tag:not(:last-child)::after {
+      content: " • ";
+      color: ${colors.muted};
+      font-size: 8pt;
     }
 
     .soft-skills-section {
-      background: ${colors.headerBg};
-      padding: 10px 12px;
-      border-radius: 4px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid ${colors.border};
     }
 
     .soft-skills-title {
-      font-size: 9.5pt;
+      font-size: 9pt;
       font-weight: 600;
       color: ${colors.secondary};
-      margin-bottom: 6px;
+      display: inline;
+    }
+
+    .soft-skills-title::after {
+      content: ": ";
+    }
+
+    .soft-skill-list {
+      display: inline;
     }
 
     .soft-skill-tag {
-      display: inline-block;
+      display: inline;
       color: ${colors.muted};
-      font-size: 9.5pt;
-      padding: 2px 6px;
-      margin: 2px;
+      font-size: 9pt;
     }
 
-    .soft-skill-tag::before {
-      content: "•";
-      margin-right: 4px;
-      color: ${colors.accent};
+    .soft-skill-tag:not(:last-child)::after {
+      content: " • ";
+      color: ${colors.border};
+      font-size: 8pt;
     }
 
     /* Experience */
@@ -789,24 +787,14 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
         <h2 class="section-title">Skills & Expertise</h2>
       </div>
       <div class="skills-container">
-        <div class="skills-column">
-          ${Object.entries(technicalCategories).map(([category, skills]) => `
-          <div class="skill-category">
-            <div class="skill-category-name">${category}</div>
-            <div class="skill-list">
-              ${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-            </div>
-          </div>
-          `).join('')}
+        ${Object.entries(technicalCategories).map(([category, skills]) => `
+        <div class="skill-category">
+          <span class="skill-category-name">${category}</span><span class="skill-list">${skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}</span>
         </div>
+        `).join('')}
         ${enhanced.softSkills.length > 0 ? `
-        <div class="skills-column">
-          <div class="soft-skills-section">
-            <div class="soft-skills-title">Professional Skills</div>
-            <div>
-              ${enhanced.softSkills.map(skill => `<span class="soft-skill-tag">${skill}</span>`).join('')}
-            </div>
-          </div>
+        <div class="soft-skills-section">
+          <span class="soft-skills-title">Professional Skills</span><span class="soft-skill-list">${enhanced.softSkills.map(skill => `<span class="soft-skill-tag">${skill}</span>`).join('')}</span>
         </div>
         ` : ''}
       </div>
@@ -1103,66 +1091,45 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       margin-bottom: 10px;
     }
 
-    /* Skills - Compact inline layout */
-    .skills-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-
-    .skill-tag {
-      display: inline-block;
-      background: ${colors.primary}08;
-      color: ${colors.secondary};
-      font-size: 8.5pt;
-      font-weight: 500;
-      padding: 2px 8px;
-      border-radius: 3px;
-      border: 1px solid ${colors.border};
+    /* Skills - Ultra-compact multi-column inline layout */
+    .skills-compact {
+      column-count: 2;
+      column-gap: 20px;
+      column-fill: balance;
     }
 
     .skills-category {
-      margin-bottom: 6px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 4px;
+      line-height: 1.4;
     }
 
     .skills-category-title {
       font-size: 8.5pt;
       font-weight: 600;
       color: ${colors.accent};
-      margin-bottom: 3px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .skills-category-title::before {
-      content: "";
-      width: 4px;
-      height: 4px;
-      background: ${colors.accent};
-      border-radius: 50%;
-    }
-
-    /* Compact skills container */
-    .skills-compact {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 16px;
-    }
-
-    .skills-inline {
-      font-size: 8.5pt;
-      color: ${colors.text};
-      line-height: 1.5;
-    }
-
-    .skills-inline .skill-item {
       display: inline;
     }
 
-    .skills-inline .skill-item:not(:last-child)::after {
+    .skills-category-title::after {
+      content: ": ";
+    }
+
+    .skills-grid {
+      display: inline;
+    }
+
+    .skill-tag {
+      display: inline;
+      font-size: 8.5pt;
+      color: ${colors.secondary};
+    }
+
+    .skill-tag:not(:last-child)::after {
       content: " • ";
       color: ${colors.muted};
+      font-size: 7pt;
     }
 
     /* Experience */
@@ -1348,11 +1315,15 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     }
 
     .skill-tag {
-      background: ${colors.accent}15;
       color: ${colors.primary};
-      border: none;
-      border-radius: 12px;
-      padding: 3px 10px;
+    }
+
+    .skill-tag:not(:last-child)::after {
+      color: ${colors.accent};
+    }
+
+    .skills-category-title {
+      color: ${colors.primary};
     }
 
     .experience-item {
@@ -1437,27 +1408,24 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     }
 
     .skills-compact {
-      display: block;
+      column-count: 2;
+      column-gap: 16px;
     }
 
     .skills-category {
-      margin-bottom: 4px;
+      margin-bottom: 3px;
+      break-inside: avoid;
     }
 
     .skills-category-title {
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 600;
       color: ${colors.text};
       display: inline;
     }
 
-    .skills-category-title::before {
-      display: none;
-    }
-
     .skills-category-title::after {
-      content: ":";
-      margin-right: 6px;
+      content: ": ";
     }
 
     .skills-grid {
@@ -1469,7 +1437,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       background: none;
       border: none;
       padding: 0;
-      font-size: 9pt;
+      font-size: 8.5pt;
       color: ${colors.text};
       font-weight: 400;
     }
@@ -1604,20 +1572,14 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       <div class="skills-compact">
         ${Object.entries(skillCategories).map(([category, skills]) => `
         <div class="skills-category">
-          <div class="skills-category-title">${category}</div>
-          <div class="skills-grid">
-            ${skills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
-          </div>
+          <span class="skills-category-title">${category}</span><span class="skills-grid">${skills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}</span>
         </div>
         `).join('')}
         ${
           enhanced.softSkills.length > 0
             ? `
           <div class="skills-category">
-            <div class="skills-category-title">Professional Skills</div>
-            <div class="skills-grid">
-              ${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
-            </div>
+            <span class="skills-category-title">Professional Skills</span><span class="skills-grid">${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}</span>
           </div>
         `
             : ''
@@ -1627,19 +1589,13 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
           : `
       <div class="skills-compact">
         <div class="skills-category">
-          <div class="skills-category-title">Technical Skills</div>
-          <div class="skills-grid">
-            ${enhanced.technicalSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
-          </div>
+          <span class="skills-category-title">Technical Skills</span><span class="skills-grid">${enhanced.technicalSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}</span>
         </div>
         ${
           enhanced.softSkills.length > 0
             ? `
           <div class="skills-category">
-            <div class="skills-category-title">Professional Skills</div>
-            <div class="skills-grid">
-              ${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}
-            </div>
+            <span class="skills-category-title">Professional Skills</span><span class="skills-grid">${enhanced.softSkills.map((skill) => `<span class="skill-tag">${skill}</span>`).join('')}</span>
           </div>
         `
             : ''
