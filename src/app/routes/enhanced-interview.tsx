@@ -623,7 +623,7 @@ export const EnhancedInterviewPage: React.FC = () => {
   }, [config, navigate]);
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-24">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

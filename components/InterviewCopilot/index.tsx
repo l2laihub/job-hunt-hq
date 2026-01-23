@@ -454,7 +454,7 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
 
   // Render setup view
   const renderSetup = () => (
-    <div className="max-w-3xl mx-auto space-y-8 p-6">
+    <div className="max-w-3xl mx-auto space-y-8 p-6 pb-24">
       {/* View History Button */}
       <div className="flex justify-end">
         <button
@@ -888,7 +888,10 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
   }
 
   return (
-    <div className="h-full bg-gray-950 text-gray-100 flex flex-col relative">
+    <div className={cn(
+      "h-full bg-gray-950 text-gray-100 flex flex-col relative",
+      step === 'setup' && "overflow-y-auto"
+    )}>
       {step === 'setup' && renderSetup()}
       {step === 'active' && renderActive()}
       {renderSessionSummary()}
