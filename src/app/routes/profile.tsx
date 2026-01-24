@@ -930,8 +930,8 @@ export const ProfilePage: React.FC = () => {
           onToggle={() => toggleSection('projects')}
         >
           <ProjectsSection
-            projects={editedProfile.projects || []}
-            onUpdateProjects={(projects) => handleFieldChange('projects', projects)}
+            projects={editedProfile.activeProjects || []}
+            onUpdateProjects={(projects) => handleFieldChange('activeProjects', projects)}
             userId={user?.id}
             profileId={activeProfileWithMeta?.metadata.id}
           />
