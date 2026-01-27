@@ -6,6 +6,7 @@ export { analyzeJD, analyzeJD as analyzeJobDescription, reanalyzeJD } from './an
 export { extractJobInfo, type ScreeningQuestion, type ExtractedJobInfo } from './extract-job-info';
 export { researchCompany, refreshCompanyResearch, clearCompanyResearchCache } from './research-company';
 export { formatExperience, formatExperience as formatExperienceToSTAR, matchStoriesToQuestion } from './format-experience';
+export { enhanceStory, type EnhanceStoryOptions, type EnhancedStoryResult } from './enhance-story';
 export { processDocuments } from './process-documents';
 export { createLiveSession, generateInterviewFeedback } from './live-interview';
 export { generateTechnicalAnswer, generateFollowUps } from './technical-answers';

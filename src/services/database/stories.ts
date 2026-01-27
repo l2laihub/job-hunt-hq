@@ -92,8 +92,10 @@ export const storiesService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Build update object
-    const updateData: Record<string, unknown> = {};
+    // Build update object - always set updated_at
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
 
     if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.rawInput !== undefined) updateData.raw_input = updates.rawInput;

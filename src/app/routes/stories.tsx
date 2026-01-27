@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { toast } from '@/src/stores';
-import { useStories, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
-import { formatExperienceToSTAR } from '@/src/services/gemini';
+import { useStories, useUnifiedActiveProfileId, useProfile } from '@/src/hooks/useAppData';
+import { formatExperienceToSTAR, enhanceStory, type EnhanceStoryOptions } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardContent, Badge, Dialog, ConfirmDialog, Abbr } from '@/src/components/ui';
 import { MarkdownRenderer } from '@/src/components/ui/markdown-renderer';
 import { StoriesEmptyState } from '@/src/components/shared';
@@ -29,6 +29,7 @@ import {
   MessageSquare,
   Lightbulb,
   CheckCircle,
+  Wand2,
 } from 'lucide-react';
 
 export const StoriesPage: React.FC = () => {
@@ -376,6 +377,9 @@ export const StoriesPage: React.FC = () => {
                   story={story}
                   onEdit={() => handleEditStory(story)}
                   onDelete={() => handleDeleteStory(story.id)}
+                  onEnhance={async (enhanced) => {
+                    await updateStory(story.id, enhanced);
+                  }}
                   bulkSelectMode={bulkSelectMode}
                   isSelected={selectedStoryIds.has(story.id)}
                   onToggleSelect={() => toggleStorySelection(story.id)}
@@ -425,6 +429,7 @@ interface StoryCardProps {
   story: Experience;
   onEdit: () => void;
   onDelete: () => void;
+  onEnhance: (enhancedStory: Partial<Experience>) => Promise<void>;
   bulkSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -434,13 +439,101 @@ const StoryCard: React.FC<StoryCardProps> = ({
   story,
   onEdit,
   onDelete,
+  onEnhance,
   bulkSelectMode = false,
   isSelected = false,
   onToggleSelect,
 }) => {
+  const { profile } = useProfile();
   const [expanded, setExpanded] = useState(false);
   const [showNarrative, setShowNarrative] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [showEnhanceOptions, setShowEnhanceOptions] = useState(false);
+  const enhanceDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (enhanceDropdownRef.current && !enhanceDropdownRef.current.contains(event.target as Node)) {
+        setShowEnhanceOptions(false);
+      }
+    };
+
+    if (showEnhanceOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEnhanceOptions]);
+
+  // Check if story could benefit from enhancement
+  const needsEnhancement = () => {
+    const situationLength = story.star.situation?.length || 0;
+    const taskLength = story.star.task?.length || 0;
+    const actionLength = story.star.action?.length || 0;
+    const resultLength = story.star.result?.length || 0;
+    const totalLength = situationLength + taskLength + actionLength + resultLength;
+
+    // Story needs enhancement if:
+    // - Total STAR content is less than 400 characters
+    // - Any section is missing or very short
+    // - No metrics are defined
+    // - No coaching notes exist
+    const hasShortContent = totalLength < 400;
+    const hasMissingSection = situationLength < 20 || taskLength < 20 || actionLength < 20 || resultLength < 20;
+    const noMetrics = !story.metrics.primary && story.metrics.secondary.length === 0;
+    const noCoaching = !story.coachingNotes;
+
+    return hasShortContent || hasMissingSection || noMetrics || noCoaching;
+  };
+
+  const handleEnhance = async (focus: EnhanceStoryOptions['focus'] = 'full') => {
+    setIsEnhancing(true);
+    setShowEnhanceOptions(false);
+    try {
+      const enhanced = await enhanceStory(story, { focus, profile: profile || undefined });
+
+      // Build generatedAnswerMetadata for the enhanced view
+      const generatedAnswerMetadata = {
+        detectedQuestionType: 'experience' as const,
+        answerFormat: 'STAR' as const,
+        sections: [
+          { label: 'Situation', content: enhanced.star.situation },
+          { label: 'Task', content: enhanced.star.task },
+          { label: 'Action', content: enhanced.star.action },
+          { label: 'Result', content: enhanced.star.result },
+        ],
+        narrative: enhanced.narrative,
+        bulletPoints: enhanced.keyTalkingPoints,
+        keyTalkingPoints: enhanced.keyTalkingPoints,
+        deliveryTips: enhanced.deliveryTips,
+        followUpQA: enhanced.followUpQA,
+        sources: {
+          storyIds: [story.id],
+          profileSections: [],
+          synthesized: true,
+        },
+      };
+
+      await onEnhance({
+        title: enhanced.title,
+        star: enhanced.star,
+        metrics: enhanced.metrics,
+        tags: enhanced.tags,
+        variations: enhanced.variations,
+        followUpQuestions: enhanced.followUpQuestions,
+        coachingNotes: enhanced.coachingNotes,
+        generatedAnswerMetadata,
+      });
+
+      toast.success('Story enhanced!', enhanced.improvementSummary || 'Your story has been improved with AI');
+    } catch (error) {
+      console.error('Enhancement failed:', error);
+      toast.error('Enhancement failed', 'Please try again');
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
 
   // Check if this story has generated answer metadata
   const hasGeneratedMetadata = !!story.generatedAnswerMetadata;
@@ -534,6 +627,13 @@ const StoryCard: React.FC<StoryCardProps> = ({
                       formatInfo.color === 'gray' && 'bg-gray-800 text-gray-400',
                     )}>
                       {formatInfo.name}
+                    </span>
+                  )}
+                  {/* Enhancement suggestion badge */}
+                  {needsEnhancement() && !hasGeneratedMetadata && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-900/30 text-purple-400 flex items-center gap-1">
+                      <Wand2 className="w-3 h-3" />
+                      Enhance
                     </span>
                   )}
                 </div>
@@ -858,6 +958,83 @@ const StoryCard: React.FC<StoryCardProps> = ({
                 {new Date(story.createdAt).toLocaleDateString()}
               </div>
               <div className="flex gap-2">
+                {/* Enhance Button with dropdown */}
+                <div className="relative" ref={enhanceDropdownRef}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowEnhanceOptions(!showEnhanceOptions)}
+                    disabled={isEnhancing}
+                    leftIcon={isEnhancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                    className={cn(
+                      needsEnhancement() && !isEnhancing && 'text-purple-400 hover:text-purple-300'
+                    )}
+                  >
+                    {isEnhancing ? 'Enhancing...' : 'Enhance'}
+                  </Button>
+
+                  {/* Enhancement options dropdown */}
+                  {showEnhanceOptions && (
+                    <div className="absolute right-0 bottom-full mb-2 w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10">
+                      <div className="p-2 border-b border-gray-700">
+                        <span className="text-xs text-gray-400 uppercase font-semibold">Enhancement Focus</span>
+                      </div>
+                      <div className="p-1">
+                        <button
+                          onClick={() => handleEnhance('full')}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 rounded flex items-center gap-2"
+                        >
+                          <Sparkles className="w-4 h-4 text-purple-400" />
+                          <div>
+                            <div className="font-medium">Full Enhancement</div>
+                            <div className="text-xs text-gray-400">Improve all aspects</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleEnhance('metrics')}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 rounded flex items-center gap-2"
+                        >
+                          <Target className="w-4 h-4 text-green-400" />
+                          <div>
+                            <div className="font-medium">Strengthen Metrics</div>
+                            <div className="text-xs text-gray-400">Focus on quantifiable results</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleEnhance('narrative')}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 rounded flex items-center gap-2"
+                        >
+                          <FileText className="w-4 h-4 text-blue-400" />
+                          <div>
+                            <div className="font-medium">Improve Narrative</div>
+                            <div className="text-xs text-gray-400">Better flow and clarity</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleEnhance('impact')}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 rounded flex items-center gap-2"
+                        >
+                          <Star className="w-4 h-4 text-yellow-400" />
+                          <div>
+                            <div className="font-medium">Highlight Impact</div>
+                            <div className="text-xs text-gray-400">Business and team effects</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleEnhance('interview-ready')}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-200 hover:bg-gray-700 rounded flex items-center gap-2"
+                        >
+                          <MessageSquare className="w-4 h-4 text-cyan-400" />
+                          <div>
+                            <div className="font-medium">Interview Ready</div>
+                            <div className="text-xs text-gray-400">Talking points & delivery tips</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <Button
                   variant="ghost"
                   size="sm"

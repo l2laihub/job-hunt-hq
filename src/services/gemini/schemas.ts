@@ -1518,3 +1518,71 @@ export const interviewResearchSchema: Schema = {
   },
   required: ['interviewProcess', 'commonQuestions', 'whatTheyLookFor', 'tips', 'difficulty', 'summary'],
 };
+
+// Story Enhancement schema - for AI-powered story improvement
+export const storyEnhancementSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING, description: 'Enhanced or refined title for the story' },
+    narrative: { type: Type.STRING, description: 'Enhanced conversational narrative version of the story for interview delivery. Should be natural, engaging, and ready to speak aloud. Use markdown formatting for emphasis.' },
+    star: {
+      type: Type.OBJECT,
+      properties: {
+        situation: { type: Type.STRING, description: 'Enhanced situation with vivid context, stakes, and setting' },
+        task: { type: Type.STRING, description: 'Clarified task with specific goals and constraints' },
+        action: { type: Type.STRING, description: 'Expanded action with concrete steps and decision-making' },
+        result: { type: Type.STRING, description: 'Strengthened result with quantifiable impact' },
+      },
+      required: ['situation', 'task', 'action', 'result'],
+    },
+    metrics: {
+      type: Type.OBJECT,
+      properties: {
+        primary: { type: Type.STRING, description: 'The most impressive quantifiable result' },
+        secondary: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Additional metrics and results' },
+        missing: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Metrics the candidate could add if they can verify' },
+      },
+    },
+    suggestedTags: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Relevant tags for categorization' },
+    variations: {
+      type: Type.OBJECT,
+      properties: {
+        leadership: { type: Type.STRING, description: 'How to angle this story for leadership questions' },
+        technical: { type: Type.STRING, description: 'How to angle this story for technical questions' },
+        challenge: { type: Type.STRING, description: 'How to angle this story for overcoming challenges' },
+      },
+    },
+    followUpQuestions: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Likely follow-up questions an interviewer might ask',
+    },
+    followUpQA: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          likelihood: { type: Type.STRING, enum: ['high', 'medium', 'low'] },
+          suggestedAnswer: { type: Type.STRING },
+          keyPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ['question', 'likelihood', 'suggestedAnswer', 'keyPoints'],
+      },
+      description: 'Follow-up questions with suggested answers',
+    },
+    coachingNotes: { type: Type.STRING, description: 'Coaching advice on how to deliver this story effectively' },
+    keyTalkingPoints: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: '3-5 key points to always hit when telling this story',
+    },
+    deliveryTips: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Tips for how to deliver this story in an interview',
+    },
+    improvementSummary: { type: Type.STRING, description: 'Brief summary of what was enhanced and why' },
+  },
+  required: ['title', 'narrative', 'star', 'metrics', 'suggestedTags', 'coachingNotes', 'keyTalkingPoints', 'improvementSummary'],
+};
