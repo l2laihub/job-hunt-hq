@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Target,
   Headphones,
+  Brain,
 } from 'lucide-react';
 import { useApplicationStore } from '@/src/stores';
 import { ToastContainer, Button } from '@/src/components/ui';
@@ -40,6 +41,7 @@ const navItems = [
   // Interview Prep Hub
   { to: '/interview-prep', label: 'Interview Prep', icon: Target },
   { to: '/answers', label: 'Answer Prep', icon: Zap },
+  { to: '/practice', label: 'Practice', icon: Brain },
   { to: '/mock-interview', label: 'Mock Interview', icon: Mic },
   { to: '/copilot', label: 'Interview Copilot', icon: Headphones },
   // Tools

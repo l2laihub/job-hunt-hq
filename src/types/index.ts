@@ -483,6 +483,105 @@ export interface QuestionMatch {
   openingLine: string;
 }
 
+// ============================================
+// SPACED REPETITION SYSTEM (SRS) TYPES
+// ============================================
+
+// SRS Rating based on SM-2 algorithm (0-5 scale)
+export type SRSRating = 0 | 1 | 2 | 3 | 4 | 5;
+
+// Mastery level based on repetition count and interval
+export type MasteryLevel = 'new' | 'learning' | 'reviewing' | 'mastered';
+
+// SRS data stored with each flashcard item
+export interface SRSData {
+  easinessFactor: number;      // Starts 2.5, min 1.3
+  repetitionCount: number;     // Number of successful reviews
+  interval: number;            // Days until next review
+  nextReviewDate: string;      // ISO date string
+  lastReviewDate?: string;     // ISO date string of last review
+  reviewHistory: Array<{
+    date: string;
+    rating: SRSRating;
+    intervalAtReview: number;
+  }>;
+}
+
+// Study session configuration
+export type StudyMode = 'daily' | 'application' | 'quick' | 'all-due';
+
+// A study session tracking active practice
+export interface StudySession {
+  id: string;
+  mode: StudyMode;
+  applicationId?: string;      // If studying for specific job
+  startedAt: string;
+  endedAt?: string;
+  totalCards: number;
+  cardsReviewed: number;
+  cardsRemaining: number;
+  ratings: Record<SRSRating, number>;  // Count per rating
+  averageRating: number;
+}
+
+// Overall study progress and stats
+export interface StudyProgress {
+  id: string;
+  userId?: string;
+  profileId?: string;
+
+  // Streak tracking
+  currentStreak: number;       // Days in a row
+  longestStreak: number;
+  lastStudyDate?: string;
+
+  // Card statistics
+  totalCardsStudied: number;
+  totalReviews: number;
+  cardsNew: number;
+  cardsLearning: number;
+  cardsReviewing: number;
+  cardsMastered: number;
+
+  // Performance
+  averageEasinessFactor: number;
+  averageRating: number;
+
+  // Session history
+  sessionsCompleted: number;
+  totalStudyTimeMinutes: number;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Default SRS data for new cards
+export const DEFAULT_SRS_DATA: SRSData = {
+  easinessFactor: 2.5,
+  repetitionCount: 0,
+  interval: 0,
+  nextReviewDate: new Date().toISOString(),
+  reviewHistory: [],
+};
+
+// SM-2 rating labels for UI
+export const SRS_RATING_LABELS: Record<SRSRating, { label: string; description: string; color: string }> = {
+  0: { label: 'Blackout', description: "Complete blank, couldn't recall anything", color: 'text-red-500' },
+  1: { label: 'Failed', description: 'Incorrect response, but recognized the answer', color: 'text-red-400' },
+  2: { label: 'Hard', description: 'Correct but required significant effort', color: 'text-orange-400' },
+  3: { label: 'Good', description: 'Correct with some hesitation', color: 'text-yellow-400' },
+  4: { label: 'Easy', description: 'Correct with little hesitation', color: 'text-green-400' },
+  5: { label: 'Perfect', description: 'Instant recall, perfect response', color: 'text-green-500' },
+};
+
+// Mastery level display config
+export const MASTERY_LEVEL_CONFIG: Record<MasteryLevel, { label: string; color: string; bgColor: string; description: string }> = {
+  new: { label: 'New', color: 'text-gray-400', bgColor: 'bg-gray-800', description: 'Not yet reviewed' },
+  learning: { label: 'Learning', color: 'text-blue-400', bgColor: 'bg-blue-900/30', description: 'Recently started learning' },
+  reviewing: { label: 'Reviewing', color: 'text-yellow-400', bgColor: 'bg-yellow-900/30', description: 'Building long-term memory' },
+  mastered: { label: 'Mastered', color: 'text-green-400', bgColor: 'bg-green-900/30', description: 'Well memorized' },
+};
+
 // Technical Answer Generator Types
 export type TechnicalQuestionType =
   | 'behavioral-technical'
@@ -545,6 +644,8 @@ export interface TechnicalAnswer {
   updatedAt: string;
   // Profile linking for multi-profile support
   profileId?: string;
+  // Spaced repetition data for flashcard practice
+  srsData?: SRSData;
 }
 
 export interface PracticeSession {

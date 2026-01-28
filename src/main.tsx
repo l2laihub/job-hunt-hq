@@ -21,6 +21,7 @@ const AnswersPage = React.lazy(() => import('./app/routes/answers'));
 const EnhancePage = React.lazy(() => import('./app/routes/enhance'));
 const ProfilePage = React.lazy(() => import('./app/routes/profile'));
 const CopilotPage = React.lazy(() => import('./app/routes/copilot'));
+const PracticePage = React.lazy(() => import('./app/routes/practice'));
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -135,6 +136,14 @@ const App: React.FC = () => {
                 element={
                   <React.Suspense fallback={<PageLoader />}>
                     <CopilotPage />
+                  </React.Suspense>
+                }
+              />
+              <Route
+                path="practice"
+                element={
+                  <React.Suspense fallback={<PageLoader />}>
+                    <PracticePage />
                   </React.Suspense>
                 }
               />

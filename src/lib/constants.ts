@@ -11,6 +11,8 @@ export const STORAGE_KEYS = {
   COMPANY_RESEARCH: 'jhq:company-research:v1',
   INTERVIEW_PREP: 'jhq:interview-prep:v1',
   TOPIC_RESEARCH: 'jhq:topic-research:v1',
+  FLASHCARDS: 'jhq:flashcards:v1',
+  STUDY_PROGRESS: 'jhq:study-progress:v1',
   // Legacy keys for migration
   LEGACY_APPLICATIONS: 'jobhunt-hq-applications',
   LEGACY_PROFILE: 'jobhunt-hq-profile',

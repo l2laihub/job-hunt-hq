@@ -36,6 +36,9 @@ export { useSupabaseInterviewPrepStore } from './interview-prep';
 // Copilot Sessions store
 export { useSupabaseCopilotSessionsStore } from './copilot-sessions';
 
+// Flashcards store
+export { useSupabaseFlashcardsStore } from './flashcards';
+
 // Re-export database services for direct access
 export { db } from '@/src/services/database';
 

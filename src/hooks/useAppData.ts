@@ -12,6 +12,7 @@ import {
   useSupabaseEnhancementsStore,
   useSupabaseTechnicalAnswersStore,
   useSupabaseInterviewPrepStore,
+  useSupabaseFlashcardsStore,
   useSupabaseActiveProfile,
   useSupabaseCurrentProfile,
   useSupabaseActiveProfileId,
@@ -27,6 +28,7 @@ import { useAnalyzedJobsStore } from '@/src/stores/analyzed-jobs';
 import { useEnhancementsStore } from '@/src/stores/enhancements';
 import { useTechnicalAnswersStore } from '@/src/stores/technical-answers';
 import { useInterviewPrepStore } from '@/src/stores/interview-prep';
+import { useFlashcardsStore } from '@/src/stores/flashcards';
 
 /**
  * Hook to get the appropriate data based on Supabase configuration
@@ -388,6 +390,73 @@ export function useInterviewPrep() {
     supabaseStore,
     legacySessions,
     legacyPracticeSessions,
+    legacyStore,
+  ]);
+}
+
+/**
+ * Hook for flashcards/spaced repetition data and actions
+ * Automatically switches between Supabase and localStorage based on auth state
+ */
+export function useFlashcards() {
+  const { user } = useAuth();
+  const configured = isSupabaseConfigured();
+  const useSupabase = configured && !!user;
+
+  // Supabase store
+  const supabaseActiveSession = useSupabaseFlashcardsStore((s) => s.activeSession);
+  const supabaseSessions = useSupabaseFlashcardsStore((s) => s.sessions);
+  const supabaseProgress = useSupabaseFlashcardsStore((s) => s.progress);
+  const supabaseCurrentCardIndex = useSupabaseFlashcardsStore((s) => s.currentCardIndex);
+  const supabaseStore = useSupabaseFlashcardsStore();
+
+  // Legacy localStorage store
+  const legacyActiveSession = useFlashcardsStore((s) => s.activeSession);
+  const legacySessions = useFlashcardsStore((s) => s.sessions);
+  const legacyProgress = useFlashcardsStore((s) => s.progress);
+  const legacyCurrentCardIndex = useFlashcardsStore((s) => s.currentCardIndex);
+  const legacyStore = useFlashcardsStore();
+
+  return useMemo(() => ({
+    // State
+    activeSession: useSupabase ? supabaseActiveSession : legacyActiveSession,
+    sessions: useSupabase ? supabaseSessions : legacySessions,
+    progress: useSupabase ? supabaseProgress : legacyProgress,
+    currentCardIndex: useSupabase ? supabaseCurrentCardIndex : legacyCurrentCardIndex,
+
+    // Session actions
+    startSession: useSupabase ? supabaseStore.startSession : legacyStore.startSession,
+    recordReview: useSupabase ? supabaseStore.recordReview : legacyStore.recordReview,
+    endSession: useSupabase ? supabaseStore.endSession : legacyStore.endSession,
+    abandonSession: useSupabase ? supabaseStore.abandonSession : legacyStore.abandonSession,
+
+    // Progress tracking
+    getProgress: useSupabase ? supabaseStore.getProgress : legacyStore.getProgress,
+    updateProgress: useSupabase ? supabaseStore.updateProgress : legacyStore.updateProgress,
+
+    // Session queries
+    getSession: useSupabase ? supabaseStore.getSession : legacyStore.getSession,
+    getRecentSessions: useSupabase ? supabaseStore.getRecentSessions : legacyStore.getRecentSessions,
+    getSessionStats: useSupabase ? supabaseStore.getSessionStats : legacyStore.getSessionStats,
+
+    // Card navigation
+    nextCard: useSupabase ? supabaseStore.nextCard : legacyStore.nextCard,
+    previousCard: useSupabase ? supabaseStore.previousCard : legacyStore.previousCard,
+    skipCard: useSupabase ? supabaseStore.skipCard : legacyStore.skipCard,
+
+    // Meta
+    isUsingSupabase: useSupabase,
+  }), [
+    useSupabase,
+    supabaseActiveSession,
+    supabaseSessions,
+    supabaseProgress,
+    supabaseCurrentCardIndex,
+    supabaseStore,
+    legacyActiveSession,
+    legacySessions,
+    legacyProgress,
+    legacyCurrentCardIndex,
     legacyStore,
   ]);
 }

@@ -7,6 +7,7 @@ import { useAnalyzedJobsStore, initAnalyzedJobsSync, destroyAnalyzedJobsSync } f
 import { useEnhancementsStore } from './enhancements';
 import { useCompanyResearchStore } from './company-research';
 import { useInterviewPrepStore, migrateLegacyInterviewPrep, initInterviewPrepSync, destroyInterviewPrepSync } from './interview-prep';
+import { useFlashcardsStore, initFlashcardsSync, destroyFlashcardsSync } from './flashcards';
 import { useUIStore, toast } from './ui';
 import type { ModalType, Toast } from './ui';
 import { initStorageSync, destroyStorageSync } from '@/src/lib/storage-sync';
@@ -36,6 +37,7 @@ export {
   useFeedbackForMessage,
 } from './preferences';
 export { useTopicResearchStore } from './topic-research';
+export { useFlashcardsStore } from './flashcards';
 
 // Initialize all stores and run migrations
 export function initializeStores(): void {
@@ -55,6 +57,7 @@ export function initializeStores(): void {
   initTechnicalAnswersSync();
   initAnalyzedJobsSync();
   initInterviewPrepSync();
+  initFlashcardsSync();
 }
 
 // Cleanup function for unmounting
@@ -65,5 +68,6 @@ export function destroyStores(): void {
   destroyTechnicalAnswersSync();
   destroyAnalyzedJobsSync();
   destroyInterviewPrepSync();
+  destroyFlashcardsSync();
   destroyStorageSync();
 }
