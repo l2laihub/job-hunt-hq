@@ -11,12 +11,11 @@ import {
 } from '../src/types';
 import { interviewNotesService } from '../src/services/database/interview-notes';
 import {
-  uploadInterviewRecording,
   getRecordingUrl,
   deleteInterviewRecording,
 } from '../src/services/storage/interview-recordings';
 import { analyzeInterviewContent, processInterviewRecording } from '../services/geminiService';
-import { AudioRecorder } from './AudioRecorder';
+import { useRecordingStore } from '../src/stores/recording';
 import {
   Plus,
   Mic,
@@ -29,6 +28,7 @@ import {
   Trash2,
   Loader2,
   Play,
+  Pause,
   Square,
   Sparkles,
   CheckCircle,
@@ -37,6 +37,7 @@ import {
   Edit3,
   Save,
   X,
+  Volume2,
 } from 'lucide-react';
 
 interface InterviewNotesTabProps {
@@ -72,9 +73,34 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
     interviewDate: new Date().toISOString().split('T')[0],
     rawNotes: '',
   });
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
-  const [recordedDuration, setRecordedDuration] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Recording store
+  const recordingStatus = useRecordingStore((s) => s.status);
+  const recordingDuration = useRecordingStore((s) => s.duration);
+  const recordingVolume = useRecordingStore((s) => s.volumeLevel);
+  const recordingContext = useRecordingStore((s) => s.context);
+  const recordingError = useRecordingStore((s) => s.error);
+  const startRecording = useRecordingStore((s) => s.startRecording);
+  const pauseRecording = useRecordingStore((s) => s.pauseRecording);
+  const resumeRecording = useRecordingStore((s) => s.resumeRecording);
+  const stopRecording = useRecordingStore((s) => s.stopRecording);
+  const discardRecording = useRecordingStore((s) => s.discardRecording);
+
+  // Is this application the one currently recording?
+  const isRecordingForThisApp = recordingContext?.applicationId === application.id;
+  const isRecordingActive = recordingStatus === 'recording' || recordingStatus === 'paused' || recordingStatus === 'saving';
+  const isRecordingForOtherApp = recordingContext !== null && !isRecordingForThisApp && isRecordingActive;
+
+  // Reload notes when a recording finishes saving (status goes from saving → idle)
+  const prevStatusRef = React.useRef(recordingStatus);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = recordingStatus;
+    if (prev === 'saving' && recordingStatus === 'idle') {
+      loadNotes();
+    }
+  }, [recordingStatus]);
 
   // Load notes on mount
   useEffect(() => {
@@ -118,25 +144,8 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
       noteData.interviewDate = new Date(newNote.interviewDate).toISOString();
       noteData.rawNotes = newNote.rawNotes;
 
-      // Create the note first
-      const createdNote = await interviewNotesService.create(noteData);
-
-      // If there's a recording, upload it
-      if (recordedBlob) {
-        const audioMetadata = await uploadInterviewRecording(
-          userId,
-          application.id,
-          recordedBlob,
-          recordedDuration
-        );
-
-        // Update note with audio metadata
-        await interviewNotesService.update(createdNote.id, {
-          audioRecording: audioMetadata,
-          processingStatus: 'uploaded',
-          durationMinutes: Math.ceil(recordedDuration / 60),
-        });
-      }
+      // Create the note
+      await interviewNotesService.create(noteData);
 
       // Reset form
       setNewNote({
@@ -146,8 +155,6 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
         interviewDate: new Date().toISOString().split('T')[0],
         rawNotes: '',
       });
-      setRecordedBlob(null);
-      setRecordedDuration(0);
       setShowNewNoteForm(false);
 
       // Reload notes
@@ -316,6 +323,16 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
     return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
   };
 
+  const formatRecordingTime = (seconds: number): string => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -421,35 +438,133 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
               <Mic className="w-4 h-4 inline mr-1" />
               Record Interview Audio
             </label>
-            <AudioRecorder
-              onRecordingComplete={(blob, duration) => {
-                setRecordedBlob(blob);
-                setRecordedDuration(duration);
-              }}
-              className="border border-gray-700"
-            />
-            {recordedBlob && (
-              <p className="mt-2 text-sm text-green-400">
-                Recording saved: {formatDuration(recordedDuration)}
-              </p>
+
+            {/* Recording error */}
+            {recordingError && isRecordingForThisApp && (
+              <div className="mb-3 p-2 bg-red-900/50 border border-red-700 rounded text-red-300 text-sm">
+                {recordingError}
+              </div>
+            )}
+
+            {/* Another app is recording */}
+            {isRecordingForOtherApp && (
+              <div className="p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-300 text-sm">
+                <AlertCircle className="w-4 h-4 inline mr-1" />
+                Recording in progress for <strong>{recordingContext?.applicationName}</strong>. Stop it first to start a new one.
+              </div>
+            )}
+
+            {/* Idle state — start button */}
+            {(recordingStatus === 'idle' || (!isRecordingForThisApp && !isRecordingForOtherApp)) && (
+              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <button
+                  onClick={() => startRecording({
+                    applicationId: application.id,
+                    applicationName: `${application.company} - ${application.role}`,
+                    userId,
+                  })}
+                  disabled={isRecordingForOtherApp}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition-colors mx-auto"
+                >
+                  <Mic className="w-5 h-5" />
+                  Start Recording
+                </button>
+              </div>
+            )}
+
+            {/* Active recording controls (this app) */}
+            {isRecordingForThisApp && (recordingStatus === 'recording' || recordingStatus === 'paused') && (
+              <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 space-y-3">
+                {/* Status & Timer */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${recordingStatus === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`} />
+                    <span className="text-sm text-gray-300">
+                      {recordingStatus === 'recording' ? 'Recording...' : 'Paused'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Clock className="w-4 h-4" />
+                    <span className="font-mono text-lg">{formatRecordingTime(recordingDuration)}</span>
+                  </div>
+                </div>
+
+                {/* Volume Meter */}
+                {recordingStatus === 'recording' && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Volume2 className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs text-gray-500">Volume Level</span>
+                    </div>
+                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-75"
+                        style={{ width: `${Math.min(100, recordingVolume * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div className="flex items-center justify-center gap-3">
+                  {recordingStatus === 'recording' && (
+                    <button
+                      onClick={pauseRecording}
+                      className="p-3 bg-yellow-600 hover:bg-yellow-700 rounded-full text-white transition-colors"
+                      title="Pause"
+                    >
+                      <Pause className="w-5 h-5" />
+                    </button>
+                  )}
+                  {recordingStatus === 'paused' && (
+                    <button
+                      onClick={resumeRecording}
+                      className="p-3 bg-green-600 hover:bg-green-700 rounded-full text-white transition-colors"
+                      title="Resume"
+                    >
+                      <Play className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => { await stopRecording(); }}
+                    className="p-3 bg-gray-600 hover:bg-gray-700 rounded-full text-white transition-colors"
+                    title="Stop"
+                  >
+                    <Square className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={discardRecording}
+                    className="p-3 bg-red-600/50 hover:bg-red-600 rounded-full text-white transition-colors"
+                    title="Discard"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Saving indicator */}
+            {isRecordingForThisApp && recordingStatus === 'saving' && (
+              <div className="bg-gray-800 rounded-lg p-4 border border-blue-700/50">
+                <div className="flex items-center gap-2 text-blue-300 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving recording...
+                </div>
+              </div>
             )}
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => {
-                setShowNewNoteForm(false);
-                setRecordedBlob(null);
-                setRecordedDuration(0);
-              }}
+              onClick={() => setShowNewNoteForm(false)}
               className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleCreateNote}
-              disabled={isSaving || (!newNote.rawNotes && !recordedBlob)}
+              disabled={isSaving || !newNote.rawNotes}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
             >
               {isSaving ? (

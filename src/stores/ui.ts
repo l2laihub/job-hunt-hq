@@ -20,6 +20,7 @@ interface UIState {
   // Modal state
   activeModal: ModalType;
   modalData: unknown;
+  modalInitialTab: string | null;
 
   // Toast notifications
   toasts: Toast[];
@@ -35,7 +36,7 @@ interface UIState {
   loadingMessage: string;
 
   // Actions
-  openModal: (modal: ModalType, data?: unknown) => void;
+  openModal: (modal: ModalType, data?: unknown, initialTab?: string) => void;
   closeModal: () => void;
 
   addToast: (toast: Omit<Toast, 'id'>) => void;
@@ -54,18 +55,19 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   activeModal: null,
   modalData: null,
+  modalInitialTab: null,
   toasts: [],
   sidebarOpen: true,
   commandPaletteOpen: false,
   globalLoading: false,
   loadingMessage: '',
 
-  openModal: (modal, data) => {
-    set({ activeModal: modal, modalData: data });
+  openModal: (modal, data, initialTab) => {
+    set({ activeModal: modal, modalData: data, modalInitialTab: initialTab ?? null });
   },
 
   closeModal: () => {
-    set({ activeModal: null, modalData: null });
+    set({ activeModal: null, modalData: null, modalInitialTab: null });
   },
 
   addToast: (toast) => {

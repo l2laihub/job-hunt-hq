@@ -58,6 +58,7 @@ const statusOptions = APPLICATION_STATUSES.map((s) => ({
 export const ApplicationModal: React.FC = () => {
   const activeModal = useUIStore((s) => s.activeModal);
   const modalData = useUIStore((s) => s.modalData) as JobApplication | undefined;
+  const modalInitialTab = useUIStore((s) => s.modalInitialTab);
   const closeModal = useUIStore((s) => s.closeModal);
 
   const { addApplication, updateApplication } = useApplications();
@@ -91,9 +92,11 @@ export const ApplicationModal: React.FC = () => {
       } else {
         setFormData(initialFormData);
       }
-      setActiveTab('details');
+      setActiveTab(
+        (modalInitialTab as 'details' | 'analysis' | 'notes') || 'details'
+      );
     }
-  }, [isOpen, modalData]);
+  }, [isOpen, modalData, modalInitialTab]);
 
   const handleClose = () => {
     closeModal();

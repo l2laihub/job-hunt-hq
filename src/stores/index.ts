@@ -38,6 +38,8 @@ export {
 } from './preferences';
 export { useTopicResearchStore } from './topic-research';
 export { useFlashcardsStore } from './flashcards';
+export { useRecordingStore } from './recording';
+export type { RecordingContext } from './recording';
 
 // Initialize all stores and run migrations
 export function initializeStores(): void {

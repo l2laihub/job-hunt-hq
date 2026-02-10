@@ -27,6 +27,7 @@ import { ApplicationModal } from '@/src/components/applications';
 import { ProfileSwitcher } from '@/src/components/profile';
 import { UserMenu } from '@/src/components/auth';
 import { AIAssistant } from '@/src/components/ai-assistant';
+import { FloatingRecorder } from '@/src/components/ui/floating-recorder';
 import { useDataExport } from '@/src/hooks';
 
 const navItems = [
@@ -307,6 +308,9 @@ export const AppLayout: React.FC = () => {
 
       {/* AI Assistant Sidebar */}
       <AIAssistant />
+
+      {/* Floating Recorder Widget */}
+      <FloatingRecorder />
 
       {/* Hidden file input for import */}
       <input
