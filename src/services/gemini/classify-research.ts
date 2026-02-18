@@ -5,6 +5,7 @@
  * vs. a regular conversational response from the AI assistant.
  */
 import { requireGemini, DEFAULT_MODEL } from './client';
+import { parseGeminiJson } from './parse-json';
 import { researchClassificationSchema } from './schemas';
 import type { AssistantContext } from '@/src/types/assistant';
 import type { ResearchClassification, TopicResearchType } from '@/src/types/topic-research';
@@ -166,13 +167,7 @@ Extract the most relevant search query from the message.`;
       throw new Error('Empty response from classifier');
     }
 
-    // Clean up response if needed
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText) as ResearchClassification;
+    const result = parseGeminiJson<ResearchClassification>(response.text, { context: 'classifyResearchIntent' });
 
     return {
       needsResearch: result.needsResearch ?? false,

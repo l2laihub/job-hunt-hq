@@ -1,5 +1,6 @@
 import { requireGemini, DEFAULT_MODEL, MAX_THINKING_BUDGET } from './client';
 import { profileSchema } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import type { UserProfile } from '@/src/types';
 import { readFileAsText, readFileAsBase64 } from '@/src/lib/utils';
 import mammoth from 'mammoth';
@@ -149,12 +150,7 @@ Analyze the documents and extract a complete profile.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const profile = JSON.parse(jsonText) as UserProfile;
+    const profile = parseGeminiJson<UserProfile>(response.text, { context: 'processDocuments' });
 
     // Ensure required fields have defaults
     return {

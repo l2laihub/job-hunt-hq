@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import type {
   UserProfile,
   JDAnalysis,
@@ -237,21 +238,16 @@ Return a JSON object with a "questions" array containing all predicted questions
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
     // Try to parse, with fallback for truncated responses
-    let result;
+    let result: { questions?: PredictedQuestionRaw[] };
     try {
-      result = JSON.parse(jsonText);
+      result = parseGeminiJson<{ questions?: PredictedQuestionRaw[] }>(response.text, { context: 'predictInterviewQuestions' });
     } catch (parseError) {
       // If JSON is truncated, try to salvage partial data
       console.warn('JSON parse failed, attempting to salvage partial response');
 
       // Try to find the last complete question object
-      const questionsMatch = jsonText.match(/"questions"\s*:\s*\[([\s\S]*)/);
+      const questionsMatch = response.text!.match(/"questions"\s*:\s*\[([\s\S]*)/);
       if (questionsMatch) {
         const questionsContent = questionsMatch[1];
         // Find all complete question objects using a more robust pattern
@@ -379,12 +375,7 @@ Return JSON with:
 
     if (!response.text) return null;
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'matchStoryToQuestion' });
 
     if (result.storyIndex === null || result.storyIndex === undefined) return null;
     if (!stories[result.storyIndex]) return null;

@@ -13,6 +13,7 @@
  */
 
 import { geminiClient, requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { Type, Schema } from '@google/genai';
 import type {
   UserProfile,
@@ -596,7 +597,7 @@ Generate the complete answer following the schema.`;
   const text = result.text || '';
 
   try {
-    const parsed = JSON.parse(text);
+    const parsed = parseGeminiJson<any>(text, { context: 'generateInterviewAnswer' });
 
     // Map story indices back to IDs
     const matchedStoryIds = (parsed.sources?.matchedStoryIndices || [])
@@ -721,7 +722,7 @@ Generate the complete refined answer with all fields updated appropriately.`;
   const text = result.text || '';
 
   try {
-    const parsed = JSON.parse(text);
+    const parsed = parseGeminiJson<any>(text, { context: 'refineInterviewAnswer' });
 
     // Preserve source story IDs from original (refinement shouldn't change sources)
     const answer: GeneratedInterviewAnswer = {

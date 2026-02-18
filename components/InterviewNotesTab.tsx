@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   InterviewNote,
   InterviewStage,
@@ -40,6 +40,8 @@ import {
   Save,
   X,
   Volume2,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
 
 interface InterviewNotesTabProps {
@@ -64,9 +66,16 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [processingNoteId, setProcessingNoteId] = useState<string | null>(null);
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [activeAudioNoteId, setActiveAudioNoteId] = useState<string | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const [downloadingNoteId, setDownloadingNoteId] = useState<string | null>(null);
-  const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const seekBarRef = useRef<HTMLInputElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   // New note form state
   const [newNote, setNewNote] = useState({
@@ -110,15 +119,36 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
     loadNotes();
   }, [application.id]);
 
+  // Sync time from audio element via requestAnimationFrame for smooth updates
+  const startTimeSync = useCallback(() => {
+    const tick = () => {
+      const audio = audioRef.current;
+      if (audio) {
+        setAudioCurrentTime(audio.currentTime);
+      }
+      animFrameRef.current = requestAnimationFrame(tick);
+    };
+    animFrameRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopTimeSync = useCallback(() => {
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+  }, []);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
-      if (audioRef) {
-        audioRef.pause();
-        audioRef.src = '';
+      stopTimeSync();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
       }
     };
-  }, [audioRef]);
+  }, [stopTimeSync]);
 
   const loadNotes = async () => {
     try {
@@ -266,41 +296,117 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
     } catch (err) {
       console.error('Failed to analyze note:', err);
       await interviewNotesService.updateProcessingStatus(note.id, 'failed', String(err));
-      setError('Failed to analyze interview');
+      const isJsonError = err instanceof SyntaxError || (err instanceof Error && err.message.includes('JSON parse failed'));
+      setError(
+        isJsonError
+          ? 'The interview was too long to fully analyze. Try recording shorter segments.'
+          : 'Failed to analyze interview'
+      );
       await loadNotes();
     } finally {
       setProcessingNoteId(null);
     }
   };
 
-  const handlePlayAudio = async (note: InterviewNote) => {
+  const cleanupAudio = useCallback(() => {
+    stopTimeSync();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    setActiveAudioNoteId(null);
+    setIsAudioPlaying(false);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    setAudioLoading(false);
+  }, [stopTimeSync]);
+
+  const handleLoadAudio = async (note: InterviewNote) => {
     if (!note.audioRecording?.path) return;
 
     try {
-      // If already playing this note, stop it
-      if (playingAudioId === note.id && audioRef) {
-        audioRef.pause();
-        audioRef.currentTime = 0;
-        setPlayingAudioId(null);
+      // If this note's player is already active, just toggle play/pause
+      if (activeAudioNoteId === note.id && audioRef.current) {
+        if (isAudioPlaying) {
+          audioRef.current.pause();
+          stopTimeSync();
+          setIsAudioPlaying(false);
+        } else {
+          await audioRef.current.play();
+          startTimeSync();
+          setIsAudioPlaying(true);
+        }
         return;
       }
 
       // Stop any currently playing audio
-      if (audioRef) {
-        audioRef.pause();
-        audioRef.currentTime = 0;
-      }
+      cleanupAudio();
+      setAudioLoading(true);
+      setActiveAudioNoteId(note.id);
 
       const url = await getRecordingUrl(note.audioRecording.path);
       const audio = new Audio(url);
-      audio.onended = () => setPlayingAudioId(null);
-      audio.play();
-      setAudioRef(audio);
-      setPlayingAudioId(note.id);
+      audio.playbackRate = playbackRate;
+
+      audio.addEventListener('loadedmetadata', () => {
+        setAudioDuration(audio.duration);
+        setAudioLoading(false);
+      });
+
+      audio.addEventListener('ended', () => {
+        stopTimeSync();
+        setIsAudioPlaying(false);
+        setAudioCurrentTime(audio.duration);
+      });
+
+      audio.addEventListener('error', () => {
+        cleanupAudio();
+        setError('Failed to play recording');
+      });
+
+      audioRef.current = audio;
+      await audio.play();
+      startTimeSync();
+      setIsAudioPlaying(true);
     } catch (err) {
       console.error('Failed to play audio:', err);
+      cleanupAudio();
       setError('Failed to play recording');
     }
+  };
+
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setAudioCurrentTime(time);
+    }
+  }, []);
+
+  const handleSkip = useCallback((seconds: number) => {
+    if (audioRef.current) {
+      const newTime = Math.max(0, Math.min(audioRef.current.duration, audioRef.current.currentTime + seconds));
+      audioRef.current.currentTime = newTime;
+      setAudioCurrentTime(newTime);
+    }
+  }, []);
+
+  const handlePlaybackRateChange = useCallback(() => {
+    const rates = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    const currentIdx = rates.indexOf(playbackRate);
+    const nextRate = rates[(currentIdx + 1) % rates.length];
+    setPlaybackRate(nextRate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextRate;
+    }
+  }, [playbackRate]);
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleDownloadAudio = async (note: InterviewNote) => {
@@ -668,24 +774,27 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Audio indicator with quick play */}
+                  {/* Audio play toggle */}
                   {note.audioRecording && (
                     <>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handlePlayAudio(note);
+                          handleLoadAudio(note);
                         }}
+                        disabled={audioLoading && activeAudioNoteId === note.id}
                         className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                          playingAudioId === note.id
+                          activeAudioNoteId === note.id && isAudioPlaying
                             ? 'bg-green-600 text-white'
                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        }`}
+                        } disabled:opacity-50`}
                       >
-                        {playingAudioId === note.id ? (
+                        {audioLoading && activeAudioNoteId === note.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : activeAudioNoteId === note.id && isAudioPlaying ? (
                           <>
-                            <Square className="w-3 h-3" />
-                            Stop
+                            <Pause className="w-3 h-3" />
+                            Pause
                           </>
                         ) : (
                           <>
@@ -748,6 +857,104 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                 </div>
               </div>
 
+              {/* Audio Player — visible when audio is active for this note */}
+              {activeAudioNoteId === note.id && note.audioRecording && (
+                <div
+                  className="px-4 py-3 bg-gray-900/60 border-t border-gray-700"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Seek Bar */}
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs text-gray-400 font-mono w-10 text-right shrink-0">
+                      {formatTime(audioCurrentTime)}
+                    </span>
+                    <input
+                      ref={seekBarRef}
+                      type="range"
+                      min={0}
+                      max={audioDuration || 0}
+                      step={0.1}
+                      value={audioCurrentTime}
+                      onChange={handleSeek}
+                      className="flex-1 h-1.5 bg-gray-700 rounded-full appearance-none cursor-pointer
+                        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+                        [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:cursor-pointer
+                        [&::-webkit-slider-thumb]:shadow-[0_0_0_3px_rgba(59,130,246,0.2)]
+                        [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full
+                        [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+                      style={{
+                        background: audioDuration
+                          ? `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(audioCurrentTime / audioDuration) * 100}%, #374151 ${(audioCurrentTime / audioDuration) * 100}%, #374151 100%)`
+                          : '#374151',
+                      }}
+                    />
+                    <span className="text-xs text-gray-400 font-mono w-10 shrink-0">
+                      {formatTime(audioDuration)}
+                    </span>
+                  </div>
+
+                  {/* Controls Row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      {/* Playback speed */}
+                      <button
+                        onClick={handlePlaybackRateChange}
+                        className="px-2 py-1 rounded text-xs font-mono text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                        title="Playback speed"
+                      >
+                        {playbackRate}x
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Skip back 10s */}
+                      <button
+                        onClick={() => handleSkip(-10)}
+                        className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                        title="Back 10 seconds"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </button>
+
+                      {/* Play/Pause */}
+                      <button
+                        onClick={() => handleLoadAudio(note)}
+                        disabled={audioLoading}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded-full text-white transition-colors"
+                      >
+                        {audioLoading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : isAudioPlaying ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5" />
+                        )}
+                      </button>
+
+                      {/* Skip forward 10s */}
+                      <button
+                        onClick={() => handleSkip(10)}
+                        className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                        title="Forward 10 seconds"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {/* Close player */}
+                      <button
+                        onClick={cleanupAudio}
+                        className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                        title="Close player"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Expanded Content */}
               {expandedNoteId === note.id && (
                 <div className="px-4 pb-4 border-t border-gray-700 space-y-4">
@@ -756,11 +963,22 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                     {note.audioRecording && (
                       <>
                         <button
-                          onClick={() => handlePlayAudio(note)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white"
+                          onClick={() => handleLoadAudio(note)}
+                          disabled={audioLoading && activeAudioNoteId === note.id}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white transition-colors ${
+                            activeAudioNoteId === note.id && isAudioPlaying
+                              ? 'bg-green-600 hover:bg-green-700'
+                              : 'bg-gray-700 hover:bg-gray-600'
+                          } disabled:opacity-50`}
                         >
-                          <Play className="w-4 h-4" />
-                          {playingAudioId === note.id ? 'Pause' : 'Play'}
+                          {audioLoading && activeAudioNoteId === note.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : activeAudioNoteId === note.id && isAudioPlaying ? (
+                            <Pause className="w-4 h-4" />
+                          ) : (
+                            <Play className="w-4 h-4" />
+                          )}
+                          {activeAudioNoteId === note.id && isAudioPlaying ? 'Pause' : 'Play'}
                         </button>
                         <button
                           onClick={() => handleDownloadAudio(note)}

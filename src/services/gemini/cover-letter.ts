@@ -1,5 +1,6 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import { coverLetterSchema, coverLetterRefinementSchema } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import type { UserProfile, Experience, JDAnalysis, CoverLetterStyle } from '@/src/types';
 
 /**
@@ -315,12 +316,7 @@ The letter should sound like it was written by a real person with opinions and p
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateCoverLetter' });
 
     // Format the content to ensure proper paragraph breaks
     const formattedContent = formatCoverLetterContent(result.content || '', profile.name);
@@ -470,12 +466,7 @@ Return the refined letter with proper paragraph formatting (blank lines between 
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'refineCoverLetter' });
 
     // Format the content to ensure proper paragraph breaks
     const formattedContent = formatCoverLetterContent(result.refinedContent || '', profile.name);

@@ -1,5 +1,6 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import { applicationQuestionAnswerSchema } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import type { UserProfile, Experience, JDAnalysis, ApplicationQuestionAnswer, CompanyResearch, SalaryContext } from '@/src/types';
 
 interface GenerateApplicationAnswerParams {
@@ -426,12 +427,7 @@ ${!isShortForm ? '- 1-2 shorter alternative versions' : ''}`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateApplicationAnswer' });
 
     // Ensure the answer fits within the character limit
     let finalAnswer = result.generatedAnswer || '';

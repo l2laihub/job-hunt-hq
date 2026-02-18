@@ -1,5 +1,6 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import { experienceSchema, matchSchema } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import type { Experience, UserProfile, QuestionMatch } from '@/src/types';
 
 /**
@@ -41,13 +42,7 @@ Be specific and help the user tell a compelling story.`;
       throw new Error('Empty response from Gemini');
     }
 
-    // Clean up response
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'formatExperience' });
 
     return {
       title: result.title || 'Untitled Experience',
@@ -144,12 +139,7 @@ Be specific and practical with your suggestions.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'matchStoriesToQuestion' });
 
     // Map story indices back to IDs
     const matches: QuestionMatch[] = (result.matches || [])

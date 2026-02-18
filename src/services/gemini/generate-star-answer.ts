@@ -6,6 +6,7 @@
  */
 
 import { geminiClient, requireGemini } from './client';
+import { parseGeminiJson } from './parse-json';
 import { Type, Schema } from '@google/genai';
 import type { UserProfile, Experience, JDAnalysis, CompanyResearch, PredictedQuestion, FTEAnalysis } from '@/src/types';
 
@@ -239,7 +240,7 @@ Generate a complete, interview-ready STAR answer based on the candidate's actual
   const text = result.text || '';
 
   try {
-    const parsed = JSON.parse(text) as GeneratedAnswer;
+    const parsed = parseGeminiJson<GeneratedAnswer>(text, { context: 'generateStarAnswer' });
     return parsed;
   } catch (error) {
     console.error('Failed to parse generated answer:', error);
@@ -360,7 +361,7 @@ Generate the complete refined answer.`;
   const text = result.text || '';
 
   try {
-    const parsed = JSON.parse(text) as GeneratedAnswer;
+    const parsed = parseGeminiJson<GeneratedAnswer>(text, { context: 'refineStarAnswer' });
     return parsed;
   } catch (error) {
     console.error('Failed to parse refined answer:', error);

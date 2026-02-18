@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { resumeEnhancementSchema } from './schemas';
 import type {
   UserProfile,
@@ -240,12 +241,7 @@ export async function enhanceResume(params: EnhanceResumeParams): Promise<Enhanc
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'enhanceResume' });
 
     // Transform and validate the response
     const analysisResult: ResumeAnalysis = {
@@ -367,12 +363,7 @@ Be concise and direct.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'analyzeResumeQuick' });
   } catch (error) {
     console.error('Quick resume analysis failed:', error);
     throw new Error(

@@ -1,6 +1,9 @@
 // Client and configuration
 export { geminiClient, isGeminiAvailable, getApiKeyStatus, requireGemini } from './client';
 
+// JSON parsing utilities
+export { parseGeminiJson, wasResponseTruncated, type ParseGeminiJsonOptions } from './parse-json';
+
 // AI Functions - with aliases for convenience
 export { analyzeJD, analyzeJD as analyzeJobDescription, reanalyzeJD } from './analyze-jd';
 export { extractJobInfo, type ScreeningQuestion, type ExtractedJobInfo } from './extract-job-info';

@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, Schema, LiveServerMessage, Modality } from "@google/genai";
 import { UserProfile, JDAnalysis, FTEAnalysis, FreelanceAnalysis, CompanyResearch, Experience, QuestionMatch, InterviewConfig, JobApplication, InterviewFeedback, TranscriptItem, Project, ProjectDocumentation, InterviewNote, NextStepPrep, InterviewQuestionAsked, TechnicalAnswer } from "../types";
 import type { PredictedQuestion, QuickReference } from "@/src/types/interview-prep";
+import { parseGeminiJson, wasResponseTruncated } from "@/src/services/gemini/parse-json";
 
 const apiKey = process.env.API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -235,7 +236,7 @@ export const processDocuments = async (files: File[]): Promise<UserProfile> => {
     });
 
     if (!response.text) throw new Error("No response from Gemini");
-    return JSON.parse(response.text) as UserProfile;
+    return parseGeminiJson<UserProfile>(response.text, { context: 'processDocuments' });
   } catch (error) {
     console.error("Document Processing Failed:", error);
     throw error;
@@ -490,7 +491,7 @@ Be honest and direct. If this isn't a good fit, say so clearly and explain why. 
     });
 
     if (!response.text) throw new Error("No response from Gemini");
-    const result = JSON.parse(response.text);
+    const result = parseGeminiJson(response.text, { context: 'analyzeJD' });
     return { ...result, analysisType: isFreelance ? 'freelance' : 'fulltime', analyzedAt: new Date().toISOString() };
   } catch (error) {
     console.error("Analysis Failed:", error);
@@ -510,10 +511,7 @@ export const researchCompany = async (companyName: string, roleTitle?: string): 
     });
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-    
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson(response.text, { context: 'researchCompany' });
     const sources: string[] = [];
     response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach(chunk => {
       if (chunk.web?.uri) sources.push(chunk.web.uri);
@@ -544,9 +542,7 @@ export const formatExperience = async (rawText: string): Promise<Omit<Experience
       config: { responseMimeType: "application/json", responseSchema: experienceSchema, thinkingConfig: { thinkingBudget: 1024 } }
     });
     if (!response.text) throw new Error("No response");
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'formatExperience' });
   } catch (error) {
     console.error("Format Experience Failed:", error);
     throw error;
@@ -564,9 +560,7 @@ export const matchStoriesToQuestion = async (question: string, stories: Experien
       config: { responseMimeType: "application/json", responseSchema: matchSchema, thinkingConfig: { thinkingBudget: 1024 } }
     });
     if (!response.text) throw new Error("No response");
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'matchStoriesToQuestion' });
     const matches = (result.matches || []).map((m: any) => ({ ...m, storyId: stories[m.storyIndex]?.id || 'unknown' })).filter((m: any) => m.storyId !== 'unknown');
     return { matches, noGoodMatch: result.noGoodMatch, gapSuggestion: result.gapSuggestion };
   } catch (error) {
@@ -684,10 +678,7 @@ export const generateInterviewFeedback = async (transcript: TranscriptItem[]): P
 
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'generateInterviewFeedback' });
   } catch (error) {
     console.error("Feedback Generation Failed:", error);
     throw error;
@@ -797,10 +788,7 @@ export const generateProjectInsights = async (
 
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'generateProjectInsights' });
   } catch (error) {
     console.error("Project Insights Generation Failed:", error);
     throw error;
@@ -898,10 +886,7 @@ ${documentation.metrics.map(m => `- ${m.metric}: ${m.after}`).join('\n') || 'Non
 
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'matchProjectToQuestion' });
   } catch (error) {
     console.error("Project Matching Failed:", error);
     throw error;
@@ -1147,16 +1132,17 @@ export const analyzeInterviewContent = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: interviewAnalysisSchema,
-        thinkingConfig: { thinkingBudget: 4096 }
+        thinkingConfig: { thinkingBudget: 4096 },
+        maxOutputTokens: 32768
       }
     });
 
     if (!response.text) throw new Error("No response from Gemini");
+    if (wasResponseTruncated(response)) {
+      console.warn('[analyzeInterviewContent] Response was truncated (MAX_TOKENS) — attempting repair');
+    }
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'analyzeInterviewContent' });
 
     // Map the response to our types
     return {
@@ -1293,16 +1279,17 @@ export const processInterviewRecording = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: combinedSchema,
-        thinkingConfig: { thinkingBudget: 8192 }
+        thinkingConfig: { thinkingBudget: 8192 },
+        maxOutputTokens: 65536
       }
     });
 
     if (!response.text) throw new Error("No response from Gemini");
+    if (wasResponseTruncated(response)) {
+      console.warn('[processInterviewRecording] Response was truncated (MAX_TOKENS) — attempting repair');
+    }
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'processInterviewRecording' });
 
     return {
       transcript: result.transcript,
@@ -1449,10 +1436,7 @@ export const detectInterviewQuestion = async (
 
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'detectQuestion' });
     return {
       isQuestion: result.isQuestion,
       question: result.question,
@@ -1620,10 +1604,7 @@ ${a.followUps?.length ? `- Prepared follow-ups: ${a.followUps.slice(0, 2).map(f 
 
     if (!response.text) throw new Error("No response from Gemini");
 
-    let jsonText = response.text || "{}";
-    if (jsonText.includes("```")) jsonText = jsonText.replace(/^```(json)?\s*/, "").replace(/\s*```$/, "");
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateCopilotSuggestion' });
 
     // Map story indices to actual story data
     const matchedStories: CopilotStoryMatch[] = (result.matchedStories || []).map((m: any) => {

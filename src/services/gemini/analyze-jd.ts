@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { fteAnalysisSchema, freelanceAnalysisSchema, contractAnalysisSchema } from './schemas';
 import { aiCache, cacheKeys, hashProfileForAnalysis } from './cache';
 import type { UserProfile, JDAnalysis, AnalyzedJobType } from '@/src/types';
@@ -262,7 +263,7 @@ Be honest and direct. If this isn't a good fit, say so clearly and explain why. 
       throw new Error('Empty response from Gemini');
     }
 
-    const result = JSON.parse(response.text);
+    const result = parseGeminiJson<any>(response.text, { context: 'analyzeJD' });
     const analysis: JDAnalysis = {
       ...result,
       analysisType: jobType,

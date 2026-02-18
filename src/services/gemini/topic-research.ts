@@ -13,6 +13,7 @@ import {
   technicalResearchSchema,
   interviewResearchSchema,
 } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import { aiCache, cacheKeys } from './cache';
 import { generateId } from '@/src/lib/utils';
 import { CACHE_TTL } from '@/src/lib/constants';
@@ -61,16 +62,6 @@ function extractSources(response: { candidates?: Array<{ groundingMetadata?: { g
     }
   });
   return sources;
-}
-
-/**
- * Clean JSON response from markdown code blocks
- */
-function cleanJsonResponse(text: string): string {
-  if (text.includes('```')) {
-    return text.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-  }
-  return text;
 }
 
 // ============================================
@@ -146,7 +137,7 @@ Structure the salary information accurately. Use real numbers found in the resea
     throw new Error('Empty response from salary structuring');
   }
 
-  const data = JSON.parse(cleanJsonResponse(structureResponse.text)) as SalaryResearchData;
+  const data = parseGeminiJson<SalaryResearchData>(structureResponse.text, { context: 'researchSalary' });
 
   const research: SalaryResearch = {
     id: generateId(),
@@ -235,7 +226,7 @@ Structure the industry information accurately with specific trends and insights.
     throw new Error('Empty response from industry structuring');
   }
 
-  const data = JSON.parse(cleanJsonResponse(structureResponse.text)) as IndustryResearchData;
+  const data = parseGeminiJson<IndustryResearchData>(structureResponse.text, { context: 'researchIndustry' });
 
   const research: IndustryResearch = {
     id: generateId(),
@@ -324,7 +315,7 @@ Structure the technical information accurately. Include real learning resources 
     throw new Error('Empty response from technical structuring');
   }
 
-  const data = JSON.parse(cleanJsonResponse(structureResponse.text)) as TechnicalResearchData;
+  const data = parseGeminiJson<TechnicalResearchData>(structureResponse.text, { context: 'researchTechnical' });
 
   const research: TechnicalResearch = {
     id: generateId(),
@@ -420,7 +411,7 @@ Structure the interview information accurately with specific questions and insig
     throw new Error('Empty response from interview structuring');
   }
 
-  const data = JSON.parse(cleanJsonResponse(structureResponse.text)) as InterviewResearchData;
+  const data = parseGeminiJson<InterviewResearchData>(structureResponse.text, { context: 'researchInterview' });
 
   const research: InterviewResearch = {
     id: generateId(),

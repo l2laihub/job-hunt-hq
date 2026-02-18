@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL } from './client';
+import { parseGeminiJson } from './parse-json';
 import { jobInfoExtractionSchema } from './schemas';
 import type { AnalyzedJobType } from '@/src/types';
 
@@ -96,7 +97,7 @@ Return accurate information. If something is not clearly stated, use reasonable 
       throw new Error('Empty response from Gemini');
     }
 
-    const result = JSON.parse(response.text);
+    const result = parseGeminiJson<any>(response.text, { context: 'extractJobInfo' });
 
     return {
       company: result.company || 'Unknown Company',

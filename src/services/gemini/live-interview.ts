@@ -1,5 +1,6 @@
 import { requireGemini, LIVE_MODEL } from './client';
 import { feedbackSchema } from './schemas';
+import { parseGeminiJson } from './parse-json';
 import { DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import type {
   UserProfile,
@@ -183,12 +184,7 @@ Be encouraging but honest. Focus on actionable improvements.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    return JSON.parse(jsonText) as InterviewFeedback;
+    return parseGeminiJson<InterviewFeedback>(response.text, { context: 'generateInterviewFeedback' });
   } catch (error) {
     console.error('Feedback generation failed:', error);
     throw new Error(

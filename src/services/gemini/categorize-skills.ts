@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import type { SkillGroup } from '@/src/types';
 
 // Schema for skill categorization response
@@ -77,7 +78,7 @@ Return categories with their associated skills. Each skill should appear in exac
       throw new Error('Empty response from Gemini');
     }
 
-    const result = JSON.parse(response.text);
+    const result = parseGeminiJson<any>(response.text, { context: 'categorizeSkills' });
 
     // Convert to SkillGroup format with IDs and order
     const skillGroups: SkillGroup[] = result.categories.map(

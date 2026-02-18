@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import type {
   UserProfile,
   JDAnalysis,
@@ -142,12 +143,7 @@ Guidelines:
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateQuickReference' });
 
     // Map story titles back to IDs
     const storyTitleToId: Record<string, string> = {};

@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { storyEnhancementSchema } from './schemas';
 import type { Experience, STAR, UserProfile, FollowUpQA } from '@/src/types';
 
@@ -127,13 +128,7 @@ Return the enhanced story with all improvements including a polished narrative.`
       throw new Error('Empty response from Gemini');
     }
 
-    // Clean up response
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'enhanceStory' });
 
     return {
       title: result.title || story.title,

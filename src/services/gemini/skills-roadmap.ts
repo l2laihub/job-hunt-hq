@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { skillsRoadmapSchema } from './schemas';
 import type { UserProfile, JDAnalysis, SkillsRoadmap } from '@/src/types';
 
@@ -72,7 +73,7 @@ Be specific and actionable. Focus on practical, achievable steps. Prefer free re
       throw new Error('Empty response from Gemini');
     }
 
-    const result = JSON.parse(response.text);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateSkillsRoadmap' });
 
     return {
       ...result,

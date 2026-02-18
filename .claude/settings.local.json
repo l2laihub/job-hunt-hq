@@ -22,7 +22,31 @@
       "Bash(wsl -e bash -c \"wc -l /home/l2laihub/Projects/job-hunt-hq/src/lib/utils.ts\":*)",
       "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm install react-markdown remark-gfm\")",
       "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npm install @tailwindcss/typography\")",
-      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx tsc --noEmit 2>&1 | head -30\")"
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx tsc --noEmit 2>&1 | head -30\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx tsc --noEmit 2>&1 | grep -E ''\\(profile|enhance|resume-enhance|process-documents\\)'' | head -20\")",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx tsc --noEmit 2>&1 | grep -E ''profile\\\\.tsx.*error'' | head -10\")",
+      "Bash(npx supabase:*)",
+      "Bash(wsl -e bash -c \"cd /home/l2laihub/Projects/job-hunt-hq && npx supabase init --force 2>&1\")",
+      "Bash(wsl -e bash -c:*)",
+      "Bash(dir:*)",
+      "Bash(wc:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: improve text readability across the application\n\n- Add readable-content utility classes in index.css with better line-height \\(1.75-1.8\\) and letter-spacing\n- Enhance PhoneScreenPrepView with larger padding, spacing, and qa-question/qa-answer classes\n- Update TechnicalInterviewPrepView, ApplicationStrategyView, and SkillsRoadmapView with improved typography\n- Improve MarkdownRenderer with better prose styling for paragraphs and lists\n- Update QuestionCard, GenerateAnswerModal, and topic-study-card with 15px text and 1.7 line-height\n- Enhance Stories page with better STAR section formatting\n- Improve Answers page markdown content styling\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(npx vercel:*)",
+      "Bash(node ./node_modules/.bin/tsc:*)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(node node_modules/typescript/bin/tsc:*)",
+      "Bash(ls:*)",
+      "Bash(node ./node_modules/typescript/bin/tsc:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "claude-flow",
+    "ruv-swarm"
+  ]
 }

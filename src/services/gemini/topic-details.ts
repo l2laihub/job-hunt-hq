@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { topicDetailsSchema } from './schemas';
 import type { TopicDetails, UserProfile, JDAnalysis } from '@/src/types';
 
@@ -86,12 +87,7 @@ Generate comprehensive study materials for this topic tailored to the job and ca
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateTopicDetails' });
 
     return {
       topic,

@@ -1,5 +1,6 @@
 import { Type, Schema } from '@google/genai';
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import type { PredictedQuestion } from '@/src/types/interview-prep';
 
 /**
@@ -189,12 +190,7 @@ Be encouraging but honest. The goal is to help them improve.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    return JSON.parse(jsonText) as ResponseEvaluation;
+    return parseGeminiJson<ResponseEvaluation>(response.text, { context: 'evaluateResponse' });
   } catch (error) {
     console.error('Response evaluation failed:', error);
     throw new Error(
@@ -245,12 +241,7 @@ Provide a score (1-10), one sentence of feedback, and one tip.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'generateQuickFeedback' });
   } catch (error) {
     console.error('Quick feedback failed:', error);
     return {
@@ -366,12 +357,7 @@ Focus on growth and improvement. Be encouraging but honest about areas needing w
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    return JSON.parse(jsonText);
+    return parseGeminiJson(response.text, { context: 'generateSessionSummary' });
   } catch (error) {
     console.error('Session summary failed:', error);
     throw new Error(

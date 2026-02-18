@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { phoneScreenPrepSchema, technicalInterviewPrepSchema, applicationStrategySchema } from './schemas';
 import type {
   UserProfile,
@@ -121,12 +122,7 @@ Make it sound like a real person talking, not a script.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generatePhoneScreenPrep' });
 
     return {
       companyResearchPoints: result.companyResearchPoints || [],
@@ -216,12 +212,7 @@ Be practical and specific. Reference actual story indices where relevant.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateTechnicalInterviewPrep' });
 
     // Map story indices to IDs
     const relevantStoryIds = (result.relevantStoryIndices || [])
@@ -332,12 +323,7 @@ Be honest. If this isn't a good fit, say so directly.`;
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateApplicationStrategy' });
 
     return {
       fitAssessment: {

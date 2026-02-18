@@ -4,6 +4,7 @@ import { aiCache, cacheKeys } from './cache';
 import type { CompanyResearch } from '@/src/types';
 import { CACHE_TTL } from '@/src/lib/constants';
 import { generateId } from '@/src/lib/utils';
+import { parseGeminiJson } from './parse-json';
 
 /**
  * Research a company using Gemini with Google Search grounding
@@ -108,13 +109,7 @@ Be accurate and only include information that was found in the research. Use nul
       throw new Error('Empty response from structuring');
     }
 
-    // Clean up response if it has markdown code blocks
-    let jsonText = structureResponse.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson(structureResponse.text, { context: 'researchCompany' });
 
     const research: CompanyResearch = {
       id: generateId(),

@@ -1,4 +1,5 @@
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
+import { parseGeminiJson } from './parse-json';
 import { technicalAnswerSchema, followUpSchema } from './schemas';
 import type {
   UserProfile,
@@ -166,12 +167,7 @@ Be specific, use real metrics/numbers from the profile, and help the candidate t
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateTechnicalAnswer' });
 
     // Map story indices back to IDs
     const matchedStoryIds = (result.sources?.matchedStoryIndices || [])
@@ -265,12 +261,7 @@ Focus on:
       throw new Error('Empty response from Gemini');
     }
 
-    let jsonText = response.text;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
-    }
-
-    const result = JSON.parse(jsonText);
+    const result = parseGeminiJson<any>(response.text, { context: 'generateFollowUps' });
     return result.followUps || [];
   } catch (error) {
     console.error('Generate follow-ups failed:', error);
