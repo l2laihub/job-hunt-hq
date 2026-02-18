@@ -12,6 +12,7 @@ import {
 import { interviewNotesService } from '../src/services/database/interview-notes';
 import {
   getRecordingUrl,
+  downloadRecording,
   deleteInterviewRecording,
 } from '../src/services/storage/interview-recordings';
 import { analyzeInterviewContent, processInterviewRecording } from '../services/geminiService';
@@ -23,6 +24,7 @@ import {
   Calendar,
   User,
   Clock,
+  Download,
   ChevronDown,
   ChevronUp,
   Trash2,
@@ -63,6 +65,7 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [processingNoteId, setProcessingNoteId] = useState<string | null>(null);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [downloadingNoteId, setDownloadingNoteId] = useState<string | null>(null);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
 
   // New note form state
@@ -297,6 +300,34 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
     } catch (err) {
       console.error('Failed to play audio:', err);
       setError('Failed to play recording');
+    }
+  };
+
+  const handleDownloadAudio = async (note: InterviewNote) => {
+    if (!note.audioRecording?.path) return;
+
+    try {
+      setDownloadingNoteId(note.id);
+      const blob = await downloadRecording(note.audioRecording.path);
+
+      const ext = note.audioRecording.mimeType.split(';')[0].split('/')[1] || 'webm';
+      const stageLabel = INTERVIEW_STAGE_LABELS[note.stage].replace(/\s+/g, '_');
+      const date = new Date(note.interviewDate).toISOString().split('T')[0];
+      const filename = `${stageLabel}_${date}.${ext}`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download audio:', err);
+      setError('Failed to download recording');
+    } finally {
+      setDownloadingNoteId(null);
     }
   };
 
@@ -639,29 +670,45 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                 <div className="flex items-center gap-2">
                   {/* Audio indicator with quick play */}
                   {note.audioRecording && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayAudio(note);
-                      }}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                        playingAudioId === note.id
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      }`}
-                    >
-                      {playingAudioId === note.id ? (
-                        <>
-                          <Square className="w-3 h-3" />
-                          Stop
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3 h-3" />
-                          Play
-                        </>
-                      )}
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlayAudio(note);
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                          playingAudioId === note.id
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {playingAudioId === note.id ? (
+                          <>
+                            <Square className="w-3 h-3" />
+                            Stop
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3 h-3" />
+                            Play
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadAudio(note);
+                        }}
+                        disabled={downloadingNoteId === note.id}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50"
+                      >
+                        {downloadingNoteId === note.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Download className="w-3 h-3" />
+                        )}
+                      </button>
+                    </>
                   )}
 
                   {/* Processing Status */}
@@ -707,13 +754,27 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                   {/* Actions Bar */}
                   <div className="flex items-center gap-2 pt-3">
                     {note.audioRecording && (
-                      <button
-                        onClick={() => handlePlayAudio(note)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white"
-                      >
-                        <Play className="w-4 h-4" />
-                        {playingAudioId === note.id ? 'Pause' : 'Play'}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handlePlayAudio(note)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white"
+                        >
+                          <Play className="w-4 h-4" />
+                          {playingAudioId === note.id ? 'Pause' : 'Play'}
+                        </button>
+                        <button
+                          onClick={() => handleDownloadAudio(note)}
+                          disabled={downloadingNoteId === note.id}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 rounded text-sm text-white"
+                        >
+                          {downloadingNoteId === note.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                          Download
+                        </button>
+                      </>
                     )}
 
                     {(note.rawNotes || note.audioRecording) && note.processingStatus !== 'completed' && (
