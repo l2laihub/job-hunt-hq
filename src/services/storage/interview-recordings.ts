@@ -78,7 +78,7 @@ export async function uploadInterviewRecording(
     .upload(filePath, audioBlob, {
       cacheControl: '3600',
       upsert: false,
-      contentType: audioBlob.type,
+      contentType: audioBlob.type.split(';')[0],
     });
 
   if (uploadError) {

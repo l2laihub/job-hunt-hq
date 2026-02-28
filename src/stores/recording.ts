@@ -9,6 +9,10 @@ export interface RecordingContext {
   applicationId: string;
   applicationName: string; // "Company - Role" for display in the floating widget
   userId: string;
+  stage?: import('@/src/types').InterviewStage;
+  interviewerName?: string;
+  interviewerRole?: string;
+  interviewDate?: string;
 }
 
 interface RecordingState {
@@ -32,7 +36,16 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     // Filter out blob-related updates — we handle those in stopRecording
     const { recordedBlob, recordedDuration, ...rest } = update;
     if (Object.keys(rest).length > 0) {
-      set((state) => ({ ...state, ...rest }));
+      set((state) => {
+        // Don't let the service's 'stopped' status override our 'saving' status
+        if (state.status === 'saving' && rest.status === 'stopped') {
+          const { status, ...safeRest } = rest;
+          return Object.keys(safeRest).length > 0
+            ? { ...state, ...safeRest }
+            : state;
+        }
+        return { ...state, ...rest };
+      });
     }
   });
 
@@ -73,8 +86,10 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
         }
 
         // Auto-save: create interview note and upload recording
-        const noteData = createInterviewNote(context.applicationId, 'phone_screen');
-        noteData.interviewDate = new Date().toISOString();
+        const noteData = createInterviewNote(context.applicationId, context.stage || 'phone_screen');
+        noteData.interviewDate = context.interviewDate || new Date().toISOString();
+        if (context.interviewerName) noteData.interviewerName = context.interviewerName;
+        if (context.interviewerRole) noteData.interviewerRole = context.interviewerRole;
 
         const createdNote = await interviewNotesService.create(noteData);
 

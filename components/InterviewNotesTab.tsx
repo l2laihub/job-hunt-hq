@@ -599,6 +599,10 @@ export const InterviewNotesTab: React.FC<InterviewNotesTabProps> = ({
                     applicationId: application.id,
                     applicationName: `${application.company} - ${application.role}`,
                     userId,
+                    stage: newNote.stage,
+                    interviewerName: newNote.interviewerName || undefined,
+                    interviewerRole: newNote.interviewerRole || undefined,
+                    interviewDate: new Date(newNote.interviewDate).toISOString(),
                   })}
                   disabled={isRecordingForOtherApp}
                   className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-full text-white font-medium transition-colors mx-auto"
