@@ -16,11 +16,13 @@ import {
   useSupabaseActiveProfile,
   useSupabaseCurrentProfile,
   useSupabaseActiveProfileId,
+  useSupabaseAllProfiles,
 } from '@/src/stores/supabase';
+import type { UserProfileWithMeta } from '@/src/types';
 import { useAuth, isSupabaseConfigured } from '@/src/lib/supabase';
 
 // For legacy localStorage fallback when Supabase is not configured
-import { useProfileStore, useCurrentProfile } from '@/src/stores/profile';
+import { useProfileStore, useCurrentProfile, useAllProfiles } from '@/src/stores/profile';
 import { useApplicationStore } from '@/src/stores/applications';
 import { useStoriesStore } from '@/src/stores/stories';
 import { useCompanyResearchStore } from '@/src/stores/company-research';
@@ -164,6 +166,20 @@ export function useUnifiedActiveProfileId(): string | null {
   const legacyActiveProfileId = useProfileStore((s) => s.activeProfileId);
 
   return useSupabase ? supabaseActiveProfileId : legacyActiveProfileId;
+}
+
+/**
+ * Hook for the full list of profiles (Supabase or localStorage based on auth state)
+ */
+export function useUnifiedProfiles(): UserProfileWithMeta[] {
+  const { user } = useAuth();
+  const configured = isSupabaseConfigured();
+  const useSupabase = configured && !!user;
+
+  const supabaseProfiles = useSupabaseAllProfiles();
+  const legacyProfiles = useAllProfiles();
+
+  return useSupabase ? supabaseProfiles : legacyProfiles;
 }
 
 /**

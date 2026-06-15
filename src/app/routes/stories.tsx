@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { toast } from '@/src/stores';
-import { useStories, useUnifiedActiveProfileId, useProfile } from '@/src/hooks/useAppData';
+import { useStories, useUnifiedActiveProfileId, useProfile, useUnifiedProfiles } from '@/src/hooks/useAppData';
 import { formatExperienceToSTAR, enhanceStory, type EnhanceStoryOptions } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardContent, Badge, Dialog, ConfirmDialog, Abbr } from '@/src/components/ui';
 import { MarkdownRenderer } from '@/src/components/ui/markdown-renderer';
@@ -30,18 +30,77 @@ import {
   Lightbulb,
   CheckCircle,
   Wand2,
+  Users,
 } from 'lucide-react';
+import type { UserProfileWithMeta } from '@/src/types';
 
 export const StoriesPage: React.FC = () => {
   const activeProfileId = useUnifiedActiveProfileId();
   // Use unified hook that switches between Supabase and localStorage
   const { stories: allStories, addStory, updateStory, deleteStory } = useStories();
+  const allProfiles = useUnifiedProfiles();
 
-  // Filter stories by active profile - include stories with no profileId (legacy) or matching profileId
+  // Filter stories by active profile - include stories with no profileId (legacy) or matching profileId.
+  // Stories are intentionally NOT strictly isolated: they can be copied between profiles.
   const stories = useMemo(() => {
     if (!activeProfileId) return allStories;
     return allStories.filter((s) => !s.profileId || s.profileId === activeProfileId);
   }, [allStories, activeProfileId]);
+
+  // Copy-from-profile state
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyingFromId, setCopyingFromId] = useState<string | null>(null);
+
+  // Other profiles (excluding the active one) and how many stories each holds
+  const otherProfiles = useMemo(
+    () => allProfiles.filter((p) => p.metadata.id !== activeProfileId),
+    [allProfiles, activeProfileId]
+  );
+  const storyCountByProfile = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of allStories) {
+      if (s.profileId) counts[s.profileId] = (counts[s.profileId] || 0) + 1;
+    }
+    return counts;
+  }, [allStories]);
+
+  const handleCopyStoriesFrom = async (sourceProfileId: string) => {
+    const sourceStories = allStories.filter((s) => s.profileId === sourceProfileId);
+    if (sourceStories.length === 0) {
+      toast.error('Nothing to copy', 'That profile has no stories');
+      return;
+    }
+    setCopyingFromId(sourceProfileId);
+    try {
+      for (const s of sourceStories) {
+        await addStory(
+          {
+            title: s.title,
+            rawInput: s.rawInput,
+            inputMethod: s.inputMethod,
+            star: s.star,
+            metrics: s.metrics,
+            tags: s.tags,
+            variations: s.variations,
+            followUpQuestions: s.followUpQuestions,
+            coachingNotes: s.coachingNotes,
+            generatedAnswerMetadata: s.generatedAnswerMetadata,
+          },
+          activeProfileId || undefined
+        );
+      }
+      toast.success(
+        `Copied ${sourceStories.length} ${sourceStories.length === 1 ? 'story' : 'stories'}`,
+        'Stories added to the current profile'
+      );
+      setShowCopyModal(false);
+    } catch (error) {
+      console.error('Copy stories failed:', error);
+      toast.error('Copy failed', 'Please try again');
+    } finally {
+      setCopyingFromId(null);
+    }
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStory, setEditingStory] = useState<Experience | null>(null);
@@ -234,6 +293,16 @@ export const StoriesPage: React.FC = () => {
                     Select
                   </Button>
                 )}
+                {otherProfiles.some((p) => (storyCountByProfile[p.metadata.id] || 0) > 0) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCopyModal(true)}
+                    leftIcon={<Users className="w-4 h-4" />}
+                  >
+                    Copy from profile
+                  </Button>
+                )}
                 <Button
                   variant="primary"
                   onClick={handleAddStory}
@@ -419,8 +488,91 @@ export const StoriesPage: React.FC = () => {
           confirmText="Delete"
           variant="danger"
         />
+
+        {/* Copy stories from another profile */}
+        <CopyStoriesModal
+          isOpen={showCopyModal}
+          onClose={() => setShowCopyModal(false)}
+          profiles={otherProfiles}
+          storyCountByProfile={storyCountByProfile}
+          copyingFromId={copyingFromId}
+          onCopy={handleCopyStoriesFrom}
+        />
       </div>
     </div>
+  );
+};
+
+// Copy Stories Modal - lets the user copy stories from another profile into the active one
+interface CopyStoriesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  profiles: UserProfileWithMeta[];
+  storyCountByProfile: Record<string, number>;
+  copyingFromId: string | null;
+  onCopy: (sourceProfileId: string) => void;
+}
+
+const CopyStoriesModal: React.FC<CopyStoriesModalProps> = ({
+  isOpen,
+  onClose,
+  profiles,
+  storyCountByProfile,
+  copyingFromId,
+  onCopy,
+}) => {
+  const sourceProfiles = profiles.filter((p) => (storyCountByProfile[p.metadata.id] || 0) > 0);
+
+  return (
+    <Dialog isOpen={isOpen} onClose={onClose} title="Copy stories from another profile" size="md">
+      <div className="p-6 space-y-4">
+        <p className="text-sm text-gray-400">
+          Stories are shared across profiles by copying. Pick a profile to copy its stories into
+          the current one. Existing stories are not affected.
+        </p>
+        {sourceProfiles.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            No other profiles have stories to copy.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sourceProfiles.map((p) => {
+              const count = storyCountByProfile[p.metadata.id] || 0;
+              const isCopying = copyingFromId === p.metadata.id;
+              return (
+                <div
+                  key={p.metadata.id}
+                  className="flex items-center justify-between p-3 bg-gray-800/50 border border-gray-700 rounded-lg"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: p.metadata.color }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{p.metadata.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {count} {count === 1 ? 'story' : 'stories'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onCopy(p.metadata.id)}
+                    disabled={!!copyingFromId}
+                    isLoading={isCopying}
+                    leftIcon={!isCopying ? <Copy className="w-3.5 h-3.5" /> : undefined}
+                  >
+                    {isCopying ? 'Copying...' : 'Copy'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 };
 

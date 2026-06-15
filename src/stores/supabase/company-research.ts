@@ -15,10 +15,10 @@ interface CompanyResearchState {
   fetchResearches: () => Promise<void>;
 
   // Actions
-  addResearch: (research: Omit<CompanyResearch, 'id'>) => Promise<CompanyResearch>;
+  addResearch: (research: Omit<CompanyResearch, 'id'>, profileId?: string) => Promise<CompanyResearch>;
   updateResearch: (id: string, updates: Partial<CompanyResearch>) => Promise<void>;
   deleteResearch: (id: string) => Promise<void>;
-  getResearchByCompany: (companyName: string) => CompanyResearch | undefined;
+  getResearchByCompany: (companyName: string, profileId?: string) => CompanyResearch | undefined;
   getResearchById: (id: string) => CompanyResearch | undefined;
 
   // Import/Export
@@ -53,16 +53,18 @@ export const useSupabaseCompanyResearchStore = create<CompanyResearchState>()((s
     }
   },
 
-  addResearch: async (researchData) => {
+  addResearch: async (researchData, profileId) => {
     try {
-      // Use upsert which handles both create and update by company name
-      const created = await companyResearchService.upsert(researchData);
+      // Use upsert which handles both create and update by company name (per profile)
+      const created = await companyResearchService.upsert(researchData, profileId);
 
       // Update local state
       set((state) => {
-        // Check if we're updating an existing research
+        // Check if we're updating an existing research (same company AND profile)
         const existingIndex = state.researches.findIndex(
-          (r) => r.companyName.toLowerCase() === created.companyName.toLowerCase()
+          (r) =>
+            r.companyName.toLowerCase() === created.companyName.toLowerCase() &&
+            (r.profileId || undefined) === (created.profileId || undefined)
         );
 
         if (existingIndex >= 0) {
@@ -117,9 +119,11 @@ export const useSupabaseCompanyResearchStore = create<CompanyResearchState>()((s
     }
   },
 
-  getResearchByCompany: (companyName) => {
+  getResearchByCompany: (companyName, profileId) => {
     return get().researches.find(
-      (r) => r.companyName.toLowerCase() === companyName.toLowerCase()
+      (r) =>
+        r.companyName.toLowerCase() === companyName.toLowerCase() &&
+        (profileId === undefined || (r.profileId || undefined) === profileId)
     );
   },
 

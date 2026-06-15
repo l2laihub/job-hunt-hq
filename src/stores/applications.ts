@@ -217,22 +217,19 @@ export const useApplicationStore = create<ApplicationsState>()(
         return { total, byStatus, responseRate };
       },
 
-      // Get applications for a specific profile
+      // Get applications for a specific profile (strict isolation)
       getApplicationsForProfile: (profileId) => {
         const apps = get().applications;
         if (!profileId) return apps; // Return all if no profile specified
-        return apps.filter((app) => app.profileId === profileId || !app.profileId);
+        return apps.filter((app) => app.profileId === profileId);
       },
 
-      // Get applications for the currently active profile
+      // Get applications for the currently active profile (strict isolation)
       getApplicationsForActiveProfile: () => {
         const apps = get().applications;
         const activeProfile = useProfileStore.getState().getActiveProfile();
         if (!activeProfile) return apps;
-        // Return apps that match the profile OR have no profile (legacy apps)
-        return apps.filter(
-          (app) => app.profileId === activeProfile.metadata.id || !app.profileId
-        );
+        return apps.filter((app) => app.profileId === activeProfile.metadata.id);
       },
     }),
     {

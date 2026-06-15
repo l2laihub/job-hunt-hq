@@ -227,6 +227,7 @@ export function experienceToRow(
 export function companyResearchRowToCompanyResearch(row: CompanyResearchRow): CompanyResearch {
   return {
     id: row.id,
+    profileId: row.profile_id || undefined,
     companyName: row.company_name,
     roleContext: row.role_context || undefined,
     overview: (row.overview as unknown as CompanyResearch['overview']) || {
@@ -264,6 +265,7 @@ export function companyResearchToRow(
   return {
     id: research.id,
     user_id: userId,
+    profile_id: research.profileId || null,
     company_name: research.companyName,
     role_context: research.roleContext || null,
     overview: research.overview as unknown as Json,

@@ -64,7 +64,8 @@ export const DashboardPage: React.FC = () => {
   // Filter applications by active profile
   const profileApplications = useMemo(() => {
     if (!activeProfileId) return allApplications;
-    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+    // Strict per-profile isolation (legacy null profileIds are backfilled to the default profile)
+    return allApplications.filter((app) => app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
   const openModal = useUIStore((s) => s.openModal);
 

@@ -46,7 +46,7 @@ export const EnhancedInterviewPage: React.FC = () => {
   // Filter by profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
-    return allApplications.filter((a) => !a.profileId || a.profileId === activeProfileId);
+    return allApplications.filter((a) => a.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
 
   // Interview state

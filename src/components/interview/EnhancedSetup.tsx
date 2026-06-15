@@ -226,8 +226,8 @@ export const EnhancedSetup: React.FC<EnhancedSetupProps> = ({ onStartInterview }
   const applications = useMemo(() => {
     // If no active profile, show all applications
     if (!activeProfileId) return allApplications;
-    // Show applications that match profile OR have no profile set
-    return allApplications.filter((a) => !a.profileId || a.profileId === activeProfileId);
+    // Strict per-profile isolation
+    return allApplications.filter((a) => a.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
 
   // State

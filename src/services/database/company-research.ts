@@ -11,16 +11,22 @@ import {
 
 export const companyResearchService = {
   /**
-   * Fetch all research for the current user
+   * Fetch all research for the current user.
+   * When profileId is provided, returns only research for that profile.
    */
-  async list(): Promise<CompanyResearch[]> {
+  async list(profileId?: string): Promise<CompanyResearch[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    const { data, error } = await from('company_research')
+    let query = from('company_research')
       .select('*')
-      .eq('user_id', user.id)
-      .order('searched_at', { ascending: false });
+      .eq('user_id', user.id);
+
+    if (profileId) {
+      query = query.eq('profile_id', profileId);
+    }
+
+    const { data, error } = await query.order('searched_at', { ascending: false });
 
     if (error) throw error;
     return (data || []).map(companyResearchRowToCompanyResearch);
@@ -43,17 +49,21 @@ export const companyResearchService = {
   },
 
   /**
-   * Get research by company name
+   * Get research by company name, scoped to a profile.
+   * Uniqueness is (user_id, profile_id, company_name), so this returns at most one row.
    */
-  async getByCompany(companyName: string): Promise<CompanyResearch | null> {
+  async getByCompany(companyName: string, profileId?: string): Promise<CompanyResearch | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    const { data, error } = await from('company_research')
+    let query = from('company_research')
       .select('*')
       .eq('user_id', user.id)
-      .ilike('company_name', companyName)
-      .single();
+      .ilike('company_name', companyName);
+
+    query = profileId ? query.eq('profile_id', profileId) : query.is('profile_id', null);
+
+    const { data, error } = await query.single();
 
     if (error) {
       if (error.code === 'PGRST116') return null;
@@ -63,18 +73,24 @@ export const companyResearchService = {
   },
 
   /**
-   * Create or update research (upsert by company name)
+   * Create or update research (upsert by company name, scoped to a profile).
+   * profileId, when provided, takes precedence over research.profileId.
    */
-  async upsert(research: Omit<CompanyResearch, 'id'>): Promise<CompanyResearch> {
+  async upsert(research: Omit<CompanyResearch, 'id'>, profileId?: string): Promise<CompanyResearch> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
-    // Check if research exists for this company
-    const existing = await this.getByCompany(research.companyName);
+    const effectiveProfileId = profileId ?? research.profileId;
+
+    // Check if research exists for this company within the same profile
+    const existing = await this.getByCompany(research.companyName, effectiveProfileId);
 
     if (existing) {
       // Update existing
-      const row = companyResearchToRow({ ...research, id: existing.id }, user.id);
+      const row = companyResearchToRow(
+        { ...research, id: existing.id, profileId: effectiveProfileId },
+        user.id
+      );
 
       const { data, error } = await from('company_research')
         .update(row)
@@ -87,7 +103,10 @@ export const companyResearchService = {
     } else {
       // Create new
       const id = crypto.randomUUID();
-      const row = companyResearchToRow({ ...research, id }, user.id);
+      const row = companyResearchToRow(
+        { ...research, id, profileId: effectiveProfileId },
+        user.id
+      );
 
       const { data, error } = await from('company_research')
         .insert(row)

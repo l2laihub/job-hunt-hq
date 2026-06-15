@@ -260,15 +260,13 @@ export const useSupabaseApplicationStore = create<ApplicationsState>()((set, get
   getApplicationsForProfile: (profileId) => {
     const apps = get().applications;
     if (!profileId) return apps;
-    return apps.filter((app) => app.profileId === profileId || !app.profileId);
+    return apps.filter((app) => app.profileId === profileId);
   },
 
   getApplicationsForActiveProfile: (activeProfileId) => {
     const apps = get().applications;
     if (!activeProfileId) return apps;
-    return apps.filter(
-      (app) => app.profileId === activeProfileId || !app.profileId
-    );
+    return apps.filter((app) => app.profileId === activeProfileId);
   },
 
   subscribeToChanges: () => {

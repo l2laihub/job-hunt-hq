@@ -364,6 +364,7 @@ export interface Person {
 
 export interface CompanyResearch {
   id: string;
+  profileId?: string;
   companyName: string;
   roleContext?: string;
   overview: {
@@ -1209,6 +1210,7 @@ export interface AudioRecordingMetadata {
 export interface InterviewNote {
   id: string;
   applicationId: string;
+  profileId?: string;
 
   // Interview metadata
   stage: InterviewStage;

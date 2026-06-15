@@ -9,10 +9,10 @@ interface CompanyResearchState {
   isLoading: boolean;
 
   // Actions
-  addResearch: (research: Omit<CompanyResearch, 'id'>) => CompanyResearch;
+  addResearch: (research: Omit<CompanyResearch, 'id'>, profileId?: string) => CompanyResearch;
   updateResearch: (id: string, updates: Partial<CompanyResearch>) => void;
   deleteResearch: (id: string) => void;
-  getResearchByCompany: (companyName: string) => CompanyResearch | undefined;
+  getResearchByCompany: (companyName: string, profileId?: string) => CompanyResearch | undefined;
   getResearchById: (id: string) => CompanyResearch | undefined;
 
   // Import/Export
@@ -32,17 +32,21 @@ export const useCompanyResearchStore = create<CompanyResearchState>()(
       researches: [],
       isLoading: false,
 
-      addResearch: (researchData) => {
+      addResearch: (researchData, profileId) => {
+        const effectiveProfileId = profileId ?? researchData.profileId;
         const existingResearch = get().researches.find(
-          (r) => r.companyName.toLowerCase() === researchData.companyName.toLowerCase()
+          (r) =>
+            r.companyName.toLowerCase() === researchData.companyName.toLowerCase() &&
+            (r.profileId || undefined) === (effectiveProfileId || undefined)
         );
 
-        // If research for this company exists, update it instead
+        // If research for this company exists in this profile, update it instead
         if (existingResearch) {
           const updated = {
             ...existingResearch,
             ...researchData,
             id: existingResearch.id,
+            profileId: effectiveProfileId,
             searchedAt: new Date().toISOString(),
           };
           set((state) => ({
@@ -57,6 +61,7 @@ export const useCompanyResearchStore = create<CompanyResearchState>()(
         const newResearch: CompanyResearch = {
           ...researchData,
           id: generateId(),
+          profileId: effectiveProfileId,
         };
 
         set((state) => ({
@@ -80,9 +85,11 @@ export const useCompanyResearchStore = create<CompanyResearchState>()(
         }));
       },
 
-      getResearchByCompany: (companyName) => {
+      getResearchByCompany: (companyName, profileId) => {
         return get().researches.find(
-          (r) => r.companyName.toLowerCase() === companyName.toLowerCase()
+          (r) =>
+            r.companyName.toLowerCase() === companyName.toLowerCase() &&
+            (profileId === undefined || (r.profileId || undefined) === profileId)
         );
       },
 

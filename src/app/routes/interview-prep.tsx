@@ -429,7 +429,7 @@ export const InterviewPrepPage: React.FC = () => {
   // Filter by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
-    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+    return allApplications.filter((app) => app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
 
   const stories = useMemo(() => {

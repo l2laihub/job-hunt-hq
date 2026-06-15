@@ -34,16 +34,22 @@ export const ResearchPage: React.FC = () => {
   // Filter applications by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
-    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+    return allApplications.filter((app) => app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
 
   // Company research - unified hook (Supabase or localStorage)
   const {
-    researches,
+    researches: allResearches,
     addResearch,
     deleteResearch,
     getResearchByCompany,
   } = useCompanyResearch();
+
+  // Scope research history to the active profile
+  const researches = useMemo(() => {
+    if (!activeProfileId) return allResearches;
+    return allResearches.filter((r) => r.profileId === activeProfileId);
+  }, [allResearches, activeProfileId]);
 
   const [companyName, setCompanyName] = useState('');
   const [roleContext, setRoleContext] = useState('');
@@ -59,8 +65,8 @@ export const ResearchPage: React.FC = () => {
 
     if (company) {
       setCompanyName(company);
-      // Check if we have saved research for this company
-      const savedResearch = getResearchByCompany(company);
+      // Check if we have saved research for this company in the active profile
+      const savedResearch = getResearchByCompany(company, activeProfileId || undefined);
       if (savedResearch) {
         setResearch_(savedResearch);
       }
@@ -77,7 +83,7 @@ export const ResearchPage: React.FC = () => {
         }
       }
     }
-  }, [searchParams, applications, getResearchByCompany]);
+  }, [searchParams, applications, getResearchByCompany, activeProfileId]);
 
   const handleResearch = async () => {
     if (!companyName.trim()) {
@@ -90,8 +96,8 @@ export const ResearchPage: React.FC = () => {
       const result = await researchCompany(companyName, roleContext || undefined);
       setResearch_(result);
 
-      // Save to company research store
-      const savedResearch = addResearch(result);
+      // Save to company research store, tagged to the active profile
+      const savedResearch = addResearch(result, activeProfileId || undefined);
 
       // If linked to an application, save the research there too
       if (linkedAppId) {

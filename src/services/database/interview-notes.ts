@@ -22,6 +22,7 @@ export function interviewNoteRowToInterviewNote(row: InterviewNoteRow): Intervie
   return {
     id: row.id,
     applicationId: row.application_id,
+    profileId: row.profile_id || undefined,
     stage: row.stage,
     interviewDate: row.interview_date,
     interviewerName: row.interviewer_name || undefined,
@@ -68,6 +69,7 @@ export function interviewNoteToRow(
     id: note.id,
     user_id: userId,
     application_id: note.applicationId,
+    profile_id: note.profileId || null,
     stage: note.stage,
     interview_date: note.interviewDate,
     interviewer_name: note.interviewerName || null,
@@ -142,8 +144,19 @@ export const interviewNotesService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Denormalize the parent application's profile so notes stay scoped to it
+    let profileId = note.profileId;
+    if (!profileId) {
+      const { data: app } = await from('applications')
+        .select('profile_id')
+        .eq('id', note.applicationId)
+        .eq('user_id', user.id)
+        .single();
+      profileId = app?.profile_id || undefined;
+    }
+
     const id = crypto.randomUUID();
-    const row = interviewNoteToRow({ ...note, id }, user.id);
+    const row = interviewNoteToRow({ ...note, id, profileId }, user.id);
 
     const { data, error } = await from('interview_notes')
       .insert(row)

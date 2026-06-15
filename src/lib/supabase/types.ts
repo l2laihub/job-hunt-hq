@@ -240,6 +240,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          profile_id: string | null;
           company_name: string;
           role_context: string | null;
           overview: Json;
@@ -257,6 +258,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          profile_id?: string | null;
           company_name: string;
           role_context?: string | null;
           overview?: Json;
@@ -274,6 +276,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          profile_id?: string | null;
           company_name?: string;
           role_context?: string | null;
           overview?: Json;
@@ -512,6 +515,7 @@ export interface Database {
           id: string;
           user_id: string;
           application_id: string;
+          profile_id: string | null;
           stage: 'phone_screen' | 'recruiter' | 'hiring_manager' | 'technical' | 'behavioral' | 'onsite' | 'panel' | 'final' | 'other';
           interview_date: string;
           interviewer_name: string | null;
@@ -539,6 +543,7 @@ export interface Database {
           id?: string;
           user_id: string;
           application_id: string;
+          profile_id?: string | null;
           stage?: 'phone_screen' | 'recruiter' | 'hiring_manager' | 'technical' | 'behavioral' | 'onsite' | 'panel' | 'final' | 'other';
           interview_date?: string;
           interviewer_name?: string | null;
@@ -566,6 +571,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           application_id?: string;
+          profile_id?: string | null;
           stage?: 'phone_screen' | 'recruiter' | 'hiring_manager' | 'technical' | 'behavioral' | 'onsite' | 'panel' | 'final' | 'other';
           interview_date?: string;
           interviewer_name?: string | null;

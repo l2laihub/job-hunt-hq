@@ -48,7 +48,7 @@ export const InterviewPage: React.FC = () => {
   // Filter applications by active profile
   const applications = useMemo(() => {
     if (!activeProfileId) return allApplications;
-    return allApplications.filter((app) => !app.profileId || app.profileId === activeProfileId);
+    return allApplications.filter((app) => app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
   const { stories: allStories } = useStories();
   // Filter stories by active profile
