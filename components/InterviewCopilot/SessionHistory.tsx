@@ -33,18 +33,29 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 interface SessionHistoryProps {
   onSelectSession?: (session: SavedCopilotSession) => void;
   onClose?: () => void;
+  activeProfileId?: string | null;
 }
 
 export const SessionHistory: React.FC<SessionHistoryProps> = ({
   onSelectSession,
   onClose,
+  activeProfileId = null,
 }) => {
   const [selectedSession, setSelectedSession] = useState<SavedCopilotSession | null>(null);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Store
-  const sessions = useSupabaseCopilotSessionsStore((s) => s.sessions);
+  const allSessions = useSupabaseCopilotSessionsStore((s) => s.sessions);
+  // Scope history to the active profile (legacy sessions with no profileId
+  // remain visible so existing history isn't hidden).
+  const sessions = React.useMemo(
+    () =>
+      activeProfileId
+        ? allSessions.filter((s) => !s.profileId || s.profileId === activeProfileId)
+        : allSessions,
+    [allSessions, activeProfileId]
+  );
   const isLoading = useSupabaseCopilotSessionsStore((s) => s.isLoading);
   const fetchSessions = useSupabaseCopilotSessionsStore((s) => s.fetchSessions);
   const deleteSession = useSupabaseCopilotSessionsStore((s) => s.deleteSession);

@@ -65,6 +65,7 @@ interface InterviewCopilotProps {
   applications: JobApplication[];
   interviewPrepSessions?: InterviewPrepSession[];
   technicalAnswers?: TechnicalAnswer[];
+  activeProfileId?: string | null;
 }
 
 export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
@@ -73,6 +74,7 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
   applications,
   interviewPrepSessions = [],
   technicalAnswers = [],
+  activeProfileId = null,
 }) => {
   // Session state
   const [session, setSession] = useState<CopilotSession | null>(null);
@@ -419,7 +421,7 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
     setIsSaving(true);
     try {
       await saveSessionToHistory(endedSession, {
-        profileId: profile.id,
+        profileId: activeProfileId ?? undefined,
         company: selectedApp?.company,
         role: selectedApp?.role,
       });
@@ -431,7 +433,7 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [endedSession, saveSessionToHistory, profile.id, selectedApp]);
+  }, [endedSession, saveSessionToHistory, activeProfileId, selectedApp]);
 
   // Dismiss session summary without saving
   const dismissSessionSummary = useCallback(() => {
@@ -882,7 +884,7 @@ export const InterviewCopilot: React.FC<InterviewCopilotProps> = ({
   if (showHistoryView) {
     return (
       <div className="h-full bg-gray-950 text-gray-100 flex flex-col p-6 overflow-y-auto">
-        <SessionHistory onClose={() => setShowHistoryView(false)} />
+        <SessionHistory activeProfileId={activeProfileId} onClose={() => setShowHistoryView(false)} />
       </div>
     );
   }

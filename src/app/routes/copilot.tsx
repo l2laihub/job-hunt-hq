@@ -53,6 +53,7 @@ export const CopilotPage: React.FC = () => {
       applications={applications}
       interviewPrepSessions={interviewPrepSessions}
       technicalAnswers={technicalAnswers}
+      activeProfileId={activeProfileId}
     />
   );
 };

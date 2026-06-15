@@ -88,7 +88,7 @@ export function useAssistantContext(
   const localAnalyzedJobs = useAnalyzedJobsStore((s) => s.jobs);
   const localSelectedJobId = useAnalyzedJobsStore((s) => s.selectedJobId);
   const localStories = useStoriesStore((s) => s.stories);
-  const localCompanyResearch = useCompanyResearchStore((s) => s.research);
+  const localCompanyResearch = useCompanyResearchStore((s) => s.researches);
   const localPrepSessions = useInterviewPrepStore((s) => s.sessions);
 
   // Get Supabase stores (when authenticated)
@@ -97,18 +97,18 @@ export function useAssistantContext(
   const supabaseAnalyzedJobs = useSupabaseAnalyzedJobsStore((s) => s.jobs);
   const supabaseSelectedJobId = useSupabaseAnalyzedJobsStore((s) => s.selectedJobId);
   const supabaseStories = useSupabaseStoriesStore((s) => s.stories);
-  const supabaseCompanyResearch = useSupabaseCompanyResearchStore((s) => s.research);
+  const supabaseCompanyResearch = useSupabaseCompanyResearchStore((s) => s.researches);
   const supabasePrepSessions = useSupabaseInterviewPrepStore((s) => s.sessions);
 
   // Use Supabase stores when authenticated, otherwise localStorage
   // Add fallback empty arrays to prevent undefined errors before stores load
-  const applications = (isAuthenticated ? supabaseApplications : localApplications) || [];
+  const allApplications = (isAuthenticated ? supabaseApplications : localApplications) || [];
   const selectedAppIds = (isAuthenticated ? supabaseSelectedAppIds : localSelectedAppIds) || [];
-  const analyzedJobs = (isAuthenticated ? supabaseAnalyzedJobs : localAnalyzedJobs) || [];
+  const allAnalyzedJobs = (isAuthenticated ? supabaseAnalyzedJobs : localAnalyzedJobs) || [];
   const globalSelectedJobId = isAuthenticated ? supabaseSelectedJobId : localSelectedJobId;
   const stories = (isAuthenticated ? supabaseStories : localStories) || [];
-  const companyResearch = (isAuthenticated ? supabaseCompanyResearch : localCompanyResearch) || [];
-  const prepSessions = (isAuthenticated ? supabasePrepSessions : localPrepSessions) || [];
+  const allCompanyResearch = (isAuthenticated ? supabaseCompanyResearch : localCompanyResearch) || [];
+  const allPrepSessions = (isAuthenticated ? supabasePrepSessions : localPrepSessions) || [];
 
   // Use unified profile data hook - this automatically uses Supabase when authenticated
   const { activeProfile: profile } = useProfileData();
@@ -117,6 +117,22 @@ export function useAssistantContext(
   const context = useMemo<AssistantContext>(() => {
     const pathname = location.pathname;
     const contextType = getContextTypeFromRoute(pathname);
+
+    // Strict per-profile isolation: only surface data belonging to the active
+    // profile so the assistant never sees another profile's applications/jobs.
+    const activeProfileId = profile?.metadata.id;
+    const applications = activeProfileId
+      ? allApplications.filter((a) => a.profileId === activeProfileId)
+      : allApplications;
+    const analyzedJobs = activeProfileId
+      ? allAnalyzedJobs.filter((j) => j.profileId === activeProfileId)
+      : allAnalyzedJobs;
+    const companyResearch = activeProfileId
+      ? allCompanyResearch.filter((r) => r.profileId === activeProfileId)
+      : allCompanyResearch;
+    const prepSessions = activeProfileId
+      ? allPrepSessions.filter((s) => s.profileId === activeProfileId)
+      : allPrepSessions;
 
     // Determine application ID from various sources
     const appIdFromUrl = searchParams.get('appId') || searchParams.get('applicationId');
@@ -272,13 +288,13 @@ export function useAssistantContext(
     searchParams,
     explicitAppId,
     isAuthenticated,
-    applications,
+    allApplications,
     selectedAppIds,
-    analyzedJobs,
+    allAnalyzedJobs,
     globalSelectedJobId,
     stories,
-    companyResearch,
-    prepSessions,
+    allCompanyResearch,
+    allPrepSessions,
     profile,
   ]);
 

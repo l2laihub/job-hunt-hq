@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
 import {
@@ -21,7 +21,7 @@ import {
   Headphones,
   Brain,
 } from 'lucide-react';
-import { useApplicationStore } from '@/src/stores';
+import { useApplications, useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { ToastContainer, Button } from '@/src/components/ui';
 import { ApplicationModal } from '@/src/components/applications';
 import { ProfileSwitcher } from '@/src/components/profile';
@@ -53,8 +53,15 @@ export const AppLayout: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const applications = useApplicationStore((s) => s.applications);
+  const { applications: allApplications } = useApplications();
+  const activeProfileId = useUnifiedActiveProfileId();
   const { exportData, triggerImport, handleFileSelect, fileInputRef } = useDataExport();
+
+  // Scope sidebar stats to the active profile (strict per-profile isolation)
+  const applications = useMemo(() => {
+    if (!activeProfileId) return allApplications;
+    return allApplications.filter((app) => app.profileId === activeProfileId);
+  }, [allApplications, activeProfileId]);
 
   // Compute stats locally
   const total = applications.length;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUIStore, toast } from '@/src/stores';
 import { useAuth } from '@/src/lib/supabase';
 import { useSupabaseActiveProfile, useSupabaseStoriesStore } from '@/src/stores/supabase';
@@ -66,7 +66,13 @@ export const ApplicationModal: React.FC = () => {
   // Get auth and profile data for Interview Notes
   const { user } = useAuth();
   const profile = useSupabaseActiveProfile();
-  const stories = useSupabaseStoriesStore((s) => s.stories);
+  const allStories = useSupabaseStoriesStore((s) => s.stories);
+  // Scope stories to the active profile so interview-note AI analysis never
+  // pulls another profile's experiences (strict per-profile isolation).
+  const stories = useMemo(() => {
+    const pid = profile?.metadata?.id;
+    return pid ? allStories.filter((s) => s.profileId === pid) : allStories;
+  }, [allStories, profile]);
 
   const [activeTab, setActiveTab] = useState<'details' | 'analysis' | 'notes'>('details');
   const [formData, setFormData] = useState<FormData>(initialFormData);
