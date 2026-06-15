@@ -370,7 +370,7 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
 
     @page {
       size: letter;
-      margin: 0.4in 0.5in;
+      margin: 0.5in 0.6in;
     }
 
     body {
@@ -386,7 +386,10 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
     }
 
     .container {
-      max-width: 8.5in;
+      /* Constrain to the printable width and center it, so the left/right
+         edges are never clipped even when the browser ignores @page
+         horizontal margins (e.g. Safari "Save as PDF"). 8.5in - 2*0.6in. */
+      max-width: 7.3in;
       margin: 0 auto;
     }
 
@@ -942,22 +945,6 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     @page {
       size: letter;
       margin: 0.5in 0.6in;
-      /* Remove browser headers/footers */
-      margin-top: 0.5in;
-      margin-bottom: 0.5in;
-    }
-
-    /* Hide browser-generated headers and footers */
-    @page :first {
-      margin-top: 0.5in;
-    }
-
-    @page :left {
-      margin-left: 0.6in;
-    }
-
-    @page :right {
-      margin-right: 0.6in;
     }
 
     body {
@@ -971,7 +958,10 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
     }
 
     .container {
-      max-width: 8.5in;
+      /* Constrain to the printable width and center it, so the left/right
+         edges are never clipped even when the browser ignores @page
+         horizontal margins (e.g. Safari "Save as PDF"). 8.5in - 2*0.6in. */
+      max-width: 7.3in;
       margin: 0 auto;
       padding: 0;
     }
@@ -1279,7 +1269,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
 
       /* Remove browser headers and footers */
       @page {
-        margin: 0.5in;
+        margin: 0.5in 0.6in;
       }
 
       /* Ensure no title/URL shows */
@@ -1653,6 +1643,192 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
 </body>
 </html>
 `;
+}
+
+/**
+ * Generate a Word-optimized HTML document for .doc export.
+ *
+ * Word's HTML rendering engine ignores CSS multi-column and flexbox layouts,
+ * so this layout is built with tables and inline styles (which Word renders
+ * reliably) instead of the column/flex layout used for the PDF templates.
+ * The result is saved with a .doc extension and the `application/msword`
+ * MIME type so Microsoft Word (and Google Docs/Pages) opens it natively.
+ */
+export function generateResumeWordHTML(options: ResumePDFOptions): string {
+  const {
+    enhanced,
+    profile,
+    analysis,
+    jobInfo,
+    template = 'professional',
+    includeScores = false,
+    jobSkillGroups,
+  } = options;
+
+  const colors = template === 'executive' ? templates.executive : templates[template];
+
+  // Escape user content for safe HTML embedding (e.g. "R&D", "<senior>").
+  const esc = (str: string): string =>
+    String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
+  const datePart = new Date().toISOString().split('T')[0];
+  const namePart = sanitize(profile.name || 'Resume');
+
+  let docTitle: string;
+  if (jobInfo?.company && jobInfo?.role) {
+    docTitle = `${namePart} - ${sanitize(jobInfo.company)} ${sanitize(jobInfo.role)} - ${datePart}`;
+  } else if (jobInfo?.company) {
+    docTitle = `${namePart} - ${sanitize(jobInfo.company)} - ${datePart}`;
+  } else {
+    docTitle = `${namePart} - Resume - ${datePart}`;
+  }
+
+  // Skill grouping: user-defined groups (job-specific or profile) win, else
+  // fall back to a single "Technical Skills" bucket. Mirrors the PDF logic.
+  const skillGroupsToUse = jobSkillGroups && jobSkillGroups.length > 0
+    ? jobSkillGroups
+    : profile.skillGroups;
+  const skillCategories =
+    skillGroupsToRecord(skillGroupsToUse, enhanced.technicalSkills) ??
+    { 'Technical Skills': enhanced.technicalSkills };
+
+  const sectionTitle = (text: string): string => `
+    <p style="font-size:11pt;font-weight:bold;color:${colors.primary};text-transform:uppercase;letter-spacing:1px;
+              border-bottom:1px solid ${colors.border};padding-bottom:3px;margin:14px 0 8px 0;">
+      ${esc(text)}
+    </p>`;
+
+  const skillsHTML = Object.entries(skillCategories)
+    .filter(([, skills]) => skills.length > 0)
+    .map(([category, skills]) => `
+      <p style="margin:0 0 4px 0;font-size:10pt;line-height:1.4;">
+        <span style="font-weight:bold;color:${colors.accent};">${esc(category)}:</span>
+        <span style="color:${colors.secondary};"> ${skills.map(esc).join(' • ')}</span>
+      </p>`)
+    .join('');
+
+  const softSkillsHTML = enhanced.softSkills.length > 0 ? `
+    <p style="margin:0 0 4px 0;font-size:10pt;line-height:1.4;">
+      <span style="font-weight:bold;color:${colors.accent};">Professional Skills:</span>
+      <span style="color:${colors.secondary};"> ${enhanced.softSkills.map(esc).join(' • ')}</span>
+    </p>` : '';
+
+  const experienceHTML = sortRolesByDate(enhanced.recentRoles)
+    .map(role => `
+      <div style="margin-bottom:12px;">
+        <table style="width:100%;border-collapse:collapse;margin-bottom:2px;">
+          <tr>
+            <td style="text-align:left;vertical-align:bottom;padding:0;">
+              <span style="font-size:11pt;font-weight:bold;color:${colors.primary};">${esc(role.title)}</span>
+              <span style="font-size:10.5pt;color:${colors.accent};font-weight:bold;">&nbsp;&nbsp;${esc(role.company)}</span>
+            </td>
+            <td style="text-align:right;vertical-align:bottom;padding:0;white-space:nowrap;">
+              <span style="font-size:9.5pt;color:${colors.muted};font-style:italic;">${esc(role.duration)}</span>
+            </td>
+          </tr>
+        </table>
+        <ul style="margin:4px 0 0 0;padding-left:18px;">
+          ${role.enhancedHighlights.map(h => `<li style="font-size:10pt;color:${colors.text};margin-bottom:3px;line-height:1.45;">${esc(h)}</li>`).join('')}
+        </ul>
+      </div>`)
+    .join('');
+
+  const achievementsHTML = enhanced.keyAchievements && enhanced.keyAchievements.length > 0 ? `
+    ${sectionTitle('Key Achievements')}
+    <ul style="margin:0;padding-left:18px;">
+      ${enhanced.keyAchievements.map(a => `
+        <li style="font-size:10pt;color:${colors.text};margin-bottom:4px;line-height:1.45;">
+          <span style="font-weight:600;">${esc(a.description)}</span>${a.metrics ? `<span style="color:${colors.accent};"> (${esc(a.metrics)})</span>` : ''}
+        </li>`).join('')}
+    </ul>` : '';
+
+  const contactHTML = profile.email || profile.phone ? `
+    <p style="text-align:center;font-size:10pt;color:${colors.muted};margin:6px 0 0 0;">
+      ${profile.email ? `<a href="mailto:${esc(profile.email)}" style="color:${colors.accent};text-decoration:none;">${esc(profile.email)}</a>` : ''}
+      ${profile.email && profile.phone ? '&nbsp;&nbsp;|&nbsp;&nbsp;' : ''}
+      ${profile.phone ? `<span>${esc(profile.phone)}</span>` : ''}
+    </p>` : '';
+
+  const scoresHTML = includeScores && analysis ? `
+    <p style="text-align:center;font-size:10pt;color:${colors.muted};margin:8px 0 0 0;">
+      <b style="color:${colors.accent};">Match:</b> ${analysis.overallScore}&nbsp;&nbsp;&nbsp;
+      <b style="color:${colors.accent};">ATS:</b> ${analysis.atsScore}
+    </p>` : '';
+
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(docTitle)}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    @page Section1 {
+      size: 8.5in 11.0in;
+      margin: 0.6in 0.6in 0.6in 0.6in;
+      mso-page-orientation: portrait;
+    }
+    div.Section1 { page: Section1; }
+    body {
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.4;
+      color: ${colors.text};
+    }
+    a { color: ${colors.accent}; text-decoration: none; }
+    ul { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="Section1">
+    <p style="text-align:center;font-size:22pt;font-weight:bold;color:${colors.primary};margin:0 0 4px 0;">${esc(profile.name || '')}</p>
+    ${enhanced.headline ? `<p style="text-align:center;font-size:12pt;color:${colors.secondary};margin:0;">${esc(enhanced.headline)}</p>` : ''}
+    ${contactHTML}
+    ${scoresHTML}
+    <hr style="border:none;border-top:2px solid ${colors.primary};margin:10px 0 4px 0;" />
+
+    ${enhanced.summary ? `${sectionTitle('Summary')}<p style="font-size:10pt;color:${colors.secondary};line-height:1.5;margin:0;">${esc(enhanced.summary)}</p>` : ''}
+
+    ${sectionTitle('Skills')}
+    ${skillsHTML}
+    ${softSkillsHTML}
+
+    ${sectionTitle('Professional Experience')}
+    ${experienceHTML}
+
+    ${achievementsHTML}
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Download resume as a Word document (.doc).
+ *
+ * Uses the Word-optimized HTML layout saved with the `application/msword`
+ * MIME type, which Word, Google Docs, and Pages all open and render natively.
+ */
+export function downloadResumeWord(options: ResumePDFOptions, filename: string): void {
+  const html = generateResumeWordHTML(options);
+  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename.endsWith('.doc') ? filename : `${filename}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 /**

@@ -5,7 +5,7 @@ import {
 import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useProfile, useAnalyzedJobs, useEnhancements } from '@/src/hooks/useAppData';
 import { enhanceResume, processDocuments } from '@/src/services/gemini';
-import { downloadResumePDF, previewResumeHTML } from '@/src/lib/resume-pdf';
+import { downloadResumePDF, downloadResumeWord, previewResumeHTML } from '@/src/lib/resume-pdf';
 import { Button, Card, CardHeader, CardContent, Badge, Abbr, EditableText, EditableList } from '@/src/components/ui';
 import { cn, formatDate } from '@/src/lib/utils';
 import { ENHANCEMENT_MODES, SUGGESTION_TYPES, IMPACT_LEVELS } from '@/src/lib/constants';
@@ -60,7 +60,7 @@ type EnhanceSource = 'profile' | 'upload';
 type UploadAction = 'enhance-only' | 'import-and-enhance';
 
 // Resume download format types
-type DownloadFormat = 'markdown' | 'text' | 'json' | 'pdf';
+type DownloadFormat = 'markdown' | 'text' | 'json' | 'pdf' | 'word';
 type PDFTemplate = 'professional' | 'modern' | 'minimal' | 'executive';
 
 /**
@@ -1563,6 +1563,37 @@ export const EnhancePage: React.FC = () => {
       return;
     }
 
+    if (format === 'word') {
+      const sanitize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const datePart = new Date().toISOString().split('T')[0];
+      const namePart = sanitize(profile.name || 'resume');
+
+      let baseFilename: string;
+      if (selectedJob?.company && selectedJob?.role) {
+        baseFilename = `${namePart}_${sanitize(selectedJob.company)}_${sanitize(selectedJob.role)}_${datePart}`;
+      } else if (selectedJob?.company) {
+        baseFilename = `${namePart}_${sanitize(selectedJob.company)}_${datePart}`;
+      } else {
+        baseFilename = `${namePart}_resume_${datePart}`;
+      }
+
+      downloadResumeWord(
+        {
+          enhanced: enhancedData,
+          profile,
+          analysis: analysisData || undefined,
+          jobInfo,
+          template: pdfTemplate,
+          includeScores: includeScoresInPDF && !!analysisData,
+          jobSkillGroups: jobSkillGroups.length > 0 ? jobSkillGroups : undefined,
+        },
+        `${baseFilename}.doc`
+      );
+      setShowDownloadMenu(false);
+      toast.success('Word Document Generated', `Saved as ${baseFilename}.doc`);
+      return;
+    }
+
     const content = generateResumeContent(
       enhancedData,
       profile,
@@ -1758,6 +1789,16 @@ export const EnhancePage: React.FC = () => {
                           <div className="flex-1">
                             <div className="font-medium">Preview PDF</div>
                             <div className="text-xs text-gray-500">See how it looks before downloading</div>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleDownload('word')}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-gray-700 rounded-md transition-colors"
+                        >
+                          <FileType className="w-5 h-5 text-blue-400" />
+                          <div className="flex-1">
+                            <div className="font-medium">Word Document (.doc)</div>
+                            <div className="text-xs text-gray-500">Editable in Word, Google Docs &amp; Pages</div>
                           </div>
                         </button>
 

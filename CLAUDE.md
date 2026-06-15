@@ -10,9 +10,22 @@ Job Hunt HQ is a job search management application powered by Google's Gemini AI
 
 ```bash
 npm run dev      # Start development server at http://localhost:3000
-npm run build    # Production build
+npm run build    # Production build (also the only "does it compile?" check — see below)
 npm run preview  # Preview production build
 ```
+
+> **No test/lint/typecheck npm scripts exist.** Despite `vitest`, `eslint`, `prettier`, and `tsc`
+> being installed as devDependencies, `package.json` defines only `dev`, `build`, and `preview`.
+> There are currently **no test files** in the repo. Until scripts are added, run tools directly:
+>
+> ```bash
+> npx tsc --noEmit          # Type-check (tsconfig has noEmit:true, strict + noUnusedLocals)
+> npx eslint .              # Lint
+> npx vitest                # Run tests (jsdom + @testing-library/react are configured deps)
+> npm run build             # Vite build doubles as a full type/compile smoke test
+> ```
+>
+> The dev server uses file-system **polling** (`vite.config.ts`) for WSL/Windows compatibility.
 
 ### Supabase CLI
 
@@ -176,16 +189,17 @@ Root-level `components/`, `services/`, and `utils/` directories contain legacy c
 When working on this project, automatically delegate to specialized agents:
 
 #### By File Type/Location
-[CUSTOMIZE: Update patterns to match your project structure]
 
 | Path Pattern | Agent |
 |--------------|-------|
-| `src/components/**/*.tsx` | `@frontend` |
-| `src/app/**/*.tsx` | `@frontend` or `@mobile-dev` |
-| `src/api/**`, `src/server/**` | `@backend` |
-| `**/migrations/**/*.sql` | `@database` |
+| `src/components/**/*.tsx`, `src/app/**/*.tsx` | `@frontend` |
+| `src/services/gemini/**` | `@frontend` (AI feature work — all client-side) |
+| `src/services/database/**`, `src/stores/supabase/**` | `@backend` or `@database` |
+| `supabase/migrations/**/*.sql` | `@database` |
 | `**/*.test.ts`, `**/*.spec.ts` | `@tester` |
-| `.github/workflows/**`, `**/Dockerfile` | `@devops` |
+
+> Note: this is a **client-only** app (Vite SPA). There is no `src/api`/`src/server` backend —
+> the "backend" is Supabase (Postgres + RLS) and the Gemini API, both called directly from the browser.
 
 #### By Task Type
 | Task | Agent Flow |
@@ -233,38 +247,44 @@ Before merging ANY code:
 
 ### Project-Specific Notes
 
-[CUSTOMIZE: Add notes specific to your project]
-
 #### Critical Paths (Extra Care Required)
-- **[Path 1]**: [Why it needs extra care]
-- **[Path 2]**: [Why it needs extra care]
+- **Dual-path stores (`src/stores/*.ts` vs `src/stores/supabase/*.ts`)**: Both must stay type-compatible
+  via `src/types/index.ts`. Changing one side without the other breaks the localStorage→Supabase
+  migration that runs on first sign-in (see `initializeStores()` in `src/stores/index.ts`).
+- **`src/services/database/types.ts` converters**: DB row types ≠ app types. After any schema change,
+  regenerate `src/lib/supabase/types.ts` and update the row↔app converters or runtime data silently drifts.
+- **Gemini JSON parsing (`src/services/gemini/parse-json.ts`, `schemas.ts`)**: AI responses are
+  repaired with `jsonrepair` and validated with `zod`. Prompt/schema changes are tightly coupled —
+  edit them together.
+- **RLS policies in `supabase/migrations/`**: Every table is scoped to `auth.uid() = user_id`.
+  Since the anon key ships to the browser, RLS is the *only* thing enforcing data isolation.
 
 #### Tech Stack Quick Reference
-[CUSTOMIZE: Fill in your actual tech stack]
 
-- **Frontend**: [e.g., React, Vue, Next.js]
-- **State**: [e.g., Redux, Zustand, React Query]
-- **Backend**: [e.g., Node.js, .NET, Supabase, Django]
-- **Database**: [e.g., PostgreSQL, MongoDB, Supabase]
-- **Payments**: [e.g., Stripe, PayPal] (if applicable)
-- **Hosting**: [e.g., Vercel, Netlify, AWS, Azure]
+- **Frontend**: React 19 + Vite 6 + TypeScript (strict), Tailwind CSS v4, React Router v7 (lazy routes)
+- **State**: Zustand v5 (`persist` middleware) + TanStack Query v5
+- **AI**: Google Gemini via `@google/genai` (`gemini-2.5-flash`; native-audio model for live features)
+- **Backend / DB**: Supabase (Postgres + Auth + Storage + Realtime), all called from the browser
+- **Notable libs**: `zod` (validation), `jsonrepair` (AI output), `mammoth` (.docx parsing),
+  `react-markdown` + `remark-gfm`, `react-hot-toast`/`sonner` (toasts), `lucide-react` (icons)
+- **Hosting**: client-only SPA (`dist/` from `vite build`); no deploy config committed
 
 #### Common Commands
-[CUSTOMIZE: Add your project's common commands]
 
 ```bash
 # Development
-npm run dev           # Start dev server
-npm test              # Run tests
-npm run build         # Production build
-npm run lint          # Lint code
-npm run typecheck     # Type checking
+npm run dev               # Start dev server (port 3000)
+npm run build             # Production build (+ serves as the compile/type smoke test)
+npm run preview           # Preview the production build
 
-# Database (if applicable)
-# [Add your migration/seed commands]
+# Quality (no npm scripts — run binaries directly)
+npx tsc --noEmit          # Type-check
+npx eslint .              # Lint
+npx vitest                # Tests (none exist yet)
 
-# Deployment (if applicable)
-# [Add your deploy commands]
+# Database
+npx supabase db push      # Apply migrations in supabase/migrations/
+npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts
 ```
 
 ---
