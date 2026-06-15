@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import type { JobApplication, ApplicationStatus, JDAnalysis, CompanyResearch } from '@/src/types';
 import { applicationsService } from '@/src/services/database';
 import { generateId } from '@/src/lib/utils';
+import { useSupabaseProfileStore } from './profile';
 
 interface ApplicationsState {
   applications: JobApplication[];
@@ -73,6 +74,10 @@ export const useSupabaseApplicationStore = create<ApplicationsState>()((set, get
 
   addApplication: async (partial) => {
     const now = new Date().toISOString();
+    // Link to the active profile so the app shows under the current profile
+    // (strict per-profile filtering hides apps with a null profileId).
+    const activeProfile = useSupabaseProfileStore.getState().getActiveProfile();
+    const activeProfileId = activeProfile?.metadata.id;
     const newApp: JobApplication = {
       id: generateId(),
       type: partial.type || 'fulltime',
@@ -88,7 +93,7 @@ export const useSupabaseApplicationStore = create<ApplicationsState>()((set, get
       companyResearch: partial.companyResearch,
       platform: partial.platform,
       proposalSent: partial.proposalSent,
-      profileId: partial.profileId,
+      profileId: partial.profileId || activeProfileId,
       createdAt: now,
       updatedAt: now,
     };
