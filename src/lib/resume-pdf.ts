@@ -393,6 +393,26 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       margin: 0 auto;
     }
 
+    /* On-screen preview: render as a realistic letter-sized page instead of
+       a skinny centered column. Without this, the print/preview window (which
+       can be far wider than letter) shrinks the content to max-width and
+       leaves huge empty side margins. The inner content width (page width
+       minus padding) matches the printable width used by @page. */
+    @media screen {
+      body {
+        background: #525659;
+        padding: 24px 0;
+      }
+      .container {
+        width: 8.5in;
+        max-width: 8.5in;
+        min-height: 11in;
+        padding: 0.5in 0.6in;
+        background: ${colors.background};
+        box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+      }
+    }
+
     /* Executive Header */
     .header {
       text-align: center;
@@ -700,6 +720,17 @@ function generateExecutiveHTML(options: ResumePDFOptions): string {
       html, body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        background: ${colors.background};
+      }
+
+      /* Fill the printable area; @page margins handle the page edges. */
+      .container {
+        width: 100%;
+        max-width: 7.3in;
+        min-height: 0;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
       }
 
       /* Force link styling in print */
@@ -964,6 +995,26 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       max-width: 7.3in;
       margin: 0 auto;
       padding: 0;
+    }
+
+    /* On-screen preview: render as a realistic letter-sized page instead of
+       a skinny centered column. Without this, the print/preview window (which
+       can be far wider than letter) shrinks the content to max-width and
+       leaves huge empty side margins. The inner content width (page width
+       minus padding) matches the printable width used by @page. */
+    @media screen {
+      body {
+        background: #525659;
+        padding: 24px 0;
+      }
+      .container {
+        width: 8.5in;
+        max-width: 8.5in;
+        min-height: 11in;
+        padding: 0.5in 0.6in;
+        background: ${colors.background};
+        box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+      }
     }
 
     /* Header */
@@ -1235,6 +1286,7 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
       html, body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        background: ${colors.background};
       }
 
       /* Force link styling in print */
@@ -1246,8 +1298,14 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
         -webkit-text-decoration: none !important;
       }
 
+      /* Fill the printable area; @page margins handle the page edges. */
       .container {
+        width: 100%;
+        max-width: 7.3in;
+        min-height: 0;
         padding: 0;
+        background: transparent;
+        box-shadow: none;
       }
 
       /* Allow sections to break across pages - only keep section titles with first item */
