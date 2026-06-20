@@ -8,6 +8,9 @@
 export {
   importMTACProject,
   importMTACProjectToFullStack,
+  copyMTACProjectToProfile,
+  buildMTACProjectCopy,
+  buildMTACDocumentationCopy,
   findOrCreateFullStackProfile,
   migrateMTACProject,
   type ImportResult,
