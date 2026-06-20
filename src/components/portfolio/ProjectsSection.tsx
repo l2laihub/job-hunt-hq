@@ -18,18 +18,29 @@ import {
   Check,
   X,
   Files,
+  Sparkles,
+  Loader2,
+  Copy,
 } from 'lucide-react';
 import {
   Project,
   ProjectDocumentation,
+  UserProfileWithMeta,
   DEFAULT_PROJECT_DOCUMENTATION,
 } from '@/src/types';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
+import { toast } from '@/src/stores';
 import { ProjectDocModal } from './ProjectDocModal';
 import {
+  buildMTACProjectCopy,
+  buildMTACDocumentationCopy,
+} from '@/src/services/project-import';
+import {
   saveProjectDocumentation,
+  getProjectDocumentation,
   getAllProjectDocumentation,
+  copyProjectAssets,
 } from '@/src/services/storage/project-assets';
 
 interface ProjectsSectionProps {
@@ -37,6 +48,7 @@ interface ProjectsSectionProps {
   onUpdateProjects: (projects: Project[]) => void;
   userId?: string; // Required for Supabase storage
   profileId?: string;
+  otherProfiles?: UserProfileWithMeta[]; // Other profiles, for copying assets across profiles
   onGenerateAI?: (project: Project, docs: ProjectDocumentation) => Promise<{
     summary: string;
     talkingPoints: string[];
@@ -44,11 +56,33 @@ interface ProjectsSectionProps {
   }>;
 }
 
+/**
+ * Find a project with the same name in another profile that can serve as a
+ * source of uploaded assets. Returns the first match (must have a stable id).
+ */
+function findAssetSourceProfile(
+  otherProfiles: UserProfileWithMeta[] | undefined,
+  projectName: string
+): { profileName: string; sourceProjectId: string } | null {
+  if (!otherProfiles) return null;
+  const target = projectName.trim().toLowerCase();
+  for (const prof of otherProfiles) {
+    const match = prof.activeProjects?.find(
+      (pr) => pr.id && pr.name.trim().toLowerCase() === target
+    );
+    if (match?.id) {
+      return { profileName: prof.metadata.name, sourceProjectId: match.id };
+    }
+  }
+  return null;
+}
+
 export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   projects,
   onUpdateProjects,
   userId,
   profileId,
+  otherProfiles,
   onGenerateAI,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -56,6 +90,8 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   const [documentingProject, setDocumentingProject] = useState<Project | null>(null);
   const [projectDocs, setProjectDocs] = useState<Record<string, ProjectDocumentation>>({});
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isImportingMtac, setIsImportingMtac] = useState(false);
+  const [copyingFilesId, setCopyingFilesId] = useState<string | null>(null);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     name: '',
     description: '',
@@ -106,6 +142,47 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
     setIsAddingNew(false);
   }, [newProject, projects, onUpdateProjects]);
 
+  const handleImportMtac = useCallback(async () => {
+    // Avoid creating a duplicate MTAC project in this profile
+    const alreadyExists = projects.some(p =>
+      p.name.toLowerCase().includes('mtac') ||
+      p.name.toLowerCase().includes('intelligence copilot')
+    );
+    if (alreadyExists) {
+      toast.error('Already added', 'This profile already has the MTAC Intelligence Copilot project.');
+      return;
+    }
+
+    setIsImportingMtac(true);
+    try {
+      const project = buildMTACProjectCopy();
+      const documentation = buildMTACDocumentationCopy();
+      const projectId = project.id!;
+
+      // Add the project entry (persisted with the profile on "Save Changes")
+      onUpdateProjects([...projects, project]);
+
+      // Persist the documentation to its own table so it shows up and is reusable.
+      // Requires being signed in (documentation lives in Supabase, keyed by user + project).
+      if (userId) {
+        await saveProjectDocumentation(userId, projectId, project.name, documentation, profileId);
+        setProjectDocs(prev => ({ ...prev, [projectId]: documentation }));
+        setExpandedId(projectId);
+        toast.success('MTAC project imported', 'Click "Save Changes" to finish saving the project.');
+      } else {
+        toast.success(
+          'MTAC project added',
+          'Sign in to import its documentation. Click "Save Changes" to keep the project.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to import MTAC project:', err);
+      toast.error('Import failed', err instanceof Error ? err.message : 'Could not import the MTAC project.');
+    } finally {
+      setIsImportingMtac(false);
+    }
+  }, [projects, onUpdateProjects, userId, profileId]);
+
   const handleUpdateProject = useCallback((id: string, updates: Partial<Project>) => {
     onUpdateProjects(projects.map(p =>
       p.id === id || p.name === id ? { ...ensureProjectId(p), ...updates } : p
@@ -115,6 +192,69 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
   const handleDeleteProject = useCallback((id: string) => {
     onUpdateProjects(projects.filter(p => p.id !== id && p.name !== id));
   }, [projects, onUpdateProjects]);
+
+  const handleCopyFiles = useCallback(async (project: Project) => {
+    if (!userId) {
+      toast.error('Sign in required', 'Copying uploaded files needs you to be signed in.');
+      return;
+    }
+    const source = findAssetSourceProfile(otherProfiles, project.name);
+    if (!source) {
+      toast.error('No source found', `No other profile has a project named "${project.name}".`);
+      return;
+    }
+
+    // Ensure the target project has a stable id to key its documentation by.
+    const withId = ensureProjectId(project);
+    if (!project.id) {
+      handleUpdateProject(project.name, { id: withId.id });
+    }
+    const targetProjectId = withId.id!;
+
+    setCopyingFilesId(targetProjectId);
+    try {
+      const sourceDoc = await getProjectDocumentation(userId, source.sourceProjectId);
+      const sourceImages =
+        (sourceDoc?.screenshots?.length || 0) + (sourceDoc?.architectureDiagrams?.length || 0);
+      const sourceFiles = sourceDoc?.documentFiles?.length || 0;
+
+      if (!sourceDoc || (sourceImages === 0 && sourceFiles === 0)) {
+        toast.error('Nothing to copy', `"${project.name}" in ${source.profileName} has no uploaded files.`);
+        return;
+      }
+
+      const targetDoc =
+        projectDocs[targetProjectId] ||
+        (await getProjectDocumentation(userId, targetProjectId)) ||
+        DEFAULT_PROJECT_DOCUMENTATION;
+
+      const { documentation, copiedImages, copiedFiles } = await copyProjectAssets(
+        userId,
+        source.sourceProjectId,
+        targetProjectId,
+        sourceDoc,
+        targetDoc
+      );
+
+      await saveProjectDocumentation(userId, targetProjectId, project.name, documentation, profileId);
+      setProjectDocs(prev => ({ ...prev, [targetProjectId]: documentation }));
+      handleUpdateProject(targetProjectId, { hasDocumentation: true });
+
+      if (copiedImages === 0 && copiedFiles === 0) {
+        toast.success('Already up to date', `No new files to copy from ${source.profileName}.`);
+      } else {
+        const parts: string[] = [];
+        if (copiedImages) parts.push(`${copiedImages} image${copiedImages > 1 ? 's' : ''}`);
+        if (copiedFiles) parts.push(`${copiedFiles} file${copiedFiles > 1 ? 's' : ''}`);
+        toast.success('Files copied', `Copied ${parts.join(' and ')} from ${source.profileName}.`);
+      }
+    } catch (err) {
+      console.error('Failed to copy project files:', err);
+      toast.error('Copy failed', err instanceof Error ? err.message : 'Could not copy files.');
+    } finally {
+      setCopyingFilesId(null);
+    }
+  }, [userId, profileId, otherProfiles, projectDocs, handleUpdateProject]);
 
   const handleOpenDocumentation = useCallback((project: Project) => {
     const projectWithId = ensureProjectId(project);
@@ -162,15 +302,31 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
         <h3 className="text-sm font-medium text-gray-400">
           Projects ({projects.length})
         </h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsAddingNew(true)}
-          disabled={isAddingNew}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Add Project
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportMtac}
+            disabled={isImportingMtac || isAddingNew}
+            title="Import the MTAC Intelligence Copilot project and its documentation into this profile"
+          >
+            {isImportingMtac ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 mr-1" />
+            )}
+            {isImportingMtac ? 'Importing...' : 'Import MTAC Project'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAddingNew(true)}
+            disabled={isAddingNew}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Project
+          </Button>
+        </div>
       </div>
 
       {/* Add New Project Form */}
@@ -263,6 +419,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
             const projectId = project.id || project.name;
             const isExpanded = expandedId === projectId;
             const stats = getDocStats(projectId);
+            const assetSource = findAssetSourceProfile(otherProfiles, project.name);
 
             return (
               <div
@@ -370,6 +527,27 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({
                           <FileText className="w-4 h-4 mr-1" />
                           {stats ? 'Edit Documentation' : 'Add Documentation'}
                         </Button>
+                        {userId && assetSource && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyFiles(project);
+                            }}
+                            disabled={copyingFilesId === projectId}
+                            title={`Copy uploaded screenshots & files from ${assetSource.profileName}'s "${project.name}"`}
+                          >
+                            {copyingFilesId === projectId ? (
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            ) : (
+                              <Copy className="w-4 h-4 mr-1" />
+                            )}
+                            {copyingFilesId === projectId
+                              ? 'Copying...'
+                              : `Copy files from ${assetSource.profileName}`}
+                          </Button>
+                        )}
                         {!userId && (
                           <span className="text-xs text-yellow-500">
                             Sign in to add documentation

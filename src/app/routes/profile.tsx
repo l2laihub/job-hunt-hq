@@ -137,7 +137,7 @@ const workStyleOptions = [
 ];
 
 export const ProfilePage: React.FC = () => {
-  const { profile, activeProfile: activeProfileWithMeta, isLoading, isAuthenticated, actions, error } = useProfileData();
+  const { profile, activeProfile: activeProfileWithMeta, profiles, isLoading, isAuthenticated, actions, error } = useProfileData();
   const { updateProfile } = actions;
   const { user } = useAuth();
 
@@ -934,6 +934,9 @@ export const ProfilePage: React.FC = () => {
             onUpdateProjects={(projects) => handleFieldChange('activeProjects', projects)}
             userId={user?.id}
             profileId={activeProfileWithMeta?.metadata.id}
+            otherProfiles={profiles.filter(
+              (p) => p.metadata.id !== activeProfileWithMeta?.metadata.id
+            )}
           />
         </ProfileSection>
 

@@ -3,7 +3,7 @@
  * Handles file uploads/downloads for project documentation assets
  */
 import { supabase } from '@/src/lib/supabase/client';
-import { MediaAsset, ProjectDocumentation, DEFAULT_PROJECT_DOCUMENTATION } from '@/src/types';
+import { MediaAsset, DocumentFile, ProjectDocumentation, DEFAULT_PROJECT_DOCUMENTATION } from '@/src/types';
 
 const BUCKET = 'project-assets';
 
@@ -141,6 +141,107 @@ export async function deleteProjectAsset(
   if (error) {
     throw new Error(`Delete failed: ${error.message}`);
   }
+}
+
+/**
+ * Extract the stored object name (the generated filename) from a public asset URL.
+ * URLs look like `.../project-assets/<userId>/<projectId>/<storedName>`.
+ */
+function storedObjectName(url: string): string {
+  return url.split('?')[0].split('/').pop() || '';
+}
+
+/**
+ * Copy the uploaded image assets of one project to another (same user), within
+ * the storage bucket, and merge them into the target documentation.
+ *
+ * - Images (screenshots + architecture diagrams) are real storage objects, so
+ *   the underlying files are copied to the target project's path and their URLs
+ *   rewritten.
+ * - Document files store their content inline in the documentation row, so they
+ *   are carried over as plain data (no storage involved).
+ *
+ * Merge semantics: source assets are appended to the target's existing assets,
+ * de-duplicated by stored object name (images) / filename (docs), so re-running
+ * is idempotent and never clobbers assets unique to the target.
+ *
+ * Returns the merged documentation plus counts of what was copied. The caller is
+ * responsible for persisting the result via saveProjectDocumentation().
+ */
+export async function copyProjectAssets(
+  userId: string,
+  sourceProjectId: string,
+  targetProjectId: string,
+  sourceDoc: ProjectDocumentation,
+  targetDoc: ProjectDocumentation
+): Promise<{ documentation: ProjectDocumentation; copiedImages: number; copiedFiles: number }> {
+  const copyAsset = async (asset: MediaAsset): Promise<MediaAsset> => {
+    const objectName = storedObjectName(asset.url);
+    if (!objectName) return asset;
+
+    const fromPath = `${userId}/${sourceProjectId}/${objectName}`;
+    const toPath = `${userId}/${targetProjectId}/${objectName}`;
+
+    const { error } = await supabase.storage.from(BUCKET).copy(fromPath, toPath);
+    // Ignore "already exists" so re-running is safe; surface anything else.
+    if (error && !/exist|duplicate/i.test(error.message)) {
+      throw new Error(`Failed to copy ${asset.filename}: ${error.message}`);
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(toPath);
+    return { ...asset, id: crypto.randomUUID(), url: urlData.publicUrl };
+  };
+
+  const copiedScreenshots = await Promise.all((sourceDoc.screenshots || []).map(copyAsset));
+  const copiedDiagrams = await Promise.all((sourceDoc.architectureDiagrams || []).map(copyAsset));
+  const copiedFiles: DocumentFile[] = (sourceDoc.documentFiles || []).map((f) => ({
+    ...f,
+    id: crypto.randomUUID(),
+  }));
+
+  const mergeAssets = (existing: MediaAsset[] = [], incoming: MediaAsset[] = []): MediaAsset[] => {
+    const seen = new Set(existing.map((a) => storedObjectName(a.url)));
+    return [
+      ...existing,
+      ...incoming.filter((a) => {
+        const name = storedObjectName(a.url);
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      }),
+    ];
+  };
+
+  const mergeFiles = (existing: DocumentFile[] = [], incoming: DocumentFile[] = []): DocumentFile[] => {
+    const seen = new Set(existing.map((f) => f.filename));
+    return [
+      ...existing,
+      ...incoming.filter((f) => {
+        if (seen.has(f.filename)) return false;
+        seen.add(f.filename);
+        return true;
+      }),
+    ];
+  };
+
+  const screenshots = mergeAssets(targetDoc.screenshots, copiedScreenshots);
+  const architectureDiagrams = mergeAssets(targetDoc.architectureDiagrams, copiedDiagrams);
+  const documentFiles = mergeFiles(targetDoc.documentFiles, copiedFiles);
+
+  const documentation: ProjectDocumentation = {
+    ...targetDoc,
+    screenshots,
+    architectureDiagrams,
+    documentFiles,
+  };
+
+  // Report only the assets actually added (post-dedupe).
+  const addedImages =
+    screenshots.length - (targetDoc.screenshots?.length || 0) +
+    (architectureDiagrams.length - (targetDoc.architectureDiagrams?.length || 0));
+  const addedFiles = documentFiles.length - (targetDoc.documentFiles?.length || 0);
+
+  return { documentation, copiedImages: addedImages, copiedFiles: addedFiles };
 }
 
 /**

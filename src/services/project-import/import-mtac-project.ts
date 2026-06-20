@@ -11,8 +11,10 @@
  */
 
 import { useProfileStore } from '@/src/stores/profile';
+import { useSupabaseProfileStore } from '@/src/stores/supabase/profile';
 import { useStoriesStore } from '@/src/stores/stories';
 import { useTechnicalAnswersStore } from '@/src/stores/technical-answers';
+import { profilesService } from '@/src/services/database';
 import { generateId } from '@/src/lib/utils';
 import type {
   Project,
@@ -24,6 +26,7 @@ import type {
   TechnicalAnswer,
   AnswerSection,
   FollowUpQA,
+  UserProfileWithMeta,
 } from '@/src/types';
 
 // ============================================
@@ -1237,6 +1240,124 @@ export function importMTACProjectToFullStack(): ImportResult {
   return importMTACProject(profileId);
 }
 
+// ============================================
+// SUPABASE-AWARE COPY (signed-in users)
+// ============================================
+
+/**
+ * Clone the MTAC documentation with fresh IDs so copies living in different
+ * profiles don't share identifiers.
+ */
+function cloneDocumentationWithFreshIds(doc: ProjectDocumentation): ProjectDocumentation {
+  return {
+    ...doc,
+    technicalDecisions: doc.technicalDecisions.map((d) => ({ ...d, id: generateId() })),
+    challenges: doc.challenges.map((c) => ({ ...c, id: generateId() })),
+    metrics: doc.metrics.map((m) => ({ ...m, id: generateId() })),
+  };
+}
+
+/**
+ * Build a fresh copy of the MTAC project (new ID, no inline docs) ready to
+ * append to a profile's `activeProjects`. The matching documentation is
+ * returned separately by buildMTACDocumentationCopy() and should be persisted
+ * to the `project_documentation` table keyed by this project's id.
+ */
+export function buildMTACProjectCopy(): Project {
+  return {
+    ...MTAC_PROJECT,
+    id: generateId(),
+    hasDocumentation: true,
+  };
+}
+
+/** Build a fresh copy of the MTAC documentation with new IDs. */
+export function buildMTACDocumentationCopy(): ProjectDocumentation {
+  return cloneDocumentationWithFreshIds(MTAC_DOCUMENTATION);
+}
+
+/**
+ * Copy ONLY the MTAC Intelligence Copilot project + its documentation
+ * (no STAR stories, no technical answers) into a profile identified by a
+ * case-insensitive name match, persisting the change to Supabase.
+ *
+ * Use this when signed in — signed-in data lives in Supabase, not localStorage,
+ * so the localStorage-based importMTACProject() above would not persist.
+ * The active profile is left untouched; the write targets the matched profile
+ * directly. Run from the browser console while signed in:
+ *
+ *   await copyMTACProjectToProfile('Senior Software Engineer')
+ */
+export async function copyMTACProjectToProfile(profileName: string): Promise<ImportResult> {
+  const projectWithDocs: Project = {
+    ...MTAC_PROJECT,
+    id: generateId(),
+    documentation: cloneDocumentationWithFreshIds(MTAC_DOCUMENTATION),
+  };
+
+  const fail = (profileId: string, error: string): ImportResult => ({
+    success: false,
+    profileId,
+    project: projectWithDocs,
+    storiesCount: 0,
+    answersCount: 0,
+    storyIds: [],
+    answerIds: [],
+    error,
+  });
+
+  try {
+    const store = useSupabaseProfileStore.getState();
+
+    // Ensure profiles are loaded before searching
+    if (store.profiles.length === 0) {
+      await store.fetchProfiles();
+    }
+    const profiles = useSupabaseProfileStore.getState().profiles;
+
+    const target = profiles.find((p) =>
+      p.metadata.name.toLowerCase().includes(profileName.toLowerCase())
+    );
+
+    if (!target) {
+      const available = profiles.map((p) => p.metadata.name).join(', ') || '(none)';
+      return fail('', `No profile matching "${profileName}". Available profiles: ${available}`);
+    }
+
+    // Avoid creating a duplicate MTAC project
+    const alreadyHasMtac = target.activeProjects.some((p) =>
+      p.name.toLowerCase().includes('mtac') ||
+      p.name.toLowerCase().includes('intelligence copilot')
+    );
+    if (alreadyHasMtac) {
+      return fail(
+        target.metadata.id,
+        `Profile "${target.metadata.name}" already has an MTAC project. Aborting to avoid a duplicate.`
+      );
+    }
+
+    // Persist directly to the target profile (leaves the active profile as-is)
+    await profilesService.update(target.metadata.id, {
+      activeProjects: [...target.activeProjects, projectWithDocs],
+    } as Partial<UserProfileWithMeta>);
+
+    // Refresh the in-memory store so the UI reflects the new project
+    await useSupabaseProfileStore.getState().fetchProfiles();
+
+    return {
+      success: true,
+      profileId: target.metadata.id,
+      project: projectWithDocs,
+      storiesCount: 0,
+      answersCount: 0,
+      storyIds: [],
+      answerIds: [],
+    };
+  } catch (error) {
+    return fail('', error instanceof Error ? error.message : 'Unknown error');
+  }
+}
+
 const MTAC_MIGRATION_KEY = 'jhq_mtac_project_imported';
 
 /**
@@ -1290,6 +1411,7 @@ export function migrateMTACProject(): void {
 if (typeof window !== 'undefined') {
   (window as unknown as Record<string, unknown>).importMTACProject = importMTACProject;
   (window as unknown as Record<string, unknown>).importMTACProjectToFullStack = importMTACProjectToFullStack;
+  (window as unknown as Record<string, unknown>).copyMTACProjectToProfile = copyMTACProjectToProfile;
   (window as unknown as Record<string, unknown>).findOrCreateFullStackProfile = findOrCreateFullStackProfile;
   (window as unknown as Record<string, unknown>).migrateMTACProject = migrateMTACProject;
 }
