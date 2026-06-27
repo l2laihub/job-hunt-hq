@@ -6,6 +6,17 @@
  */
 
 import type { EnhancedProfile, EnhancedRole, ResumeAnalysis, UserProfile, SkillGroup } from '@/src/types';
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  ExternalHyperlink,
+  Tab,
+  AlignmentType,
+  BorderStyle,
+  TabStopType,
+} from 'docx';
 
 /**
  * Parse a duration string and extract the end date for sorting
@@ -1704,49 +1715,34 @@ export function generateResumeHTML(options: ResumePDFOptions): string {
 }
 
 /**
- * Generate a Word-optimized HTML document for .doc export.
+ * Build a native `.docx` (OOXML) resume document.
  *
- * Word's HTML rendering engine ignores CSS multi-column and flexbox layouts,
- * so this layout is built with tables and inline styles (which Word renders
- * reliably) instead of the column/flex layout used for the PDF templates.
- * The result is saved with a .doc extension and the `application/msword`
- * MIME type so Microsoft Word (and Google Docs/Pages) opens it natively.
+ * Replaces the old "HTML renamed to .doc" hack, which Google Docs imported
+ * through a lossy converter that dropped most CSS (borders, letter-spacing,
+ * text-transform). A real .docx carries formatting as Word styles, so Word,
+ * Google Docs, and Pages all render it natively and consistently.
  */
-export function generateResumeWordHTML(options: ResumePDFOptions): string {
+export function generateResumeDocx(options: ResumePDFOptions): Document {
   const {
     enhanced,
     profile,
     analysis,
-    jobInfo,
     template = 'professional',
     includeScores = false,
     jobSkillGroups,
   } = options;
 
   const colors = template === 'executive' ? templates.executive : templates[template];
+  const hex = (c: string) => c.replace('#', '');
+  const PRIMARY = hex(colors.primary);
+  const SECONDARY = hex(colors.secondary);
+  const ACCENT = hex(colors.accent);
+  const MUTED = hex(colors.muted);
+  const TEXT = hex(colors.text);
 
-  // Escape user content for safe HTML embedding (e.g. "R&D", "<senior>").
-  const esc = (str: string): string =>
-    String(str ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  // 8.5in page, 0.6in margins → content width in twips (1in = 1440twip).
+  const RIGHT_TAB = 12240 - 864 * 2;
 
-  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9\s-]/g, '').trim();
-  const datePart = new Date().toISOString().split('T')[0];
-  const namePart = sanitize(profile.name || 'Resume');
-
-  let docTitle: string;
-  if (jobInfo?.company && jobInfo?.role) {
-    docTitle = `${namePart} - ${sanitize(jobInfo.company)} ${sanitize(jobInfo.role)} - ${datePart}`;
-  } else if (jobInfo?.company) {
-    docTitle = `${namePart} - ${sanitize(jobInfo.company)} - ${datePart}`;
-  } else {
-    docTitle = `${namePart} - Resume - ${datePart}`;
-  }
-
-  // Skill grouping: user-defined groups (job-specific or profile) win, else
-  // fall back to a single "Technical Skills" bucket. Mirrors the PDF logic.
   const skillGroupsToUse = jobSkillGroups && jobSkillGroups.length > 0
     ? jobSkillGroups
     : profile.skillGroups;
@@ -1754,140 +1750,163 @@ export function generateResumeWordHTML(options: ResumePDFOptions): string {
     skillGroupsToRecord(skillGroupsToUse, enhanced.technicalSkills) ??
     { 'Technical Skills': enhanced.technicalSkills };
 
-  const sectionTitle = (text: string): string => `
-    <p style="font-size:11pt;font-weight:bold;color:${colors.primary};text-transform:uppercase;letter-spacing:1px;
-              border-bottom:1px solid ${colors.border};padding-bottom:3px;margin:14px 0 8px 0;">
-      ${esc(text)}
-    </p>`;
+  // Uppercase bold heading with a primary-colored bottom rule. docx paragraph
+  // borders render reliably in Google Docs (unlike imported HTML borders).
+  const sectionTitle = (text: string): Paragraph =>
+    new Paragraph({
+      spacing: { before: 240, after: 80 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: PRIMARY, space: 2 } },
+      children: [
+        new TextRun({ text: text.toUpperCase(), bold: true, size: 23, color: PRIMARY, characterSpacing: 20 }),
+      ],
+    });
 
-  const skillsHTML = Object.entries(skillCategories)
+  const bullet = (children: TextRun[]): Paragraph =>
+    new Paragraph({ bullet: { level: 0 }, spacing: { after: 40, line: 276 }, children });
+
+  const body: Paragraph[] = [];
+
+  // Header: name, headline, contact, optional scores.
+  body.push(new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 40 },
+    children: [new TextRun({ text: profile.name || '', bold: true, size: 44, color: PRIMARY })],
+  }));
+
+  if (enhanced.headline) {
+    body.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [new TextRun({ text: enhanced.headline, size: 24, color: SECONDARY })],
+    }));
+  }
+
+  if (profile.email || profile.phone) {
+    const contact: (TextRun | ExternalHyperlink)[] = [];
+    if (profile.email) {
+      contact.push(new ExternalHyperlink({
+        link: `mailto:${profile.email}`,
+        children: [new TextRun({ text: profile.email, size: 20, color: ACCENT })],
+      }));
+    }
+    if (profile.email && profile.phone) {
+      contact.push(new TextRun({ text: '   |   ', size: 20, color: MUTED }));
+    }
+    if (profile.phone) {
+      contact.push(new TextRun({ text: profile.phone, size: 20, color: MUTED }));
+    }
+    body.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 40 }, children: contact }));
+  }
+
+  if (includeScores && analysis) {
+    body.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [
+        new TextRun({ text: 'Match: ', bold: true, size: 20, color: ACCENT }),
+        new TextRun({ text: `${analysis.overallScore}      `, size: 20, color: MUTED }),
+        new TextRun({ text: 'ATS: ', bold: true, size: 20, color: ACCENT }),
+        new TextRun({ text: `${analysis.atsScore}`, size: 20, color: MUTED }),
+      ],
+    }));
+  }
+
+  // Thick rule under the header block.
+  body.push(new Paragraph({
+    spacing: { before: 80, after: 80 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 18, color: PRIMARY, space: 1 } },
+    children: [],
+  }));
+
+  // Summary.
+  if (enhanced.summary) {
+    body.push(sectionTitle('Summary'));
+    body.push(new Paragraph({
+      spacing: { after: 40, line: 300 },
+      children: [new TextRun({ text: enhanced.summary, size: 20, color: SECONDARY })],
+    }));
+  }
+
+  // Skills.
+  body.push(sectionTitle('Skills'));
+  Object.entries(skillCategories)
     .filter(([, skills]) => skills.length > 0)
-    .map(([category, skills]) => `
-      <p style="margin:0 0 4px 0;font-size:10pt;line-height:1.4;">
-        <span style="font-weight:bold;color:${colors.accent};">${esc(category)}:</span>
-        <span style="color:${colors.secondary};"> ${skills.map(esc).join(' • ')}</span>
-      </p>`)
-    .join('');
+    .forEach(([category, skills]) => {
+      body.push(new Paragraph({
+        spacing: { after: 40, line: 276 },
+        children: [
+          new TextRun({ text: `${category}: `, bold: true, size: 20, color: ACCENT }),
+          new TextRun({ text: skills.join(' • '), size: 20, color: SECONDARY }),
+        ],
+      }));
+    });
+  if (enhanced.softSkills.length > 0) {
+    body.push(new Paragraph({
+      spacing: { after: 40, line: 276 },
+      children: [
+        new TextRun({ text: 'Professional Skills: ', bold: true, size: 20, color: ACCENT }),
+        new TextRun({ text: enhanced.softSkills.join(' • '), size: 20, color: SECONDARY }),
+      ],
+    }));
+  }
 
-  const softSkillsHTML = enhanced.softSkills.length > 0 ? `
-    <p style="margin:0 0 4px 0;font-size:10pt;line-height:1.4;">
-      <span style="font-weight:bold;color:${colors.accent};">Professional Skills:</span>
-      <span style="color:${colors.secondary};"> ${enhanced.softSkills.map(esc).join(' • ')}</span>
-    </p>` : '';
+  // Experience.
+  body.push(sectionTitle('Professional Experience'));
+  sortRolesByDate(enhanced.recentRoles).forEach(role => {
+    body.push(new Paragraph({
+      spacing: { before: 120, after: 20 },
+      tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
+      children: [
+        new TextRun({ text: role.title, bold: true, size: 22, color: PRIMARY }),
+        new TextRun({ text: `   ${role.company}`, bold: true, size: 21, color: ACCENT }),
+        new TextRun({ children: [new Tab(), role.duration], italics: true, size: 19, color: MUTED }),
+      ],
+    }));
+    role.enhancedHighlights.forEach(h => {
+      body.push(bullet([new TextRun({ text: h, size: 20, color: TEXT })]));
+    });
+  });
 
-  const experienceHTML = sortRolesByDate(enhanced.recentRoles)
-    .map(role => `
-      <div style="margin-bottom:12px;">
-        <table style="width:100%;border-collapse:collapse;margin-bottom:2px;">
-          <tr>
-            <td style="text-align:left;vertical-align:bottom;padding:0;">
-              <span style="font-size:11pt;font-weight:bold;color:${colors.primary};">${esc(role.title)}</span>
-              <span style="font-size:10.5pt;color:${colors.accent};font-weight:bold;">&nbsp;&nbsp;${esc(role.company)}</span>
-            </td>
-            <td style="text-align:right;vertical-align:bottom;padding:0;white-space:nowrap;">
-              <span style="font-size:9.5pt;color:${colors.muted};font-style:italic;">${esc(role.duration)}</span>
-            </td>
-          </tr>
-        </table>
-        <ul style="margin:4px 0 0 0;padding-left:18px;">
-          ${role.enhancedHighlights.map(h => `<li style="font-size:10pt;color:${colors.text};margin-bottom:3px;line-height:1.45;">${esc(h)}</li>`).join('')}
-        </ul>
-      </div>`)
-    .join('');
+  // Key achievements.
+  if (enhanced.keyAchievements && enhanced.keyAchievements.length > 0) {
+    body.push(sectionTitle('Key Achievements'));
+    enhanced.keyAchievements.forEach(a => {
+      const runs = [new TextRun({ text: a.description, bold: true, size: 20, color: TEXT })];
+      if (a.metrics) {
+        runs.push(new TextRun({ text: ` (${a.metrics})`, size: 20, color: ACCENT }));
+      }
+      body.push(bullet(runs));
+    });
+  }
 
-  const achievementsHTML = enhanced.keyAchievements && enhanced.keyAchievements.length > 0 ? `
-    ${sectionTitle('Key Achievements')}
-    <ul style="margin:0;padding-left:18px;">
-      ${enhanced.keyAchievements.map(a => `
-        <li style="font-size:10pt;color:${colors.text};margin-bottom:4px;line-height:1.45;">
-          <span style="font-weight:600;">${esc(a.description)}</span>${a.metrics ? `<span style="color:${colors.accent};"> (${esc(a.metrics)})</span>` : ''}
-        </li>`).join('')}
-    </ul>` : '';
-
-  const contactHTML = profile.email || profile.phone ? `
-    <p style="text-align:center;font-size:10pt;color:${colors.muted};margin:6px 0 0 0;">
-      ${profile.email ? `<a href="mailto:${esc(profile.email)}" style="color:${colors.accent};text-decoration:none;">${esc(profile.email)}</a>` : ''}
-      ${profile.email && profile.phone ? '&nbsp;&nbsp;|&nbsp;&nbsp;' : ''}
-      ${profile.phone ? `<span>${esc(profile.phone)}</span>` : ''}
-    </p>` : '';
-
-  const scoresHTML = includeScores && analysis ? `
-    <p style="text-align:center;font-size:10pt;color:${colors.muted};margin:8px 0 0 0;">
-      <b style="color:${colors.accent};">Match:</b> ${analysis.overallScore}&nbsp;&nbsp;&nbsp;
-      <b style="color:${colors.accent};">ATS:</b> ${analysis.atsScore}
-    </p>` : '';
-
-  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-  <meta charset="utf-8">
-  <title>${esc(docTitle)}</title>
-  <!--[if gte mso 9]>
-  <xml>
-    <w:WordDocument>
-      <w:View>Print</w:View>
-      <w:Zoom>100</w:Zoom>
-      <w:DoNotOptimizeForBrowser/>
-    </w:WordDocument>
-  </xml>
-  <![endif]-->
-  <style>
-    @page Section1 {
-      size: 8.5in 11.0in;
-      margin: 0.6in 0.6in 0.6in 0.6in;
-      mso-page-orientation: portrait;
-    }
-    div.Section1 { page: Section1; }
-    body {
-      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-      font-size: 10.5pt;
-      line-height: 1.4;
-      color: ${colors.text};
-    }
-    a { color: ${colors.accent}; text-decoration: none; }
-    ul { margin-top: 0; }
-  </style>
-</head>
-<body>
-  <div class="Section1">
-    <p style="text-align:center;font-size:22pt;font-weight:bold;color:${colors.primary};margin:0 0 4px 0;">${esc(profile.name || '')}</p>
-    ${enhanced.headline ? `<p style="text-align:center;font-size:12pt;color:${colors.secondary};margin:0;">${esc(enhanced.headline)}</p>` : ''}
-    ${contactHTML}
-    ${scoresHTML}
-    <hr style="border:none;border-top:2px solid ${colors.primary};margin:10px 0 4px 0;" />
-
-    ${enhanced.summary ? `${sectionTitle('Summary')}<p style="font-size:10pt;color:${colors.secondary};line-height:1.5;margin:0;">${esc(enhanced.summary)}</p>` : ''}
-
-    ${sectionTitle('Skills')}
-    ${skillsHTML}
-    ${softSkillsHTML}
-
-    ${sectionTitle('Professional Experience')}
-    ${experienceHTML}
-
-    ${achievementsHTML}
-  </div>
-</body>
-</html>`;
+  return new Document({
+    styles: { default: { document: { run: { font: 'Calibri' } } } },
+    sections: [{
+      properties: { page: { margin: { top: 864, right: 864, bottom: 864, left: 864 } } },
+      children: body,
+    }],
+  });
 }
 
 /**
- * Download resume as a Word document (.doc).
+ * Download resume as a native Word document (.docx).
  *
- * Uses the Word-optimized HTML layout saved with the `application/msword`
- * MIME type, which Word, Google Docs, and Pages all open and render natively.
+ * Builds an OOXML document via the docx library and saves it with the
+ * `.docx` extension so Word, Google Docs, and Pages render it natively.
  */
-export function downloadResumeWord(options: ResumePDFOptions, filename: string): void {
-  const html = generateResumeWordHTML(options);
-  const blob = new Blob(['﻿', html], { type: 'application/msword' });
+export async function downloadResumeWord(options: ResumePDFOptions, filename: string): Promise<void> {
+  const doc = generateResumeDocx(options);
+  const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  const link = document.createElement("a");
   link.href = url;
-  link.download = filename.endsWith('.doc') ? filename : `${filename}.doc`;
+  link.download = filename.replace(/\.docx?$/i, "") + ".docx";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
 
 /**
  * Download resume as PDF by opening print dialog
