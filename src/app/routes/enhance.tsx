@@ -1534,7 +1534,7 @@ export const EnhancePage: React.FC = () => {
     toast.success('Profile updated', 'Enhanced content applied to your profile');
   };
 
-  const handleDownload = (format: DownloadFormat) => {
+  const handleDownload = async (format: DownloadFormat) => {
     // Use enhanced profile if available, otherwise convert current profile
     const enhancedData = enhancement?.enhancedProfile || profileToEnhancedProfile(profile);
     const analysisData = enhancement?.analysis || null;
@@ -1577,7 +1577,7 @@ export const EnhancePage: React.FC = () => {
         baseFilename = `${namePart}_resume_${datePart}`;
       }
 
-      downloadResumeWord(
+      await downloadResumeWord(
         {
           enhanced: enhancedData,
           profile,
@@ -1587,10 +1587,10 @@ export const EnhancePage: React.FC = () => {
           includeScores: includeScoresInPDF && !!analysisData,
           jobSkillGroups: jobSkillGroups.length > 0 ? jobSkillGroups : undefined,
         },
-        `${baseFilename}.doc`
+        `${baseFilename}.docx`
       );
       setShowDownloadMenu(false);
-      toast.success('Word Document Generated', `Saved as ${baseFilename}.doc`);
+      toast.success('Word Document Generated', `Saved as ${baseFilename}.docx`);
       return;
     }
 
@@ -1797,7 +1797,7 @@ export const EnhancePage: React.FC = () => {
                         >
                           <FileType className="w-5 h-5 text-blue-400" />
                           <div className="flex-1">
-                            <div className="font-medium">Word Document (.doc)</div>
+                            <div className="font-medium">Word Document (.docx)</div>
                             <div className="text-xs text-gray-500">Editable in Word, Google Docs &amp; Pages</div>
                           </div>
                         </button>
