@@ -29,5 +29,11 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: true,
     },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      environmentOptions: { jsdom: { url: 'http://localhost:3000' } },
+      setupFiles: ['./src/test-setup.ts'],
+    },
   };
 });

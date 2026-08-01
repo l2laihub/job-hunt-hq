@@ -1,8 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  useUIStore,
-  toast,
-} from '@/src/stores';
+import { toast } from '@/src/stores';
 import { useProfileData } from '@/src/hooks/useProfileData';
 import { useApplications, useStories, useAnalyzedJobs } from '@/src/hooks/useAppData';
 import {
@@ -23,7 +20,7 @@ import { TopicStudyCard } from '@/src/components/topic-study-card';
 import { Button, Textarea, Card, CardHeader, CardContent, Badge, Input } from '@/src/components/ui';
 import { AnalysisEmptyState } from '@/src/components/shared';
 import { AnalysisResultView } from '@/components/AnalysisResultView';
-import { DuplicateWarningDialog } from '@/src/components/analyzer';
+import { DuplicateWarningDialog, JobNotesCard, JobDetailsCard } from '@/src/components/analyzer';
 import { cn, formatDate, parseMarkdown, coverLetterToHtml } from '@/src/lib/utils';
 import { hashJD } from '@/src/lib/jd-hash';
 import { JOB_TYPES, COVER_LETTER_STYLES } from '@/src/lib/constants';
@@ -110,8 +107,6 @@ export const AnalyzerPage: React.FC = () => {
     return allApplications.filter((app) => app.profileId === activeProfileId);
   }, [allApplications, activeProfileId]);
 
-  const openModal = useUIStore((s) => s.openModal);
-
   // Analyzed Jobs - unified hook that switches between Supabase and localStorage
   const {
     jobs: allAnalyzedJobs,
@@ -160,6 +155,10 @@ export const AnalyzerPage: React.FC = () => {
   const [jdText, setJdText] = useState('');
   const [jobType, setJobType] = useState<AnalyzedJobType>('fulltime');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSavingAnalysis, setIsSavingAnalysis] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Job to overwrite if a failed save is retried (set only on the duplicate path)
+  const [overwriteJobId, setOverwriteJobId] = useState<string | null>(null);
   const [currentAnalysis, setCurrentAnalysis] = useState<JDAnalysis | null>(null);
   const [extractedInfo, setExtractedInfo] = useState<{
     company?: string;
@@ -224,7 +223,8 @@ export const AnalyzerPage: React.FC = () => {
 
   // Handle analyze - always get fresh results to ensure latest profile/prompt changes are used
   // Perform the actual analysis (called directly or after duplicate warning)
-  const performAnalysis = async () => {
+  // overwriteId re-analyzes an existing job in place instead of creating a second entry
+  const performAnalysis = async (overwriteId?: string) => {
     setIsAnalyzing(true);
     try {
       // Run analysis and job info extraction in parallel for better performance
@@ -236,21 +236,26 @@ export const AnalyzerPage: React.FC = () => {
       setCurrentAnalysis(result);
 
       // Use AI-extracted company/role info (much more accurate than regex)
-      setExtractedInfo({
+      const info = {
         company: jobInfo.company !== 'Unknown Company' ? jobInfo.company : undefined,
         role: jobInfo.role !== 'Unknown Role' ? jobInfo.role : undefined,
         location: jobInfo.location,
         salaryRange: jobInfo.salaryRange,
         remote: jobInfo.remote,
         screeningQuestions: jobInfo.screeningQuestions,
-      });
+      };
+      setExtractedInfo(info);
 
       // Auto-update job type if AI detected differently
+      const resolvedType = jobInfo.jobType || jobType;
       if (jobInfo.jobType && jobInfo.jobType !== jobType) {
         setJobType(jobInfo.jobType);
       }
 
       toast.success('Analysis complete', `Fit score: ${result.fitScore}/10`);
+
+      // Auto-save so the analysis (and its notes) survive a refresh without a manual step
+      await saveAnalysis(result, info, resolvedType, overwriteId);
     } catch (error) {
       console.error('Analysis failed:', error);
       toast.error('Analysis failed', 'Please try again');
@@ -290,11 +295,14 @@ export const AnalyzerPage: React.FC = () => {
     }
   };
 
-  // Handle re-analyzing despite duplicate
+  // Handle re-analyzing a duplicate - overwrites the existing entry rather than
+  // adding a second one. Read the id first: setDuplicateJob(null) has already run
+  // by the time performAnalysis awaits.
   const handleReanalyzeDuplicate = async () => {
+    const overwriteId = duplicateJob?.id;
     setShowDuplicateWarning(false);
     setDuplicateJob(null);
-    await performAnalysis();
+    await performAnalysis(overwriteId);
   };
 
   // Cancel duplicate warning
@@ -303,45 +311,64 @@ export const AnalyzerPage: React.FC = () => {
     setDuplicateJob(null);
   };
 
-  // Save analysis
-  const handleSaveAnalysis = () => {
-    if (!currentAnalysis) return;
+  // Persist the analysis and open its detail view. Called automatically after every
+  // analysis; the Retry button re-runs it when the save (not the analysis) failed.
+  // With overwriteId, replaces that job's analysis in place — a partial update, so
+  // notes, cover letters and prep content on the existing job survive.
+  const saveAnalysis = async (
+    analysis: JDAnalysis,
+    info: typeof extractedInfo,
+    type: AnalyzedJobType,
+    overwriteId?: string | null
+  ) => {
+    setIsSavingAnalysis(true);
+    try {
+      const fields = {
+        // the hash normalizes case and punctuation, so a duplicate's raw text can
+        // still differ — keep the version the user just pasted
+        jobDescription: jdText,
+        type,
+        company: info.company,
+        role: info.role,
+        location: info.location,
+        salaryRange: info.salaryRange,
+        analysis,
+        screeningQuestions: info.screeningQuestions as any,
+      };
 
-    const newJob = addAnalyzedJob({
-      jobDescription: jdText,
-      type: jobType,
-      company: extractedInfo.company,
-      role: extractedInfo.role,
-      location: extractedInfo.location,
-      salaryRange: extractedInfo.salaryRange,
-      analysis: currentAnalysis,
-      screeningQuestions: extractedInfo.screeningQuestions as any,
-    }, activeProfileId || undefined);
+      // await matters: both stores are async on the Supabase path, sync on localStorage
+      let jobId = overwriteId;
+      if (jobId) {
+        // Drop undefined keys: the localStorage store spreads updates, so an
+        // undefined company/role would wipe what the previous analysis extracted
+        // (the Supabase service skips them). Keep both paths behaving the same.
+        const defined = Object.fromEntries(
+          Object.entries(fields).filter(([, value]) => value !== undefined)
+        );
+        await updateAnalyzedJob(jobId, { ...defined, updatedAt: new Date().toISOString() });
+      } else {
+        jobId = (await addAnalyzedJob(fields, activeProfileId || undefined)).id;
+      }
 
-    toast.success('Analysis saved', 'You can access it from history');
-    setSelectedJobId(newJob.id);
-    setView('detail');
-    setResultTab('overview');
+      setSaveFailed(false);
+      setOverwriteJobId(null);
+      setSelectedJobId(jobId);
+      setView('detail');
+      setResultTab('overview');
 
-    // Clear form
-    setJdText('');
-    setCurrentAnalysis(null);
-    setExtractedInfo({});
-  };
-
-  // Save as application
-  const handleSaveAsApplication = () => {
-    if (!currentAnalysis) return;
-
-    openModal('application', {
-      type: jobType,
-      company: extractedInfo.company,
-      role: extractedInfo.role,
-      jobDescriptionRaw: jdText,
-      analysis: currentAnalysis,
-      salaryRange: extractedInfo.salaryRange ? { display: extractedInfo.salaryRange } : undefined,
-      status: 'wishlist',
-    });
+      // Clear form
+      setJdText('');
+      setCurrentAnalysis(null);
+      setExtractedInfo({});
+    } catch (error) {
+      // Keep the results on screen — re-running the analysis costs another API call
+      console.error('Failed to save analysis:', error);
+      setSaveFailed(true);
+      toast.error('Could not save analysis', 'Your results are still here — tap Retry Save');
+      setOverwriteJobId(overwriteId ?? null);
+    } finally {
+      setIsSavingAnalysis(false);
+    }
   };
 
   // Generate cover letter
@@ -1028,23 +1055,17 @@ export const AnalyzerPage: React.FC = () => {
                     </Card>
 
                     <AnalysisResultView analysis={currentAnalysis} />
-                    <div className="flex gap-3">
+                    {saveFailed && (
                       <Button
                         variant="primary"
-                        onClick={handleSaveAnalysis}
+                        onClick={() => saveAnalysis(currentAnalysis, extractedInfo, jobType, overwriteJobId)}
+                        isLoading={isSavingAnalysis}
                         leftIcon={<Save className="w-4 h-4" />}
-                        className="flex-1 bg-green-600 hover:bg-green-500"
+                        className="w-full bg-green-600 hover:bg-green-500"
                       >
-                        Save Analysis
+                        Retry Save
                       </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={handleSaveAsApplication}
-                        leftIcon={<Plus className="w-4 h-4" />}
-                      >
-                        Add to Apps
-                      </Button>
-                    </div>
+                    )}
                   </>
                 ) : (
                   <Card className="h-full min-h-[400px] flex items-center justify-center">
@@ -1248,6 +1269,15 @@ export const AnalyzerPage: React.FC = () => {
                   <AnalysisResultView analysis={selectedJob.analysis} />
                 </div>
                 <div className="space-y-4">
+                  <JobDetailsCard
+                    job={selectedJob}
+                    onSave={(updates) => updateAnalyzedJob(selectedJob.id, updates)}
+                  />
+                  <JobNotesCard
+                    jobId={selectedJob.id}
+                    notes={selectedJob.notes}
+                    onSave={(notes) => updateAnalyzedJob(selectedJob.id, { notes })}
+                  />
                   <Card>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">

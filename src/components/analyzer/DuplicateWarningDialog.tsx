@@ -80,7 +80,8 @@ export const DuplicateWarningDialog: React.FC<DuplicateWarningDialogProps> = ({
         {/* Description */}
         <p className="text-sm text-gray-300">
           Would you like to view the existing analysis or re-analyze with your
-          current profile?
+          current profile? Re-analyzing updates the entry above — your notes,
+          cover letters and prep content are kept.
         </p>
 
         {/* Actions */}
