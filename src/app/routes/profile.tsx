@@ -4,7 +4,7 @@ import { useProfileData } from '@/src/hooks/useProfileData';
 import { processDocuments, categorizeSkills } from '@/src/services/gemini';
 import { Button, Input, Textarea, Card, CardHeader, CardContent, Badge, Select, EditableText, EditableList } from '@/src/components/ui';
 import { ProfileEmptyState } from '@/src/components/shared';
-import { ProfileManagement, SkillGroupManager } from '@/src/components/profile';
+import { ProfileManagement, SkillGroupManager, ContextDocuments } from '@/src/components/profile';
 import { cn } from '@/src/lib/utils';
 import type { UserProfile, Achievement, Role, Project, SkillGroup } from '@/src/types';
 import {
@@ -38,6 +38,7 @@ import {
   Globe,
   Link2,
   X,
+  ShieldCheck,
 } from 'lucide-react';
 import { ProjectsSection } from '@/src/components/portfolio';
 import { useAuth } from '@/src/lib/supabase';
@@ -422,6 +423,19 @@ export const ProfilePage: React.FC = () => {
           onToggle={() => toggleSection('profiles')}
         >
           <ProfileManagement />
+        </ProfileSection>
+
+        {/* AI Context Documents */}
+        <ProfileSection
+          title={`AI Context Documents${editedProfile.contextDocuments?.length ? ` (${editedProfile.contextDocuments.length})` : ''}`}
+          icon={<ShieldCheck className="w-4 h-4" />}
+          isOpen={activeSection === 'context-docs'}
+          onToggle={() => toggleSection('context-docs')}
+        >
+          <ContextDocuments
+            documents={editedProfile.contextDocuments || []}
+            onChange={(docs) => handleFieldChange('contextDocuments', docs)}
+          />
         </ProfileSection>
 
         {/* Profile Completion */}

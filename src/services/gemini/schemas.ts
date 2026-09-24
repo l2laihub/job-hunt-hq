@@ -202,6 +202,19 @@ const quickTakeSchema: Schema = {
   required: ['verdict', 'confidence', 'headline', 'whyApply', 'whyPass', 'nextAction'],
 };
 
+// Rubric signals ported from the Claude Application Pipeline
+const fitSignalsSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    codingPct: { type: Type.NUMBER, description: 'Estimated hands-on coding share of the role, 0-100' },
+    codingRationale: { type: Type.STRING, description: '1-2 sentences citing the posting wording' },
+    locationCheck: { type: Type.STRING, description: '1 sentence: is the candidate eligible by location/work style?' },
+    signatureAngle: { type: Type.STRING, description: "1-3 sentences: can this role leverage the candidate's signature strength?" },
+    seniorityNote: { type: Type.STRING, description: '1 sentence on level match' },
+  },
+  required: ['codingPct', 'codingRationale', 'locationCheck', 'signatureAngle', 'seniorityNote'],
+};
+
 // FTE Analysis schema
 export const fteAnalysisSchema: Schema = {
   type: Type.OBJECT,
@@ -227,8 +240,9 @@ export const fteAnalysisSchema: Schema = {
     // Enhanced display fields
     categorizedSkills: categorizedSkillsSchema,
     quickTake: quickTakeSchema,
+    fitSignals: fitSignalsSchema,
   },
-  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
+  required: ['fitScore', 'reasoning', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake', 'fitSignals'],
 };
 
 // Freelance Analysis schema
@@ -266,8 +280,9 @@ export const freelanceAnalysisSchema: Schema = {
     // Enhanced display fields
     categorizedSkills: categorizedSkillsSchema,
     quickTake: quickTakeSchema,
+    fitSignals: fitSignalsSchema,
   },
-  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
+  required: ['fitScore', 'reasoning', 'proposalAngle', 'openingHook', 'suggestedBid', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake', 'fitSignals'],
 };
 
 // Contract Analysis schema
@@ -299,8 +314,9 @@ export const contractAnalysisSchema: Schema = {
     // Enhanced display fields
     categorizedSkills: categorizedSkillsSchema,
     quickTake: quickTakeSchema,
+    fitSignals: fitSignalsSchema,
   },
-  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake'],
+  required: ['fitScore', 'reasoning', 'contractType', 'roleType', 'requiredSkills', 'matchedSkills', 'recommendation', 'careerAlignment', 'dealBreakerMatches', 'skillGapsDetailed', 'workStyleMatch', 'categorizedSkills', 'quickTake', 'fitSignals'],
 };
 
 // Experience/STAR schema

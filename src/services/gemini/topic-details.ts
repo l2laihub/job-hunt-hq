@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client'
 import { parseGeminiJson } from './parse-json';
 import { topicDetailsSchema } from './schemas';
 import type { TopicDetails, UserProfile, JDAnalysis } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface TopicDetailsParams {
   topic: string;
@@ -22,6 +23,12 @@ export async function generateTopicDetails(params: TopicDetailsParams): Promise<
   const ai = requireGemini();
   const { topic, depth, notes, jobDescription, analysis, profile, company, role } = params;
 
+  const candidateBlock = buildCandidateContext(profile) ?? `## Candidate Profile
+Name: ${profile.name}
+Experience: ${profile.yearsExperience} years
+Technical Skills: ${profile.technicalSkills.slice(0, 15).join(', ')}
+`;
+
   const prompt = `You are helping a candidate prepare for a technical interview. Generate comprehensive study materials for a specific topic.
 
 ## Target Position
@@ -31,10 +38,7 @@ Role: ${role || 'Not specified'}
 ## Job Description Context
 ${jobDescription.slice(0, 1500)}
 
-## Candidate Profile
-Name: ${profile.name}
-Experience: ${profile.yearsExperience} years
-Technical Skills: ${profile.technicalSkills.slice(0, 15).join(', ')}
+${candidateBlock}
 
 ## Topic to Study
 Topic: ${topic}

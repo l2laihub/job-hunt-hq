@@ -34,6 +34,7 @@ export interface Database {
           years_experience: number;
           current_situation: string;
           generated_summary: string | null;
+          context_documents: Json;
           technical_skills: Json;
           soft_skills: Json;
           skill_groups: Json;
@@ -67,6 +68,7 @@ export interface Database {
           years_experience?: number;
           current_situation?: string;
           generated_summary?: string | null;
+          context_documents?: Json;
           technical_skills?: Json;
           soft_skills?: Json;
           skill_groups?: Json;
@@ -100,6 +102,7 @@ export interface Database {
           years_experience?: number;
           current_situation?: string;
           generated_summary?: string | null;
+          context_documents?: Json;
           technical_skills?: Json;
           soft_skills?: Json;
           skill_groups?: Json;

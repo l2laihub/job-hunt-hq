@@ -9,6 +9,7 @@ import type {
   QuickReference,
   InterviewPrepSession,
 } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface GenerateQuickRefParams {
   profile: UserProfile;
@@ -50,13 +51,16 @@ export async function generateQuickReference(
     )
     .join('\n');
 
-  const prompt = `You are an interview coach. Create a concise quick reference card for interview day.
-
-## Candidate
+  const candidateBlock = buildCandidateContext(profile) ?? `## Candidate
 Name: ${profile.name}
 Headline: ${profile.headline}
 Experience: ${profile.yearsExperience} years
 Top Skills: ${profile.technicalSkills.slice(0, 8).join(', ')}
+`;
+
+  const prompt = `You are an interview coach. Create a concise quick reference card for interview day.
+
+${candidateBlock}
 
 ## Target Position
 Company: ${company}

@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client'
 import { applicationQuestionAnswerSchema } from './schemas';
 import { parseGeminiJson } from './parse-json';
 import type { UserProfile, Experience, JDAnalysis, ApplicationQuestionAnswer, CompanyResearch, SalaryContext } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface GenerateApplicationAnswerParams {
   question: string;
@@ -34,6 +35,9 @@ interface ApplicationAnswerResult {
  * Build comprehensive profile context for answer generation
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 4)
     .map((r, i) => `${i + 1}. ${r.title} at ${r.company} (${r.duration}):\n   - ${r.highlights.slice(0, 3).join('\n   - ')}`)

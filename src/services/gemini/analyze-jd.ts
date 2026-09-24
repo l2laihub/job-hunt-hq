@@ -4,6 +4,7 @@ import { fteAnalysisSchema, freelanceAnalysisSchema, contractAnalysisSchema } fr
 import { aiCache, cacheKeys, hashProfileForAnalysis } from './cache';
 import type { UserProfile, JDAnalysis, AnalyzedJobType } from '@/src/types';
 import { CACHE_TTL } from '@/src/lib/constants';
+import { buildCandidateContext } from './candidate-context';
 
 /**
  * Auto-detect job type from description (only used when no explicit type provided)
@@ -148,7 +149,13 @@ ${profile.preferences.dealBreakers.join(', ') || 'None specified'}
 ${profile.constraints.join(', ') || 'None specified'}`;
   };
 
-  const contextBlock = buildContextBlock();
+  // Uploaded source documents (career facts, resume) replace the lossy structured fields
+  const docContext = buildCandidateContext(profile);
+  const contextBlock = !docContext
+    ? buildContextBlock()
+    : jobType === 'freelance'
+      ? `${docContext}\n- Hourly Rate Range: $${profile.freelanceProfile.hourlyRate.min}-$${profile.freelanceProfile.hourlyRate.max}/hr`
+      : docContext;
 
   const getPromptDetails = () => {
     if (jobType === 'freelance') {
@@ -239,6 +246,14 @@ Provide a COMPREHENSIVE analysis including:
     - **nextAction**: ONE specific, actionable step the candidate should take TODAY
     - **timeToDecide**: If the role seems competitive or time-sensitive, mention urgency (e.g., "Apply within 2 days")
 
+12. **Fit Signals** (fitSignals):
+    - **codingPct**: Estimate the share of the role that is hands-on coding (0-100). Green flags: "build features", "ship code", "implement", "hands-on", "write code". Red flags: "influence stakeholders", "drive org-wide", "multi-year roadmap", "strategic planning", "manage a team". Weigh the result against the candidate's stated hands-on preference.
+    - **codingRationale**: 1-2 sentences citing the posting's own wording.
+    - **locationCheck**: From the posting, is the candidate eligible given their location and work-style constraints? Flag state exclusions or out-of-area office requirements.
+    - **signatureAngle**: Identify the candidate's signature strength from their profile/documents, and say whether and how THIS role can leverage it. Say plainly if it cannot.
+    - **seniorityNote**: Flag if the role is pitched well below or above the candidate's level.
+
+Cite the posting's own wording where it drives a conclusion. Do not inflate the verdict.
 Be honest and direct. If this isn't a good fit, say so clearly and explain why. The candidate's time is valuable.`;
 
   // Select appropriate schema based on job type

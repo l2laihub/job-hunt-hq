@@ -9,10 +9,15 @@ import {
   AlertCircle,
   Zap,
   Clock,
+  Code,
+  MapPin,
+  Star,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import type {
   QuickTake,
+  FitSignals,
   ApplicationRecommendation,
   RecommendationVerdict,
 } from '@/src/types';
@@ -21,6 +26,7 @@ interface QuickTakeCardProps {
   quickTake?: QuickTake;
   recommendation: ApplicationRecommendation;
   fitScore: number;
+  fitSignals?: FitSignals;
 }
 
 const getVerdictConfig = (verdict: RecommendationVerdict) => {
@@ -98,6 +104,7 @@ export const QuickTakeCard: React.FC<QuickTakeCardProps> = ({
   quickTake,
   recommendation,
   fitScore,
+  fitSignals,
 }) => {
   // Build data from quickTake if available, otherwise fall back to recommendation
   const data = quickTake || {
@@ -162,6 +169,39 @@ export const QuickTakeCard: React.FC<QuickTakeCardProps> = ({
         <p className="text-white font-medium mb-4 text-lg leading-snug">
           {data.headline}
         </p>
+
+        {/* Fit signals (coding %, location, signature angle, seniority) */}
+        {fitSignals && (
+          <div className="mb-4 space-y-2 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-medium',
+                  fitSignals.codingPct >= 70
+                    ? 'text-green-400 border-green-500/30 bg-green-900/20'
+                    : fitSignals.codingPct >= 40
+                      ? 'text-yellow-400 border-yellow-500/30 bg-yellow-900/20'
+                      : 'text-red-400 border-red-500/30 bg-red-900/20'
+                )}
+                title={fitSignals.codingRationale}
+              >
+                <Code className="w-3 h-3" /> ~{fitSignals.codingPct}% coding
+              </span>
+            </div>
+            <p className="text-gray-300 flex items-start gap-2">
+              <Star className="w-3.5 h-3.5 mt-0.5 text-amber-400 flex-shrink-0" />
+              <span><span className="text-amber-400 font-medium">Signature angle:</span> {fitSignals.signatureAngle}</span>
+            </p>
+            <p className="text-gray-400 flex items-start gap-2">
+              <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>{fitSignals.locationCheck}</span>
+            </p>
+            <p className="text-gray-400 flex items-start gap-2">
+              <TrendingUp className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>{fitSignals.seniorityNote}</span>
+            </p>
+          </div>
+        )}
 
         {/* Two Column: Why Apply vs Concerns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">

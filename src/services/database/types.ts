@@ -62,6 +62,7 @@ export function profileRowToUserProfileWithMeta(row: ProfileRow): UserProfileWit
     keyAchievements: (row.key_achievements as unknown as UserProfile['keyAchievements']) || [],
     recentRoles: (row.recent_roles as unknown as UserProfile['recentRoles']) || [],
     activeProjects: (row.active_projects as unknown as UserProfile['activeProjects']) || [],
+    contextDocuments: (row.context_documents as unknown as UserProfile['contextDocuments']) || [],
     preferences: (row.preferences as unknown as UserProfile['preferences']) || {
       targetRoles: [],
       workStyle: ['remote'],
@@ -112,6 +113,7 @@ export function userProfileWithMetaToRow(
     key_achievements: profile.keyAchievements as unknown as Json,
     recent_roles: profile.recentRoles as unknown as Json,
     active_projects: profile.activeProjects as unknown as Json,
+    context_documents: (profile.contextDocuments || []) as unknown as Json,
     preferences: profile.preferences as unknown as Json,
     freelance_profile: profile.freelanceProfile as unknown as Json,
   };

@@ -148,6 +148,16 @@ export interface SkillGroup {
   isCustom?: boolean;     // Whether user created this group vs AI-suggested
 }
 
+// Source document fed verbatim to AI prompts (career facts, resume, prep notes).
+// 'authoritative' wins any conflict with other documents or profile fields.
+export interface ContextDocument {
+  id: string;
+  name: string;
+  kind: 'authoritative' | 'supporting';
+  content: string;
+  uploadedAt: string;
+}
+
 // User Profile
 export interface UserProfile {
   name: string;
@@ -172,6 +182,7 @@ export interface UserProfile {
   goals: string[];
   constraints: string[];
   activeProjects: Project[];
+  contextDocuments?: ContextDocument[];
   preferences: {
     targetRoles: string[];
     workStyle: ('remote' | 'hybrid' | 'onsite')[];
@@ -259,6 +270,15 @@ export interface QuickTake {
   timeToDecide?: string;      // Urgency indicator (e.g., "Apply within 2 days")
 }
 
+// Rubric signals ported from the Claude Application Pipeline
+export interface FitSignals {
+  codingPct: number;          // Estimated hands-on coding share, 0-100
+  codingRationale: string;
+  locationCheck: string;
+  signatureAngle: string;     // Whether the candidate's signature strength is leverageable
+  seniorityNote: string;
+}
+
 // Base JD Analysis
 export interface BaseJDAnalysis {
   fitScore: number;
@@ -282,6 +302,7 @@ export interface BaseJDAnalysis {
   // Enhanced display fields (optional for backward compatibility)
   categorizedSkills?: CategorizedSkills;
   quickTake?: QuickTake;
+  fitSignals?: FitSignals;
 }
 
 // Full-time Employee Analysis
