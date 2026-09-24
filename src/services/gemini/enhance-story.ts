@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client'
 import { parseGeminiJson } from './parse-json';
 import { storyEnhancementSchema } from './schemas';
 import type { Experience, STAR, UserProfile, FollowUpQA } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 export interface EnhanceStoryOptions {
   /**
@@ -208,6 +209,9 @@ function buildStoryContext(story: Experience): string {
  * Build context string from user profile
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const parts: string[] = [];
 
   if (profile.name) {

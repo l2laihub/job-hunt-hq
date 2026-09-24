@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client'
 import { coverLetterSchema, coverLetterRefinementSchema } from './schemas';
 import { parseGeminiJson } from './parse-json';
 import type { UserProfile, Experience, JDAnalysis, CoverLetterStyle } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 /**
  * Format cover letter content to ensure proper paragraph breaks
@@ -95,6 +96,9 @@ interface CoverLetterResult {
  * Build context from user profile for cover letter
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 3)
     .map((r) => `- ${r.title} at ${r.company} (${r.duration}): ${r.highlights.slice(0, 2).join('; ')}`)

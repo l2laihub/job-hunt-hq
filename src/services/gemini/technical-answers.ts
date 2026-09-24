@@ -10,6 +10,7 @@ import type {
   AnswerSection,
   FollowUpQA,
 } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface GenerateAnswerParams {
   question: string;
@@ -42,6 +43,9 @@ interface GenerateAnswerResult {
  * Build a context string from the user's profile
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 3)
     .map((r) => `- ${r.title} at ${r.company} (${r.duration}): ${r.highlights.slice(0, 2).join('; ')}`)

@@ -10,6 +10,7 @@ import type {
   TranscriptItem
 } from '@/src/types';
 import { Modality, LiveServerMessage } from '@google/genai';
+import { buildCandidateContext } from './candidate-context';
 
 interface LiveSessionCallbacks {
   onOpen?: () => void;
@@ -41,9 +42,7 @@ function buildInterviewPrompt(
     hard: 'Direct and probing, challenge answers, simulate high-pressure environment',
   };
 
-  return `You are an experienced technical interviewer conducting a ${config.type} interview.
-
-## Candidate Profile (Resume)
+  const candidateBlock = buildCandidateContext(profile) ?? `## Candidate Profile (Resume)
 Name: ${profile.name}
 Headline: ${profile.headline}
 Experience: ${profile.yearsExperience} years
@@ -54,6 +53,11 @@ ${workHistory || 'No work history provided'}
 
 ## Key Achievements
 ${achievements || 'No achievements listed'}
+`;
+
+  return `You are an experienced technical interviewer conducting a ${config.type} interview.
+
+${candidateBlock}
 
 ## Interview Context
 Target Role: ${application?.role || 'Senior Software Engineer'}

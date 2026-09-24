@@ -9,6 +9,7 @@ import type {
   TechnicalInterviewPrep,
   ApplicationStrategy,
 } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface PrepGenerationParams {
   jobDescription: string;
@@ -23,6 +24,9 @@ interface PrepGenerationParams {
  * Build profile context for interview prep
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 3)
     .map((r) => `- ${r.title} at ${r.company} (${r.duration})`)

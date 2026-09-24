@@ -12,6 +12,7 @@ import type {
   DifficultyLevel,
 } from '@/src/types';
 import { generateId } from '@/src/lib/utils';
+import { buildCandidateContext } from './candidate-context';
 
 interface PredictQuestionsParams {
   profile: UserProfile;
@@ -41,6 +42,9 @@ interface PredictedQuestionRaw {
  * Build profile context for AI
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 3)
     .map((r) => `- ${r.title} at ${r.company} (${r.duration})`)

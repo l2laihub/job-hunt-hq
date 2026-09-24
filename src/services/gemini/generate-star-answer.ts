@@ -9,6 +9,7 @@ import { geminiClient, requireGemini } from './client';
 import { parseGeminiJson } from './parse-json';
 import { Type, Schema } from '@google/genai';
 import type { UserProfile, Experience, JDAnalysis, CompanyResearch, PredictedQuestion, FTEAnalysis } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 export interface GenerateAnswerParams {
   question: PredictedQuestion;
@@ -143,7 +144,7 @@ export async function generateStarAnswer(params: GenerateAnswerParams): Promise<
   const { question, profile, analysis, research, company, role } = params;
 
   // Build context from profile
-  const profileContext = `
+  const profileContext = buildCandidateContext(profile) ?? `
 ## Candidate Profile
 - Name: ${profile.name}
 - Headline: ${profile.headline}

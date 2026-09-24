@@ -2,6 +2,7 @@ import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client'
 import { parseGeminiJson } from './parse-json';
 import { skillsRoadmapSchema } from './schemas';
 import type { UserProfile, JDAnalysis, SkillsRoadmap } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 interface SkillsRoadmapParams {
   jobDescription: string;
@@ -19,14 +20,17 @@ export async function generateSkillsRoadmap(params: SkillsRoadmapParams): Promis
   const { jobDescription, analysis, profile, company, role } = params;
   const ai = requireGemini();
 
-  const prompt = `You are a career development strategist helping someone bridge skills gaps to reach their dream job.
-
-## Current Profile
+  const profileBlock = buildCandidateContext(profile) ?? `## Current Profile
 - Name: ${profile.name}
 - Current Role: ${profile.headline}
 - Years of Experience: ${profile.yearsExperience}
 - Technical Skills: ${profile.technicalSkills.join(', ')}
 - Recent Experience: ${profile.recentRoles.slice(0, 3).map(r => `${r.title} at ${r.company}`).join('; ')}
+`;
+
+  const prompt = `You are a career development strategist helping someone bridge skills gaps to reach their dream job.
+
+${profileBlock}
 
 ## Target Position
 ${role ? `Role: ${role}` : ''}

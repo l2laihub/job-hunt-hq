@@ -27,6 +27,7 @@ import type {
   FTEAnalysis,
 } from '@/src/types';
 import type { PredictedQuestion } from '@/src/types/interview-prep';
+import { buildCandidateContext } from './candidate-context';
 
 // ============================================
 // TYPES
@@ -367,6 +368,9 @@ function getQuestionTypeHint(question: PredictedQuestion): {
  * Build context from user profile
  */
 function buildProfileContext(profile: UserProfile): string {
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) return docContext;
   const roles = profile.recentRoles
     .slice(0, 4)
     .map((r) => `- ${r.title} at ${r.company} (${r.duration})\n  Key highlights: ${r.highlights.slice(0, 3).join('; ')}`)

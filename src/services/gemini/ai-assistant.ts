@@ -27,6 +27,7 @@ import type {
   ASSISTANT_NAME,
 } from '@/src/types/assistant';
 import { buildPreferencePrompt } from './preference-builder';
+import { buildCandidateContext } from './candidate-context';
 
 // Re-export for convenience
 export { ASSISTANT_NAME } from '@/src/types/assistant';
@@ -77,6 +78,12 @@ function buildProfileSummary(profile: UserProfileWithMeta | UserProfile | null):
   const profileMetadata = 'metadata' in profile ? (profile as UserProfileWithMeta).metadata : null;
   const profileName = profileMetadata?.name || profile.name;
   const userName = profile.name !== 'Senior Engineer' ? profile.name : ''; // Exclude default placeholder
+
+  // Uploaded source documents (career facts, resume) replace the structured fields
+  const docContext = buildCandidateContext(profile);
+  if (docContext) {
+    return `## User Profile\n**Profile:** ${profileName}${userName ? ` (${userName})` : ''}\n\n${docContext}`;
+  }
 
   const roles = profile.recentRoles
     .slice(0, 3)

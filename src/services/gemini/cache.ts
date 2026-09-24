@@ -161,6 +161,7 @@ export function hashProfileForAnalysis(profile: {
   preferences?: { dealBreakers?: string[]; salaryRange?: { min: number; max: number }; workStyle?: string };
   technicalSkills?: string[];
   yearsExperience?: number;
+  contextDocuments?: { id: string; kind: string; uploadedAt: string; content: string }[];
 }): string {
   // Only include fields that affect analysis results
   const relevantData = {
@@ -169,6 +170,8 @@ export function hashProfileForAnalysis(profile: {
     workStyle: profile.preferences?.workStyle,
     skills: profile.technicalSkills?.slice(0, 10) || [], // First 10 skills for reasonable hash
     experience: profile.yearsExperience,
+    // Re-uploading a source document must invalidate cached analyses
+    docs: (profile.contextDocuments || []).map((d) => `${d.id}:${d.kind}:${d.uploadedAt}:${d.content.length}`),
   };
   return aiCache.generateKey('profile', relevantData);
 }

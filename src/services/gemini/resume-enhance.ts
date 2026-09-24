@@ -11,6 +11,7 @@ import type {
   EnhancedRole,
 } from '@/src/types';
 import { generateId } from '@/src/lib/utils';
+import { buildCandidateContext } from './candidate-context';
 
 interface EnhanceResumeParams {
   profile: UserProfile;
@@ -39,7 +40,7 @@ function buildProfileContext(profile: UserProfile): string {
     .map((a, i) => `[${i}] ${a.description} (${a.metrics || 'no metrics'}) [${a.storyType}]`)
     .join('\n');
 
-  return `
+  const structured = `
 ## Candidate Profile
 
 Name: ${profile.name}
@@ -71,6 +72,11 @@ ${profile.goals.join(', ') || 'Not specified'}
 ## Target Roles
 ${profile.preferences.targetRoles.join(', ') || 'Not specified'}
 `.trim();
+
+  // Source documents are appended (not substituted): enhancements map back to the
+  // indexed roles above, while the documents constrain which claims may be used.
+  const docContext = buildCandidateContext(profile);
+  return docContext ? `${structured}\n\n${docContext}` : structured;
 }
 
 /**

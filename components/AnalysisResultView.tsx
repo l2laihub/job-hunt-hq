@@ -345,6 +345,7 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
         quickTake={data.quickTake}
         recommendation={data.recommendation}
         fitScore={data.fitScore}
+        fitSignals={data.fitSignals}
       />
 
       {/* Deal Breakers Alert (if any) */}
@@ -479,6 +480,7 @@ export const AnalysisResultView: React.FC<AnalysisResultViewProps> = ({ analysis
         quickTake={data.quickTake}
         recommendation={data.recommendation}
         fitScore={data.fitScore}
+        fitSignals={data.fitSignals}
       />
 
       {/* Deal Breakers Alert (if any) */}
