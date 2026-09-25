@@ -393,6 +393,7 @@ export const EnhancedInterviewPage: React.FC = () => {
           jobRole: application?.role,
           company: application?.company,
           interviewType: config.type,
+          profile: profile ?? undefined,
         }
       );
 
@@ -426,6 +427,7 @@ export const EnhancedInterviewPage: React.FC = () => {
     elapsedTime,
     questionStartTime,
     application,
+    profile,
     getSessionById,
     recordQuestionPractice,
   ]);

@@ -42,6 +42,28 @@ function hashJD(jd: string): string {
 }
 
 /**
+ * Hard location rule (ported from the Claude Application Pipeline): a role the
+ * candidate can't work from is a Pass, whatever the model's verdict said.
+ */
+export function enforceLocationRule<T extends JDAnalysis>(analysis: T): T {
+  if (analysis.fitSignals?.locationEligible !== false) return analysis;
+  const reason = `Location: ${analysis.fitSignals.locationCheck}`;
+  const prepend = (xs: string[] = []) => [reason, ...xs.filter((x) => x !== reason)];
+  return {
+    ...analysis,
+    recommendation: {
+      ...analysis.recommendation,
+      verdict: 'pass',
+      primaryReasons: prepend(analysis.recommendation?.primaryReasons),
+    },
+    // QuickTakeCard reads the verdict + headline from quickTake, not recommendation
+    ...(analysis.quickTake && {
+      quickTake: { ...analysis.quickTake, verdict: 'pass', headline: reason, whyPass: prepend(analysis.quickTake.whyPass) },
+    }),
+  };
+}
+
+/**
  * Analyze a job description against user profile
  */
 export async function analyzeJD(
@@ -249,7 +271,10 @@ Provide a COMPREHENSIVE analysis including:
 12. **Fit Signals** (fitSignals):
     - **codingPct**: Estimate the share of the role that is hands-on coding (0-100). Green flags: "build features", "ship code", "implement", "hands-on", "write code". Red flags: "influence stakeholders", "drive org-wide", "multi-year roadmap", "strategic planning", "manage a team". Weigh the result against the candidate's stated hands-on preference.
     - **codingRationale**: 1-2 sentences citing the posting's own wording.
-    - **locationCheck**: From the posting, is the candidate eligible given their location and work-style constraints? Flag state exclusions or out-of-area office requirements.
+    - **locationCheck**: From the posting, is the candidate eligible given their location and work-style constraints? Flag state exclusions or out-of-area office requirements. If the posting never states a location, say so rather than assuming remote.
+    - **locationEligible**: false ONLY when the posting requires on-site or hybrid work at an office outside the area the candidate can work from, or excludes their state. An unstated location is NOT ineligible.
+
+CRITICAL location rule: the candidate cannot relocate. If locationEligible is false, recommendation.verdict MUST be "pass" and locationCheck must say why plainly.
     - **signatureAngle**: Identify the candidate's signature strength from their profile/documents, and say whether and how THIS role can leverage it. Say plainly if it cannot.
     - **seniorityNote**: Flag if the role is pitched well below or above the candidate's level.
 
@@ -279,11 +304,11 @@ Be honest and direct. If this isn't a good fit, say so clearly and explain why. 
     }
 
     const result = parseGeminiJson<any>(response.text, { context: 'analyzeJD' });
-    const analysis: JDAnalysis = {
+    const analysis: JDAnalysis = enforceLocationRule({
       ...result,
       analysisType: jobType,
       analyzedAt: new Date().toISOString(),
-    };
+    });
 
     // Cache the result
     aiCache.set(cacheKey, analysis, CACHE_TTL.ANALYSIS);

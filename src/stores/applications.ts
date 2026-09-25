@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { JobApplication, ApplicationStatus, JDAnalysis, CompanyResearch } from '@/src/types';
 import { STORAGE_KEYS } from '@/src/lib/constants';
-import { generateId } from '@/src/lib/utils';
+import { generateId, todayLocal } from '@/src/lib/utils';
 import { useProfileStore } from './profile';
 import { createSyncedStorage, setupStoreSync } from '@/src/lib/storage-sync';
 
@@ -58,6 +58,7 @@ export const useApplicationStore = create<ApplicationsState>()(
         const activeProfileId = activeProfile?.metadata.id;
 
         const newApp: JobApplication = {
+          ...partial,
           id: generateId(),
           type: partial.type || 'fulltime',
           company: partial.company || 'Unknown Company',
@@ -120,6 +121,10 @@ export const useApplicationStore = create<ApplicationsState>()(
                     status === 'applied' && !app.dateApplied
                       ? new Date().toISOString()
                       : app.dateApplied,
+                  contactedDate:
+                    status === 'contact' && !app.contactedDate
+                      ? todayLocal()
+                      : app.contactedDate,
                 }
               : app
           ),
@@ -207,8 +212,9 @@ export const useApplicationStore = create<ApplicationsState>()(
           {} as Record<ApplicationStatus, number>
         );
 
-        // Response rate = (interviewing + offer + rejected) / total
+        // Response rate = (contact + interviewing + offer + rejected) / total
         const responded =
+          (byStatus.contact || 0) +
           (byStatus.interviewing || 0) +
           (byStatus.offer || 0) +
           (byStatus.rejected || 0);

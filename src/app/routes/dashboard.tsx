@@ -2,8 +2,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useUIStore, toast } from '@/src/stores';
 import { useUnifiedActiveProfileId } from '@/src/hooks/useAppData';
 import { useApplications } from '@/src/hooks/useAppData';
-import { cn } from '@/src/lib/utils';
+import { cn, todayLocal } from '@/src/lib/utils';
 import { APPLICATION_STATUSES } from '@/src/lib/constants';
+import { compOf, formatComp } from '@/src/lib/comp';
 import type { ApplicationStatus, JobApplication } from '@/src/types';
 import {
   Plus,
@@ -20,6 +21,10 @@ import {
   DollarSign,
   Building,
   Clock,
+  MessageCircle,
+  CalendarX,
+  ArrowRight,
+  User,
 } from 'lucide-react';
 import { Button, Badge, ScoreBadge, ConfirmDialog } from '@/src/components/ui';
 import { DashboardEmptyState } from '@/src/components/shared';
@@ -32,11 +37,13 @@ import { useNavigate } from 'react-router-dom';
 
 const statusIcons: Record<ApplicationStatus, React.ReactNode> = {
   wishlist: <Archive className="w-4 h-4" />,
+  contact: <MessageCircle className="w-4 h-4" />,
   applied: <Briefcase className="w-4 h-4" />,
   interviewing: <PieChart className="w-4 h-4" />,
   offer: <CheckCircle className="w-4 h-4" />,
   passed: <MinusCircle className="w-4 h-4" />,
   rejected: <XCircle className="w-4 h-4" />,
+  expired: <CalendarX className="w-4 h-4" />,
 };
 
 // Helper function to check if an application is stale (>14 days in applied status)
@@ -47,6 +54,10 @@ const isStale = (app: JobApplication, staleDays: number = 14): boolean => {
   );
   return daysSince >= staleDays;
 };
+
+// Soonest next action first; roles without one keep their existing order after
+const byNextAction = (a: JobApplication, b: JobApplication): number =>
+  (a.nextActionDate || '9999').localeCompare(b.nextActionDate || '9999');
 
 // Helper function to get days since applied
 const getDaysSinceApplied = (app: JobApplication): number | null => {
@@ -82,6 +93,8 @@ export const DashboardPage: React.FC = () => {
       if (app.company.toLowerCase().includes(lowerQuery)) return true;
       if (app.role.toLowerCase().includes(lowerQuery)) return true;
       if (app.notes?.toLowerCase().includes(lowerQuery)) return true;
+      if (app.recruiter?.toLowerCase().includes(lowerQuery)) return true;
+      if (app.nextAction?.toLowerCase().includes(lowerQuery)) return true;
 
       return false;
     },
@@ -216,7 +229,7 @@ export const DashboardPage: React.FC = () => {
       {/* Kanban Board */}
       <div className="flex gap-4 flex-1 min-h-0 overflow-x-auto pb-4 snap-x">
         {APPLICATION_STATUSES.map((col) => {
-          const columnApps = applications.filter((a) => a.status === col.id);
+          const columnApps = applications.filter((a) => a.status === col.id).sort(byNextAction);
 
           return (
             <div
@@ -304,6 +317,9 @@ const JobCard: React.FC<JobCardProps> = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isStaleApp = application.status === 'applied' && daysSinceApplied !== null && daysSinceApplied >= 14;
+  const comp = compOf(application);
+  const isClosed = ['offer', 'passed', 'rejected', 'expired'].includes(application.status);
+  const actionOverdue = !isClosed && !!application.nextActionDate && application.nextActionDate < todayLocal();
 
   return (
     <div
@@ -347,19 +363,45 @@ const JobCard: React.FC<JobCardProps> = ({
 
       {/* Details */}
       <div className="space-y-1.5">
-        {application.salaryRange && (
-          <div className="flex items-center text-xs text-gray-500">
+        {(comp || application.salaryRange) && (
+          <div className="flex items-center text-xs text-gray-500" title={application.salaryRange}>
             <DollarSign className="w-3 h-3 mr-1.5 text-gray-600" />
-            {application.salaryRange}
+            <span className={cn(comp && 'font-mono')}>{comp ? formatComp(comp) : application.salaryRange}</span>
+          </div>
+        )}
+        {application.recruiter && (
+          <div className="flex items-center text-xs text-gray-500">
+            <User className="w-3 h-3 mr-1.5 text-gray-600" />
+            <span className="truncate">{application.recruiter}</span>
           </div>
         )}
         <div className="flex items-center text-xs text-gray-500">
           <Calendar className="w-3 h-3 mr-1.5 text-gray-600" />
           {application.dateApplied
             ? new Date(application.dateApplied).toLocaleDateString()
-            : 'Not applied'}
+            : application.contactedDate
+              ? `In contact since ${application.contactedDate}`
+              : 'Not applied'}
         </div>
       </div>
+
+      {/* Next action */}
+      {application.nextAction && (
+        <div
+          className={cn(
+            'flex items-start gap-1.5 text-xs rounded px-2 py-1 border',
+            actionOverdue
+              ? 'text-red-300 bg-red-900/20 border-red-800/50'
+              : 'text-gray-300 bg-gray-900/40 border-gray-700/50'
+          )}
+        >
+          <ArrowRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
+          <span>
+            {application.nextAction}
+            {application.nextActionDate && <span className="text-gray-500"> · {application.nextActionDate}</span>}
+          </span>
+        </div>
+      )}
 
       {/* Type Badge */}
       {application.type === 'freelance' && (

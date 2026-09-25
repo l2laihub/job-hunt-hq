@@ -28,11 +28,13 @@ export const APPLICATION_STATUSES: {
   bgColor: string;
 }[] = [
   { id: 'wishlist', label: 'Wishlist', color: 'text-gray-400', bgColor: 'bg-gray-800' },
+  { id: 'contact', label: 'In Contact', color: 'text-teal-400', bgColor: 'bg-teal-900/30' },
   { id: 'applied', label: 'Applied', color: 'text-blue-400', bgColor: 'bg-blue-900/30' },
   { id: 'interviewing', label: 'Interviewing', color: 'text-purple-400', bgColor: 'bg-purple-900/30' },
   { id: 'passed', label: 'Passed', color: 'text-amber-400', bgColor: 'bg-amber-900/30' },
   { id: 'rejected', label: 'Rejected', color: 'text-red-400', bgColor: 'bg-red-900/30' },
   { id: 'offer', label: 'Offer', color: 'text-green-400', bgColor: 'bg-green-900/30' },
+  { id: 'expired', label: 'Closed', color: 'text-stone-400', bgColor: 'bg-stone-900/30' },
 ];
 
 // Common Interview Questions

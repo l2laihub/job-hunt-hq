@@ -106,8 +106,9 @@ const PracticeModal: React.FC<{
   onClose: () => void;
   question: PredictedQuestion;
   story: Experience;
+  profile?: UserProfile;
   onComplete: (rating: number) => void;
-}> = ({ isOpen, onClose, question, story, onComplete }) => {
+}> = ({ isOpen, onClose, question, story, profile, onComplete }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -236,7 +237,8 @@ const PracticeModal: React.FC<{
       const result = await evaluateInterviewResponse(
         question,
         transcript,
-        preparedAnswer || undefined
+        preparedAnswer || undefined,
+        { profile }
       );
 
       setEvaluation(result);
@@ -246,7 +248,7 @@ const PracticeModal: React.FC<{
     } finally {
       setIsEvaluating(false);
     }
-  }, [transcript, story, question]);
+  }, [transcript, story, question, profile]);
 
   const handleFinish = () => {
     recognitionRef.current?.stop();
@@ -691,8 +693,9 @@ const ViewStoryModal: React.FC<{
   story: Experience;
   company?: string;
   role?: string;
+  profile?: UserProfile;
   onRefineComplete?: (updatedStory: Experience) => void;
-}> = ({ isOpen, onClose, question, story, company, role, onRefineComplete }) => {
+}> = ({ isOpen, onClose, question, story, company, role, profile, onRefineComplete }) => {
   const [narrativeText, setNarrativeText] = useState<string>('');
   const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
   const [narrativeError, setNarrativeError] = useState<string | null>(null);
@@ -752,6 +755,7 @@ const ViewStoryModal: React.FC<{
         story,
         question: question.question,
         targetDuration: '2min',
+        profile,
       });
       setNarrativeText(narrative);
     } catch (error) {
@@ -760,7 +764,7 @@ const ViewStoryModal: React.FC<{
     } finally {
       setIsGeneratingNarrative(false);
     }
-  }, [story, question.question]);
+  }, [story, question.question, profile]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -1907,6 +1911,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           story={matchedStory}
           company={company}
           role={role}
+          profile={profile}
           onRefineComplete={handleRefineComplete}
         />
       )}
@@ -1918,6 +1923,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           onClose={() => setShowPracticeModal(false)}
           question={question}
           story={matchedStory}
+          profile={profile}
           onComplete={handlePracticeComplete}
         />
       )}

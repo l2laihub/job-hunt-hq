@@ -209,10 +209,11 @@ const fitSignalsSchema: Schema = {
     codingPct: { type: Type.NUMBER, description: 'Estimated hands-on coding share of the role, 0-100' },
     codingRationale: { type: Type.STRING, description: '1-2 sentences citing the posting wording' },
     locationCheck: { type: Type.STRING, description: '1 sentence: is the candidate eligible by location/work style?' },
+    locationEligible: { type: Type.BOOLEAN, description: 'false ONLY if the posting requires on-site/hybrid work at an office outside the area the candidate can work from, or excludes their state' },
     signatureAngle: { type: Type.STRING, description: "1-3 sentences: can this role leverage the candidate's signature strength?" },
     seniorityNote: { type: Type.STRING, description: '1 sentence on level match' },
   },
-  required: ['codingPct', 'codingRationale', 'locationCheck', 'signatureAngle', 'seniorityNote'],
+  required: ['codingPct', 'codingRationale', 'locationCheck', 'locationEligible', 'signatureAngle', 'seniorityNote'],
 };
 
 // FTE Analysis schema

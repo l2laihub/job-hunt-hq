@@ -1,4 +1,6 @@
 import { Type, Schema } from '@google/genai';
+import { buildCandidateContext } from './candidate-context';
+import type { UserProfile } from '@/src/types';
 import { requireGemini, DEFAULT_MODEL, DEFAULT_THINKING_BUDGET } from './client';
 import { parseGeminiJson } from './parse-json';
 import type { PredictedQuestion } from '@/src/types/interview-prep';
@@ -120,6 +122,7 @@ export async function evaluateInterviewResponse(
     jobRole?: string;
     company?: string;
     interviewType?: string;
+    profile?: UserProfile;
   }
 ): Promise<ResponseEvaluation> {
   const ai = requireGemini();
@@ -142,9 +145,19 @@ IMPORTANT: Compare the user's response to this prepared answer. Identify which k
 `
     : '';
 
+  // Uploaded source documents let the coach catch claims the candidate must not make
+  const docContext = context?.profile ? buildCandidateContext(context.profile) : null;
+  const factCheck = docContext
+    ? `
+${docContext}
+
+IMPORTANT: Check the response against the candidate documents. List as a weakness any claim that contradicts them, overstates scope, or uses a metric the documents mark as unsourced or never-say.
+`
+    : '';
+
   const prompt = `You are an experienced interview coach evaluating a candidate's response to an interview question.
 
-${contextInfo}
+${contextInfo}${factCheck}
 
 ## Question
 Category: ${question.category}
