@@ -5,7 +5,7 @@ import { formatExperienceToSTAR, enhanceStory, type EnhanceStoryOptions } from '
 import { Button, Input, Textarea, Card, CardContent, Badge, Dialog, ConfirmDialog, Abbr } from '@/src/components/ui';
 import { MarkdownRenderer } from '@/src/components/ui/markdown-renderer';
 import { StoriesEmptyState } from '@/src/components/shared';
-import { cn } from '@/src/lib/utils';
+import { cn, inlineMarkdownToHtml } from '@/src/lib/utils';
 import type { Experience, STAR } from '@/src/types';
 import {
   Book,
@@ -853,10 +853,7 @@ const StoryCard: React.FC<StoryCardProps> = ({
                         <div
                           className="text-[15px] text-gray-200 leading-[1.8] tracking-wide whitespace-pre-wrap"
                           dangerouslySetInnerHTML={{
-                            __html: metadata.narrative
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                              .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>')
+                            __html: inlineMarkdownToHtml(metadata.narrative),
                           }}
                         />
                       </div>

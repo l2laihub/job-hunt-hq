@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast, useAssistantStore } from '@/src/stores';
 import { useInterviewPrep, useStories } from '@/src/hooks/useAppData';
 import { Button, Card, Badge, Select } from '@/src/components/ui';
-import { cn } from '@/src/lib/utils';
+import { cn, inlineMarkdownToHtml } from '@/src/lib/utils';
 import type { PredictedQuestion, Experience, QuestionCategory, LikelihoodLevel, UserProfile, JDAnalysis, CompanyResearch, AnswerFormatType, GeneratedAnswerMetadata } from '@/src/types';
 import { QUESTION_CATEGORIES, CONTEXT_SUGGESTIONS } from '@/src/types';
 import type { AssistantContext } from '@/src/types/assistant';
@@ -969,10 +969,7 @@ const ViewStoryModal: React.FC<{
                   <div
                     className="text-[15px] text-gray-200 leading-[1.8] tracking-wide whitespace-pre-wrap"
                     dangerouslySetInnerHTML={{
-                      __html: metadata.narrative
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>')
+                      __html: inlineMarkdownToHtml(metadata.narrative),
                     }}
                   />
                 </Card>
