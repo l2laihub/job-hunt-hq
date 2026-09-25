@@ -188,6 +188,24 @@ export function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+/** Escape text for safe insertion into HTML (AI output is untrusted: it can echo pasted JDs). */
+export function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Escape, then render inline markdown (**bold**, *italic*, `code`) for AI narratives.
+ * Pair with whitespace-pre-wrap; newlines are left as-is.
+ */
+export function inlineMarkdownToHtml(text: string, opts: { numbered?: boolean } = {}): string {
+  let html = escapeHtml(text || '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>');
+  if (opts.numbered) html = html.replace(/^(\d+)\.\s+/gm, '<span class="text-blue-400 font-medium">$1.</span> ');
+  return html;
+}
+
 /**
  * Parse simple markdown to HTML
  * Supports: **bold**, *italic*, `code`, - lists, numbered lists, headers, newlines
@@ -195,11 +213,7 @@ export function formatTime(seconds: number): string {
 export function parseMarkdown(text: string): string {
   if (!text) return '';
 
-  let html = text
-    // Escape HTML entities first
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+  let html = escapeHtml(text)
     // Bold: **text** or __text__
     .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-white">$1</strong>')
     .replace(/__([^_]+)__/g, '<strong class="font-semibold text-white">$1</strong>')
@@ -314,7 +328,7 @@ export function formatCoverLetter(content: string): string {
  * Converts newlines to proper paragraph tags with spacing
  */
 export function coverLetterToHtml(content: string): string {
-  const formatted = formatCoverLetter(content);
+  const formatted = escapeHtml(formatCoverLetter(content));
 
   // Split by double newlines into paragraphs
   const paragraphs = formatted.split(/\n\n+/);

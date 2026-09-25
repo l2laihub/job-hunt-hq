@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Dialog, Button, Card, Badge } from '@/src/components/ui';
-import { cn } from '@/src/lib/utils';
+import { cn, inlineMarkdownToHtml } from '@/src/lib/utils';
 import {
   generateInterviewAnswer,
   refineInterviewAnswer,
@@ -422,10 +422,7 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
               <div
                 className="text-gray-300 leading-relaxed whitespace-pre-wrap"
                 dangerouslySetInnerHTML={{
-                  __html: editedAnswer.narrative
-                    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300">$1</code>')
+                  __html: inlineMarkdownToHtml(editedAnswer.narrative),
                 }}
               />
             </div>
@@ -480,11 +477,7 @@ export const GenerateAnswerModal: React.FC<GenerateAnswerModalProps> = ({
                         <div
                           className="text-[15px] text-gray-300 leading-[1.7] tracking-wide whitespace-pre-wrap"
                           dangerouslySetInnerHTML={{
-                            __html: section.content
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
-                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                              .replace(/`(.*?)`/g, '<code class="bg-gray-800 px-1 rounded text-blue-300 text-sm">$1</code>')
-                              .replace(/^(\d+)\.\s+/gm, '<span class="text-blue-400 font-medium">$1.</span> ')
+                            __html: inlineMarkdownToHtml(section.content, { numbered: true }),
                           }}
                         />
                       )}
