@@ -79,6 +79,7 @@ export const useSupabaseApplicationStore = create<ApplicationsState>()((set, get
     const activeProfile = useSupabaseProfileStore.getState().getActiveProfile();
     const activeProfileId = activeProfile?.metadata.id;
     const newApp: JobApplication = {
+      ...partial,
       id: generateId(),
       type: partial.type || 'fulltime',
       company: partial.company || 'Unknown Company',
@@ -254,6 +255,7 @@ export const useSupabaseApplicationStore = create<ApplicationsState>()((set, get
     );
 
     const responded =
+      (byStatus.contact || 0) +
       (byStatus.interviewing || 0) +
       (byStatus.offer || 0) +
       (byStatus.rejected || 0);

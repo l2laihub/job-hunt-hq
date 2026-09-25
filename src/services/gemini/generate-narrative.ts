@@ -6,12 +6,14 @@
  */
 
 import { geminiClient, requireGemini } from './client';
-import type { Experience } from '@/src/types';
+import type { Experience, UserProfile } from '@/src/types';
+import { buildCandidateContext } from './candidate-context';
 
 export interface GenerateNarrativeParams {
   story: Experience;
   question?: string;
   targetDuration?: '1min' | '2min' | '3min';
+  profile?: UserProfile;
 }
 
 /**
@@ -21,7 +23,8 @@ export interface GenerateNarrativeParams {
 export async function generateNarrative(params: GenerateNarrativeParams): Promise<string> {
   requireGemini();
 
-  const { story, question, targetDuration = '2min' } = params;
+  const { story, question, targetDuration = '2min', profile } = params;
+  const docContext = profile ? buildCandidateContext(profile) : null;
 
   const durationGuide = {
     '1min': '150-200 words, hitting only the key highlights',
@@ -31,7 +34,7 @@ export async function generateNarrative(params: GenerateNarrativeParams): Promis
 
   const prompt = `You are an interview coaching expert. Convert this STAR-formatted interview answer into a natural, conversational narrative that sounds authentic when spoken aloud.
 
-${question ? `## The Interview Question\n"${question}"\n\n` : ''}## STAR Components
+${docContext ? `${docContext}\n\nThe narrative must stay consistent with these documents: drop or soften any detail in the story that contradicts them or uses a metric they mark as unsourced or never-say.\n\n` : ''}${question ? `## The Interview Question\n"${question}"\n\n` : ''}## STAR Components
 
 **Situation:**
 ${story.star.situation}

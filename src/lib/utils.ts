@@ -40,6 +40,11 @@ export function formatRelativeTime(date: string | Date): string {
 /**
  * Generate a unique ID
  */
+/** Today's LOCAL date as YYYY-MM-DD (matches <input type="date">; toISOString() would give UTC). */
+export function todayLocal(): string {
+  return new Date().toLocaleDateString('en-CA');
+}
+
 export function generateId(): string {
   return crypto.randomUUID();
 }

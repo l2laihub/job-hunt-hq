@@ -3,6 +3,7 @@
  * Handles all job application-related database operations
  */
 import { supabase, from } from '@/src/lib/supabase';
+import { todayLocal } from '@/src/lib/utils';
 import type { JobApplication, ApplicationStatus, JDAnalysis, CompanyResearch } from '@/src/types';
 import type { Json } from '@/src/lib/supabase/types';
 import {
@@ -109,6 +110,15 @@ export const applicationsService = {
     if (updates.analysis !== undefined) updateData.analysis = updates.analysis as unknown as Json;
     if (updates.companyResearch !== undefined) updateData.company_research = updates.companyResearch as unknown as Json;
     if (updates.profileId !== undefined) updateData.profile_id = updates.profileId;
+    if (updates.recruiter !== undefined) updateData.recruiter = updates.recruiter || null;
+    if (updates.recruiterContact !== undefined) updateData.recruiter_contact = updates.recruiterContact || null;
+    if (updates.contactedDate !== undefined) updateData.contacted_date = updates.contactedDate || null;
+    if (updates.nextAction !== undefined) updateData.next_action = updates.nextAction || null;
+    if (updates.nextActionDate !== undefined) updateData.next_action_date = updates.nextActionDate || null;
+    if (updates.compMin !== undefined) updateData.comp_min = updates.compMin ?? null;
+    if (updates.compMax !== undefined) updateData.comp_max = updates.compMax ?? null;
+    if (updates.compUnit !== undefined) updateData.comp_unit = updates.compUnit || null;
+    if (updates.compCurrency !== undefined) updateData.comp_currency = updates.compCurrency || null;
 
     const { data, error } = await from('applications')
       .update(updateData)
@@ -148,11 +158,14 @@ export const applicationsService = {
   async updateStatus(id: string, status: ApplicationStatus): Promise<JobApplication> {
     const updates: Partial<JobApplication> = { status };
 
-    // Auto-set dateApplied when moving to 'applied'
-    if (status === 'applied') {
+    // Auto-stamp the date a role first reaches 'applied' / 'contact'
+    if (status === 'applied' || status === 'contact') {
       const current = await this.get(id);
-      if (current && !current.dateApplied) {
+      if (status === 'applied' && current && !current.dateApplied) {
         updates.dateApplied = new Date().toISOString();
+      }
+      if (status === 'contact' && current && !current.contactedDate) {
+        updates.contactedDate = todayLocal();
       }
     }
 

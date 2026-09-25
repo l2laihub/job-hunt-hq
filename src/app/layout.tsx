@@ -67,7 +67,7 @@ export const AppLayout: React.FC = () => {
   const total = applications.length;
   const interviewing = applications.filter((a) => a.status === 'interviewing').length;
   const responded = applications.filter((a) =>
-    ['interviewing', 'offer', 'rejected'].includes(a.status)
+    ['contact', 'interviewing', 'offer', 'rejected'].includes(a.status)
   ).length;
   const responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
 

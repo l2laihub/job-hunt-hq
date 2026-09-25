@@ -1,5 +1,5 @@
 // Application Status
-export type ApplicationStatus = 'wishlist' | 'applied' | 'interviewing' | 'offer' | 'passed' | 'rejected';
+export type ApplicationStatus = 'wishlist' | 'contact' | 'applied' | 'interviewing' | 'offer' | 'passed' | 'rejected' | 'expired';
 
 // Achievement type for profile
 export interface Achievement {
@@ -275,6 +275,7 @@ export interface FitSignals {
   codingPct: number;          // Estimated hands-on coding share, 0-100
   codingRationale: string;
   locationCheck: string;
+  locationEligible?: boolean;  // false forces a 'pass' verdict (see enforceLocationRule)
   signatureAngle: string;     // Whether the candidate's signature strength is leverageable
   seniorityNote: string;
 }
@@ -701,6 +702,16 @@ export interface JobApplication {
   updatedAt: string;
   platform?: 'upwork' | 'direct' | 'other';
   proposalSent?: string;
+  // Pipeline tracking (parity with the Claude Application Pipeline)
+  recruiter?: string;
+  recruiterContact?: string;      // email or profile URL
+  contactedDate?: string;         // YYYY-MM-DD
+  nextAction?: string;
+  nextActionDate?: string;        // YYYY-MM-DD
+  compMin?: number;               // structured comp; overrides parsing salaryRange
+  compMax?: number;
+  compUnit?: 'year' | 'hour';
+  compCurrency?: 'USD' | 'CAD';
   // Profile linking for multi-profile support
   profileId?: string;
 }
